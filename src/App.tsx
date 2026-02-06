@@ -17,6 +17,7 @@ import NovaVenda from "./pages/vendas/NovaVenda";
 import Pedidos from "./pages/vendas/Pedidos";
 import EditarPedido from "./pages/vendas/EditarPedido";
 import PDV from "./pages/vendas/PDV";
+import RelatorioVendas from "./pages/vendas/RelatorioVendas";
 
 // Caixa
 import AcertoEntregador from "./pages/caixa/AcertoEntregador";
@@ -157,6 +158,11 @@ const App = () => (
                   <Route path="/vendas/pdv" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <PDV />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/vendas/relatorio" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <RelatorioVendas />
                     </ProtectedRoute>
                   } />
                   
