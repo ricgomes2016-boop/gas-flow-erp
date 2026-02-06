@@ -210,7 +210,7 @@ export default function NovaVenda() {
         description: `Pedido #${pedido.id.slice(0, 6)} criado com sucesso. Comprovante gerado.`,
       });
 
-      navigate("/vendas");
+      navigate("/vendas/pedidos");
     } catch (error: any) {
       console.error("Erro ao salvar venda:", error);
       toast({
@@ -229,7 +229,7 @@ export default function NovaVenda() {
         return;
       }
     }
-    navigate("/vendas");
+    navigate("/vendas/pedidos");
   };
 
   return (
