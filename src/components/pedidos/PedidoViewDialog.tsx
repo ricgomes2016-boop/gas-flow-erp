@@ -4,20 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Printer, MessageCircle, XCircle, Clock, Truck, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Pedido {
-  id: string;
-  cliente: string;
-  endereco: string;
-  produtos: string;
-  valor: number;
-  status: "pendente" | "em_rota" | "entregue" | "cancelado";
-  data: string;
-  entregador?: string;
-}
+import { PedidoFormatado } from "@/types/pedido";
 
 interface PedidoViewDialogProps {
-  pedido: Pedido | null;
+  pedido: PedidoFormatado | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCancelar: (pedidoId: string) => void;
@@ -38,12 +28,18 @@ export function PedidoViewDialog({ pedido, open, onOpenChange, onCancelar }: Ped
   const config = statusConfig[pedido.status];
   const StatusIcon = config.icon;
 
+  // ID curto para exibição (primeiros 8 caracteres do UUID)
+  const idCurto = pedido.id.substring(0, 8).toUpperCase();
+
   const handlePrint = () => {
-    // Criar conteúdo para impressão
+    const itensHtml = pedido.itens
+      .map((item) => `<div class="info">${item.quantidade}x ${item.produto?.nome || 'Produto'} - R$ ${(item.preco_unitario * item.quantidade).toFixed(2)}</div>`)
+      .join("");
+
     const printContent = `
       <html>
         <head>
-          <title>Pedido #${pedido.id}</title>
+          <title>Pedido #${idCurto}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             .header { text-align: center; margin-bottom: 20px; }
@@ -55,14 +51,17 @@ export function PedidoViewDialog({ pedido, open, onOpenChange, onCancelar }: Ped
         </head>
         <body>
           <div class="header">
-            <h2>PEDIDO #${pedido.id}</h2>
+            <h2>PEDIDO #${idCurto}</h2>
             <p>${pedido.data}</p>
           </div>
           <div class="separator"></div>
           <div class="info"><span class="label">Cliente:</span> ${pedido.cliente}</div>
           <div class="info"><span class="label">Endereço:</span> ${pedido.endereco}</div>
-          <div class="info"><span class="label">Produtos:</span> ${pedido.produtos}</div>
-          ${pedido.entregador ? `<div class="info"><span class="label">Entregador:</span> ${pedido.entregador}</div>` : ''}
+          <div class="separator"></div>
+          <div class="info"><span class="label">Itens:</span></div>
+          ${itensHtml || `<div class="info">${pedido.produtos}</div>`}
+          ${pedido.entregador ? `<div class="separator"></div><div class="info"><span class="label">Entregador:</span> ${pedido.entregador}</div>` : ''}
+          ${pedido.observacoes ? `<div class="info"><span class="label">Obs:</span> ${pedido.observacoes}</div>` : ''}
           <div class="separator"></div>
           <div class="total">TOTAL: R$ ${pedido.valor.toFixed(2)}</div>
         </body>
@@ -78,18 +77,23 @@ export function PedidoViewDialog({ pedido, open, onOpenChange, onCancelar }: Ped
     
     toast({
       title: "Impressão iniciada",
-      description: `Pedido #${pedido.id} enviado para impressão.`,
+      description: `Pedido #${idCurto} enviado para impressão.`,
     });
   };
 
   const handleWhatsApp = () => {
+    const itensTexto = pedido.itens
+      .map((item) => `  • ${item.quantidade}x ${item.produto?.nome || 'Produto'}`)
+      .join("\n");
+
     const mensagem = encodeURIComponent(
-      `*Pedido #${pedido.id}*\n\n` +
-      `📦 *Produtos:* ${pedido.produtos}\n` +
+      `*Pedido #${idCurto}*\n\n` +
+      `📦 *Produtos:*\n${itensTexto || pedido.produtos}\n\n` +
       `💰 *Valor:* R$ ${pedido.valor.toFixed(2)}\n` +
       `📍 *Endereço:* ${pedido.endereco}\n` +
-      `📅 *Data:* ${pedido.data}\n\n` +
-      `Obrigado pela preferência!`
+      `📅 *Data:* ${pedido.data}\n` +
+      (pedido.observacoes ? `📝 *Obs:* ${pedido.observacoes}\n` : '') +
+      `\nObrigado pela preferência!`
     );
     
     window.open(`https://wa.me/?text=${mensagem}`, '_blank');
@@ -110,7 +114,7 @@ export function PedidoViewDialog({ pedido, open, onOpenChange, onCancelar }: Ped
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Pedido #{pedido.id}</span>
+            <span>Pedido #{idCurto}</span>
             <Badge variant={config.variant} className="gap-1">
               <StatusIcon className="h-3 w-3" />
               {config.label}
@@ -137,7 +141,18 @@ export function PedidoViewDialog({ pedido, open, onOpenChange, onCancelar }: Ped
 
           <div className="space-y-2">
             <h4 className="font-medium">Produtos</h4>
-            <p className="text-sm">{pedido.produtos}</p>
+            {pedido.itens.length > 0 ? (
+              <ul className="text-sm space-y-1">
+                {pedido.itens.map((item) => (
+                  <li key={item.id} className="flex justify-between">
+                    <span>{item.quantidade}x {item.produto?.nome || 'Produto'}</span>
+                    <span className="text-muted-foreground">R$ {(item.preco_unitario * item.quantidade).toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm">{pedido.produtos}</p>
+            )}
           </div>
 
           {pedido.entregador && (
@@ -146,6 +161,16 @@ export function PedidoViewDialog({ pedido, open, onOpenChange, onCancelar }: Ped
               <div className="space-y-2">
                 <h4 className="font-medium">Entregador</h4>
                 <p className="text-sm">{pedido.entregador}</p>
+              </div>
+            </>
+          )}
+
+          {pedido.observacoes && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <h4 className="font-medium">Observações</h4>
+                <p className="text-sm text-muted-foreground">{pedido.observacoes}</p>
               </div>
             </>
           )}
