@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Calendar, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { generateReceiptPdf } from "@/services/receiptPdfService";
 
 // Componentes refatorados
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
@@ -136,9 +137,25 @@ export default function NovaVenda() {
 
       if (itensError) throw itensError;
 
+      // Gerar comprovante PDF
+      generateReceiptPdf({
+        pedidoId: pedido.id,
+        data: new Date(),
+        cliente: {
+          nome: customer.nome,
+          telefone: customer.telefone,
+          endereco: enderecoCompleto,
+        },
+        itens,
+        pagamentos,
+        entregadorNome: entregador.nome,
+        canalVenda,
+        observacoes: customer.observacao,
+      });
+
       toast({
         title: "Venda finalizada!",
-        description: `Pedido #${pedido.id.slice(0, 6)} criado com sucesso.`,
+        description: `Pedido #${pedido.id.slice(0, 6)} criado com sucesso. Comprovante gerado.`,
       });
 
       navigate("/vendas");
