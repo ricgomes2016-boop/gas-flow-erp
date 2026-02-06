@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -28,10 +27,11 @@ import {
   QrCode,
   CheckCircle,
   Trash2,
-  Camera,
   AlertCircle,
+  Keyboard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
 
 const produtos = [
   { id: 1, nome: "Botijão P13", preco: 120.0 },
@@ -80,7 +80,9 @@ export default function FinalizarEntrega() {
   const [novoPagamentoValor, setNovoPagamentoValor] = useState("");
   const [dialogPagamentoAberto, setDialogPagamentoAberto] = useState(false);
   const [dialogQRAberto, setDialogQRAberto] = useState(false);
-  const [qrScanning, setQrScanning] = useState(false);
+  const [modoEntradaManual, setModoEntradaManual] = useState(false);
+  const [codigoManual, setCodigoManual] = useState("");
+  const [validandoCodigo, setValidandoCodigo] = useState(false);
   const [valeGasLido, setValeGasLido] = useState<{
     parceiro: string;
     codigo: string;
@@ -149,23 +151,54 @@ export default function FinalizarEntrega() {
     setPagamentos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const simularLeituraQR = () => {
-    setQrScanning(true);
-    // Simula a leitura do QR Code após 2 segundos
+  // Função para validar o código do Vale Gás (simulação)
+  const validarValeGas = (codigo: string) => {
+    setValidandoCodigo(true);
+    
+    // Simula validação do código (em produção, chamaria uma API)
     setTimeout(() => {
-      const valeSemulado = {
-        parceiro: "Supergás Parceiros",
-        codigo: "VG-2024-001234",
-        valor: 120.0,
-        valido: true,
-      };
-      setValeGasLido(valeSemulado);
-      setQrScanning(false);
-      toast({
-        title: "Vale Gás validado!",
-        description: `Parceiro: ${valeSemulado.parceiro} - Valor: R$ ${valeSemulado.valor.toFixed(2)}`,
-      });
-    }, 2000);
+      // Verifica se o código segue o padrão esperado (ex: VG-XXXX-XXXXXX)
+      const padraoValido = /^VG-\d{4}-\d{6}$/.test(codigo) || codigo.length > 5;
+      
+      if (padraoValido) {
+        const valeSemulado = {
+          parceiro: "Supergás Parceiros",
+          codigo: codigo,
+          valor: 120.0,
+          valido: true,
+        };
+        setValeGasLido(valeSemulado);
+        toast({
+          title: "Vale Gás validado!",
+          description: `Parceiro: ${valeSemulado.parceiro} - Valor: R$ ${valeSemulado.valor.toFixed(2)}`,
+        });
+      } else {
+        setValeGasLido({
+          parceiro: "",
+          codigo: codigo,
+          valor: 0,
+          valido: false,
+        });
+        toast({
+          title: "Vale Gás inválido",
+          description: "O código informado não é válido.",
+          variant: "destructive",
+        });
+      }
+      setValidandoCodigo(false);
+    }, 1000);
+  };
+
+  // Callback quando QR Code é lido pela câmera
+  const handleQRCodeScan = (decodedText: string) => {
+    validarValeGas(decodedText);
+  };
+
+  // Validar código digitado manualmente
+  const validarCodigoManual = () => {
+    if (codigoManual.trim()) {
+      validarValeGas(codigoManual.trim());
+    }
   };
 
   const confirmarValeGas = () => {
@@ -310,40 +343,69 @@ export default function FinalizarEntrega() {
                       Vale Gás
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Ler QR Code do Vale Gás</DialogTitle>
+                      <DialogTitle>Validar Vale Gás</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       {!valeGasLido ? (
                         <>
-                          <div className="aspect-square bg-muted rounded-lg flex flex-col items-center justify-center">
-                            {qrScanning ? (
-                              <div className="text-center">
-                                <div className="animate-pulse">
-                                  <Camera className="h-16 w-16 mx-auto text-primary mb-4" />
-                                </div>
-                                <p className="text-muted-foreground">
-                                  Escaneando QR Code...
+                          {/* Tabs para alternar entre câmera e entrada manual */}
+                          <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                            <Button
+                              variant={!modoEntradaManual ? "default" : "ghost"}
+                              size="sm"
+                              className={`flex-1 ${!modoEntradaManual ? "gradient-primary text-white" : ""}`}
+                              onClick={() => setModoEntradaManual(false)}
+                            >
+                              <QrCode className="h-4 w-4 mr-2" />
+                              Câmera
+                            </Button>
+                            <Button
+                              variant={modoEntradaManual ? "default" : "ghost"}
+                              size="sm"
+                              className={`flex-1 ${modoEntradaManual ? "gradient-primary text-white" : ""}`}
+                              onClick={() => setModoEntradaManual(true)}
+                            >
+                              <Keyboard className="h-4 w-4 mr-2" />
+                              Digitar
+                            </Button>
+                          </div>
+
+                          {modoEntradaManual ? (
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Código do Vale Gás</Label>
+                                <Input
+                                  placeholder="Ex: VG-2024-001234"
+                                  value={codigoManual}
+                                  onChange={(e) => setCodigoManual(e.target.value)}
+                                  className="font-mono"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Digite o código impresso no vale
                                 </p>
                               </div>
-                            ) : (
-                              <>
-                                <QrCode className="h-16 w-16 text-muted-foreground mb-4" />
-                                <p className="text-sm text-muted-foreground text-center">
-                                  Posicione o QR Code do Vale Gás na câmera
-                                </p>
-                              </>
-                            )}
-                          </div>
-                          <Button
-                            onClick={simularLeituraQR}
-                            disabled={qrScanning}
-                            className="w-full gradient-primary text-white"
-                          >
-                            <Camera className="h-4 w-4 mr-2" />
-                            {qrScanning ? "Escaneando..." : "Escanear QR Code"}
-                          </Button>
+                              <Button
+                                onClick={validarCodigoManual}
+                                disabled={!codigoManual.trim() || validandoCodigo}
+                                className="w-full gradient-primary text-white"
+                              >
+                                {validandoCodigo ? "Validando..." : "Validar Código"}
+                              </Button>
+                            </div>
+                          ) : (
+                            <QRCodeScanner
+                              onScan={handleQRCodeScan}
+                              onError={(err) => {
+                                toast({
+                                  title: "Erro na câmera",
+                                  description: err,
+                                  variant: "destructive",
+                                });
+                              }}
+                            />
+                          )}
                         </>
                       ) : (
                         <div className="space-y-4">
@@ -380,15 +442,21 @@ export default function FinalizarEntrega() {
                                   Vale Gás Inválido
                                 </span>
                               </div>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Código: {valeGasLido.codigo}
+                              </p>
                             </div>
                           )}
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
-                              onClick={() => setValeGasLido(null)}
+                              onClick={() => {
+                                setValeGasLido(null);
+                                setCodigoManual("");
+                              }}
                               className="flex-1"
                             >
-                              Escanear outro
+                              Tentar outro
                             </Button>
                             {valeGasLido.valido && (
                               <Button
