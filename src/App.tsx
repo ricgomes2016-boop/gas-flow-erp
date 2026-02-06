@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 // Vendas
 import NovaVenda from "./pages/vendas/NovaVenda";
 import Pedidos from "./pages/vendas/Pedidos";
+import PDV from "./pages/vendas/PDV";
 
 // Caixa
 import AcertoEntregador from "./pages/caixa/AcertoEntregador";
@@ -145,6 +146,11 @@ const App = () => (
                   <Route path="/vendas/pedidos" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
                       <Pedidos />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/vendas/pdv" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <PDV />
                     </ProtectedRoute>
                   } />
                   
