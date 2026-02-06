@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText } from "lucide-react";
+import { CpfCnpjInput } from "@/components/ui/cpf-cnpj-input";
+import { formatPhone, formatCEP } from "@/hooks/useInputMasks";
 
 const clientes = [
   { id: 1, nome: "João Silva", telefone: "(11) 99999-1111", endereco: "Rua A, 123", bairro: "Centro", tipo: "Residencial", status: "Ativo", ultimaCompra: "2024-01-15" },
@@ -31,6 +34,11 @@ const clientes = [
 ];
 
 export default function CadastroClientesCad() {
+  const [cpfCnpj, setCpfCnpj] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [telefone2, setTelefone2] = useState("");
+  const [cep, setCep] = useState("");
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
@@ -64,15 +72,25 @@ export default function CadastroClientesCad() {
                     </div>
                     <div className="space-y-2">
                       <Label>CPF/CNPJ</Label>
-                      <Input placeholder="000.000.000-00" />
+                      <CpfCnpjInput value={cpfCnpj} onChange={setCpfCnpj} />
                     </div>
                     <div className="space-y-2">
                       <Label>Telefone Principal</Label>
-                      <Input placeholder="(00) 00000-0000" />
+                      <Input
+                        placeholder="(00) 00000-0000"
+                        value={telefone}
+                        onChange={(e) => setTelefone(formatPhone(e.target.value))}
+                        maxLength={16}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Telefone Secundário</Label>
-                      <Input placeholder="(00) 00000-0000" />
+                      <Input
+                        placeholder="(00) 00000-0000"
+                        value={telefone2}
+                        onChange={(e) => setTelefone2(formatPhone(e.target.value))}
+                        maxLength={16}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>E-mail</Label>
@@ -88,7 +106,12 @@ export default function CadastroClientesCad() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>CEP</Label>
-                      <Input placeholder="00000-000" />
+                      <Input
+                        placeholder="00000-000"
+                        value={cep}
+                        onChange={(e) => setCep(formatCEP(e.target.value))}
+                        maxLength={9}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Rua</Label>
