@@ -2,6 +2,7 @@ import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import {
   Trophy,
   Star,
@@ -12,8 +13,11 @@ import {
   Target,
   Flame,
   Medal,
+  BellRing,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDeliveryNotifications } from "@/contexts/DeliveryNotificationContext";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const entregadorData = {
   nome: "Carlos Silva",
@@ -50,11 +54,58 @@ const entregasPendentes = [
 ];
 
 export default function EntregadorDashboard() {
+  const { simulateNewDelivery, pendingDeliveries } = useDeliveryNotifications();
+  const { permission, requestPermission } = useNotifications();
   const progressoMeta = (entregadorData.entregasMes / entregadorData.metaMensal) * 100;
+
+  // Combinar entregas pendentes mockadas com as do contexto
+  const todasEntregasPendentes = [
+    ...entregasPendentes,
+    ...pendingDeliveries.map((d) => ({
+      id: d.id,
+      cliente: d.cliente,
+      endereco: d.endereco,
+      horario: d.horarioPrevisto,
+    })),
+  ];
 
   return (
     <EntregadorLayout title="Início">
       <div className="p-4 space-y-4">
+        {/* Banner de ativar notificações */}
+        {permission !== "granted" && (
+          <Card className="border-none shadow-md bg-primary/5 border-l-4 border-l-primary">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <BellRing className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">Ative as notificações</p>
+                  <p className="text-xs text-muted-foreground">
+                    Receba alertas de novas entregas em tempo real
+                  </p>
+                </div>
+                <Button size="sm" onClick={requestPermission}>
+                  Ativar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Botão de teste (remover em produção) */}
+        {permission === "granted" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={simulateNewDelivery}
+            className="w-full"
+          >
+            <BellRing className="h-4 w-4 mr-2" />
+            Simular Nova Entrega (Teste)
+          </Button>
+        )}
         {/* Header com saudação */}
         <div className="gradient-primary rounded-2xl p-4 text-white shadow-lg">
           <div className="flex items-center justify-between">
@@ -134,19 +185,24 @@ export default function EntregadorDashboard() {
         </Card>
 
         {/* Entregas pendentes */}
-        {entregasPendentes.length > 0 && (
+        {todasEntregasPendentes.length > 0 && (
           <Card className="border-none shadow-md border-l-4 border-l-warning">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Flame className="h-5 w-5 text-warning" />
                 Entregas Pendentes
+                {pendingDeliveries.length > 0 && (
+                  <Badge className="bg-destructive text-destructive-foreground ml-auto">
+                    +{pendingDeliveries.length} novas
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {entregasPendentes.map((entrega) => (
+              {todasEntregasPendentes.slice(0, 4).map((entrega) => (
                 <Link
                   key={entrega.id}
-                  to={`/entregador/entregas/${entrega.id}`}
+                  to={`/entregador/entregas`}
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
                 >
                   <div>

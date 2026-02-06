@@ -9,11 +9,11 @@ import {
   PlusCircle,
   User,
   Menu,
-  X,
   Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { NotificationToggle } from "./NotificationToggle";
 
 interface EntregadorLayoutProps {
   children: ReactNode;
@@ -86,6 +86,7 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
               <span className="font-bold text-lg">{title || "Entregador"}</span>
             </div>
           </div>
+          <NotificationToggle className="text-primary-foreground hover:bg-white/20" />
         </div>
       </header>
 
