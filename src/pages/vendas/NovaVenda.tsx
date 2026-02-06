@@ -137,6 +137,41 @@ export default function NovaVenda() {
 
       if (itensError) throw itensError;
 
+      // Atualizar estoque dos produtos
+      for (const item of itens) {
+        // Buscar dados do produto para verificar se é gás
+        const { data: produto } = await supabase
+          .from("produtos")
+          .select("id, estoque, categoria, tipo_botijao, botijao_par_id")
+          .eq("id", item.produto_id)
+          .single();
+
+        if (produto) {
+          // Decrementar estoque do produto vendido
+          const novoEstoque = Math.max(0, (produto.estoque || 0) - item.quantidade);
+          await supabase
+            .from("produtos")
+            .update({ estoque: novoEstoque })
+            .eq("id", item.produto_id);
+
+          // Se for botijão de gás cheio, incrementar o estoque do vazio correspondente
+          if (produto.categoria === "gas" && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
+            const { data: produtoVazio } = await supabase
+              .from("produtos")
+              .select("id, estoque")
+              .eq("id", produto.botijao_par_id)
+              .single();
+
+            if (produtoVazio) {
+              await supabase
+                .from("produtos")
+                .update({ estoque: (produtoVazio.estoque || 0) + item.quantidade })
+                .eq("id", produtoVazio.id);
+            }
+          }
+        }
+      }
+
       // Buscar configurações da empresa para o comprovante
       let empresaConfig: EmpresaConfig | undefined;
       try {

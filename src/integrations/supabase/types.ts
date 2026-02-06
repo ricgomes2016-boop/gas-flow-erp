@@ -257,6 +257,7 @@ export type Database = {
       produtos: {
         Row: {
           ativo: boolean | null
+          botijao_par_id: string | null
           categoria: string | null
           created_at: string
           descricao: string | null
@@ -264,10 +265,12 @@ export type Database = {
           id: string
           nome: string
           preco: number
+          tipo_botijao: string | null
           updated_at: string
         }
         Insert: {
           ativo?: boolean | null
+          botijao_par_id?: string | null
           categoria?: string | null
           created_at?: string
           descricao?: string | null
@@ -275,10 +278,12 @@ export type Database = {
           id?: string
           nome: string
           preco: number
+          tipo_botijao?: string | null
           updated_at?: string
         }
         Update: {
           ativo?: boolean | null
+          botijao_par_id?: string | null
           categoria?: string | null
           created_at?: string
           descricao?: string | null
@@ -286,9 +291,18 @@ export type Database = {
           id?: string
           nome?: string
           preco?: number
+          tipo_botijao?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "produtos_botijao_par_id_fkey"
+            columns: ["botijao_par_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

@@ -63,6 +63,7 @@ export function ProductSearch({ itens, onChange }: ProductSearchProps) {
         .from("produtos")
         .select("id, nome, preco, estoque")
         .eq("ativo", true)
+        .or("tipo_botijao.is.null,tipo_botijao.neq.vazio") // Não mostrar botijões vazios
         .ilike("nome", `%${term}%`)
         .limit(8);
 
