@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -34,6 +35,7 @@ export default function ProdutividadeIA() {
 
   return (
     <MainLayout>
+      <Header title="Produtividade - IA" subtitle="Análise inteligente de desempenho" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

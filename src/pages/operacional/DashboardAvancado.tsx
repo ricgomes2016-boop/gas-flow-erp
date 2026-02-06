@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -44,6 +45,7 @@ const vendasPorHora = [
 export default function DashboardAvancado() {
   return (
     <MainLayout>
+      <Header title="Dashboard Avançado" subtitle="Análises detalhadas e métricas avançadas" />
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard Avançado</h1>

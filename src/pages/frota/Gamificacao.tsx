@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -24,6 +25,7 @@ const conquistas = [
 export default function Gamificacao() {
   return (
     <MainLayout>
+      <Header title="Gamificação" subtitle="Ranking e conquistas dos motoristas" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

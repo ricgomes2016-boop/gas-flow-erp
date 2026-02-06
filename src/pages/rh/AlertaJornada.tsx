@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, Users, Shield, Bell } from "lucide-react";
@@ -17,6 +18,7 @@ export default function AlertaJornada() {
 
   return (
     <MainLayout>
+      <Header title="Alerta de Jornada" subtitle="Monitoramento de irregularidades" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
