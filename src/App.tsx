@@ -41,6 +41,7 @@ import CRM from "./pages/clientes/CRM";
 import RankingClientes from "./pages/clientes/RankingClientes";
 
 // Estoque
+import Estoque from "./pages/Estoque";
 import Compras from "./pages/estoque/Compras";
 import Comodatos from "./pages/estoque/Comodatos";
 import EstoqueRota from "./pages/estoque/EstoqueRota";
@@ -244,6 +245,11 @@ const App = () => (
                   } />
                   
                   {/* Estoque - Operacional+ */}
+                  <Route path="/estoque" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Estoque />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/estoque/compras" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <Compras />
