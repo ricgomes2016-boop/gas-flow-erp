@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,216 +16,499 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Package, Plus, Search, Edit, Trash2, Flame, Droplets, Box } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Package, Plus, Search, Edit, Trash2, Flame, Droplets, Box, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const produtos = [
-  { id: 1, codigo: "P13-001", nome: "Botijão P13 Cheio", categoria: "Gás", preco: 110.00, custo: 85.00, estoque: 150, minimo: 50, unidade: "UN", status: "Ativo" },
-  { id: 2, codigo: "P20-001", nome: "Botijão P20 Cheio", categoria: "Gás", preco: 180.00, custo: 140.00, estoque: 45, minimo: 20, unidade: "UN", status: "Ativo" },
-  { id: 3, codigo: "P45-001", nome: "Botijão P45 Cheio", categoria: "Gás", preco: 380.00, custo: 300.00, estoque: 12, minimo: 10, unidade: "UN", status: "Ativo" },
-  { id: 4, codigo: "AGU-020", nome: "Galão Água 20L", categoria: "Água", preco: 12.00, custo: 6.00, estoque: 200, minimo: 100, unidade: "UN", status: "Ativo" },
-  { id: 5, codigo: "REG-001", nome: "Registro Regulador", categoria: "Acessório", preco: 45.00, custo: 28.00, estoque: 30, minimo: 15, unidade: "UN", status: "Ativo" },
-  { id: 6, codigo: "MAN-001", nome: "Mangueira 1,25m", categoria: "Acessório", preco: 25.00, custo: 15.00, estoque: 8, minimo: 20, unidade: "UN", status: "Baixo Estoque" },
-];
+interface Produto {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  preco: number;
+  estoque: number | null;
+  ativo: boolean | null;
+  codigo_barras: string | null;
+  descricao: string | null;
+  tipo_botijao: string | null;
+}
+
+interface ProdutoForm {
+  nome: string;
+  categoria: string;
+  preco: string;
+  estoque: string;
+  codigo_barras: string;
+  descricao: string;
+  tipo_botijao: string;
+}
+
+const initialForm: ProdutoForm = {
+  nome: "",
+  categoria: "",
+  preco: "",
+  estoque: "",
+  codigo_barras: "",
+  descricao: "",
+  tipo_botijao: "",
+};
 
 export default function Produtos() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [busca, setBusca] = useState("");
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
+  const [form, setForm] = useState<ProdutoForm>(initialForm);
+
+  // Buscar produtos do Supabase
+  const { data: produtos = [], isLoading } = useQuery({
+    queryKey: ["produtos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (error) throw error;
+      return data as Produto[];
+    },
+  });
+
+  // Mutation para criar produto
+  const criarProduto = useMutation({
+    mutationFn: async (dados: ProdutoForm) => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .insert({
+          nome: dados.nome,
+          categoria: dados.categoria || null,
+          preco: parseFloat(dados.preco.replace(",", ".")) || 0,
+          estoque: parseInt(dados.estoque) || 0,
+          codigo_barras: dados.codigo_barras || null,
+          descricao: dados.descricao || null,
+          tipo_botijao: dados.tipo_botijao || null,
+          ativo: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      toast({ title: "Produto cadastrado com sucesso!" });
+      setDialogAberto(false);
+      setForm(initialForm);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao cadastrar produto",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para atualizar produto
+  const atualizarProduto = useMutation({
+    mutationFn: async ({ id, dados }: { id: string; dados: ProdutoForm }) => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .update({
+          nome: dados.nome,
+          categoria: dados.categoria || null,
+          preco: parseFloat(dados.preco.replace(",", ".")) || 0,
+          estoque: parseInt(dados.estoque) || 0,
+          codigo_barras: dados.codigo_barras || null,
+          descricao: dados.descricao || null,
+          tipo_botijao: dados.tipo_botijao || null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      toast({ title: "Produto atualizado com sucesso!" });
+      setDialogAberto(false);
+      setEditandoProduto(null);
+      setForm(initialForm);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar produto",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para excluir produto
+  const excluirProduto = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("produtos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      toast({ title: "Produto excluído com sucesso!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao excluir produto",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!form.nome || !form.preco) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Nome e preço são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editandoProduto) {
+      atualizarProduto.mutate({ id: editandoProduto.id, dados: form });
+    } else {
+      criarProduto.mutate(form);
+    }
+  };
+
+  const handleEditar = (produto: Produto) => {
+    setEditandoProduto(produto);
+    setForm({
+      nome: produto.nome,
+      categoria: produto.categoria || "",
+      preco: produto.preco.toString().replace(".", ","),
+      estoque: (produto.estoque || 0).toString(),
+      codigo_barras: produto.codigo_barras || "",
+      descricao: produto.descricao || "",
+      tipo_botijao: produto.tipo_botijao || "",
+    });
+    setDialogAberto(true);
+  };
+
+  const handleExcluir = (produto: Produto) => {
+    if (confirm(`Deseja excluir o produto "${produto.nome}"?`)) {
+      excluirProduto.mutate(produto.id);
+    }
+  };
+
+  const handleNovoClick = () => {
+    setEditandoProduto(null);
+    setForm(initialForm);
+    setDialogAberto(true);
+  };
+
+  // Filtrar produtos
+  const produtosFiltrados = produtos.filter(
+    (p) =>
+      p.nome.toLowerCase().includes(busca.toLowerCase()) ||
+      p.categoria?.toLowerCase().includes(busca.toLowerCase()) ||
+      p.codigo_barras?.toLowerCase().includes(busca.toLowerCase())
+  );
+
+  // Estatísticas
+  const totalProdutos = produtos.length;
+  const produtosGas = produtos.filter((p) => p.categoria === "gas").length;
+  const produtosAgua = produtos.filter((p) => p.categoria === "agua").length;
+  const produtosAcessorios = produtos.filter((p) => p.categoria === "acessorio").length;
+  const baixoEstoque = produtos.filter((p) => (p.estoque || 0) < 10).length;
+
+  const isSubmitting = criarProduto.isPending || atualizarProduto.isPending;
+
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Produtos</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Produtos</h1>
             <p className="text-muted-foreground">Gerencie o catálogo de produtos</p>
           </div>
-          <Dialog>
+          <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={handleNovoClick}>
                 <Plus className="h-4 w-4" />
                 Novo Produto
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Cadastrar Novo Produto</DialogTitle>
+                <DialogTitle>
+                  {editandoProduto ? "Editar Produto" : "Cadastrar Novo Produto"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editandoProduto
+                    ? "Altere os dados do produto abaixo."
+                    : "Preencha os dados para cadastrar um novo produto."}
+                </DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Código</Label>
-                  <Input placeholder="P13-001" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Código de Barras</Label>
-                  <Input placeholder="7891234567890" />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label>Nome do Produto</Label>
-                  <Input placeholder="Nome completo do produto" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Nome do Produto *</Label>
+                  <Input
+                    placeholder="Ex: Botijão P13 Cheio"
+                    value={form.nome}
+                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Categoria</Label>
-                  <Input placeholder="Gás, Água, Acessório..." />
+                  <Select
+                    value={form.categoria}
+                    onValueChange={(value) => setForm({ ...form, categoria: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gas">Gás</SelectItem>
+                      <SelectItem value="agua">Água</SelectItem>
+                      <SelectItem value="acessorio">Acessório</SelectItem>
+                      <SelectItem value="outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Unidade de Medida</Label>
-                  <Input placeholder="UN, KG, LT..." />
+                  <Label>Tipo de Botijão</Label>
+                  <Select
+                    value={form.tipo_botijao}
+                    onValueChange={(value) => setForm({ ...form, tipo_botijao: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cheio">Cheio</SelectItem>
+                      <SelectItem value="vazio">Vazio</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Preço de Custo</Label>
-                  <Input placeholder="R$ 0,00" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Preço de Venda</Label>
-                  <Input placeholder="R$ 0,00" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estoque Mínimo</Label>
-                  <Input placeholder="50" />
+                  <Label>Preço de Venda (R$) *</Label>
+                  <Input
+                    placeholder="0,00"
+                    value={form.preco}
+                    onChange={(e) => setForm({ ...form, preco: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Estoque Atual</Label>
-                  <Input placeholder="150" />
+                  <Input
+                    placeholder="0"
+                    type="number"
+                    value={form.estoque}
+                    onChange={(e) => setForm({ ...form, estoque: e.target.value })}
+                  />
                 </div>
-                <div className="space-y-2 col-span-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Código de Barras</Label>
+                  <Input
+                    placeholder="7891234567890"
+                    value={form.codigo_barras}
+                    onChange={(e) => setForm({ ...form, codigo_barras: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
                   <Label>Descrição</Label>
-                  <textarea 
+                  <textarea
                     className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                     placeholder="Descrição detalhada do produto..."
+                    value={form.descricao}
+                    onChange={(e) => setForm({ ...form, descricao: e.target.value })}
                   />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline">Cancelar</Button>
-                <Button>Salvar Produto</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogAberto(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editandoProduto ? "Salvar Alterações" : "Salvar Produto"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Produtos</CardTitle>
+              <CardTitle className="text-xs md:text-sm font-medium">Total</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">48</div>
-              <p className="text-xs text-muted-foreground">No catálogo</p>
+              <div className="text-xl md:text-2xl font-bold">{totalProdutos}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">No catálogo</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Produtos de Gás</CardTitle>
+              <CardTitle className="text-xs md:text-sm font-medium">Gás</CardTitle>
               <Flame className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">12</div>
-              <p className="text-xs text-muted-foreground">P13, P20, P45</p>
+              <div className="text-xl md:text-2xl font-bold text-orange-600">{produtosGas}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Produtos</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Produtos de Água</CardTitle>
+              <CardTitle className="text-xs md:text-sm font-medium">Água</CardTitle>
               <Droplets className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">8</div>
-              <p className="text-xs text-muted-foreground">Galões e garrafas</p>
+              <div className="text-xl md:text-2xl font-bold text-blue-600">{produtosAgua}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Produtos</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Acessórios</CardTitle>
+              <CardTitle className="text-xs md:text-sm font-medium">Acessórios</CardTitle>
               <Box className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">28</div>
-              <p className="text-xs text-muted-foreground">Registros, mangueiras...</p>
+              <div className="text-xl md:text-2xl font-bold text-green-600">{produtosAcessorios}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Produtos</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Baixo Estoque</CardTitle>
+              <CardTitle className="text-xs md:text-sm font-medium">Baixo Est.</CardTitle>
               <Package className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">5</div>
-              <p className="text-xs text-muted-foreground">Precisam reposição</p>
+              <div className="text-xl md:text-2xl font-bold text-red-600">{baixoEstoque}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Repor</p>
             </CardContent>
           </Card>
         </div>
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle>Lista de Produtos</CardTitle>
-              <div className="flex gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar produto..." className="pl-10 w-[300px]" />
-                </div>
-                <Button variant="outline">Filtros</Button>
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar produto..."
+                  className="pl-10 w-full sm:w-[300px]"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Custo</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Margem</TableHead>
-                  <TableHead>Estoque</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {produtos.map((produto) => {
-                  const margem = ((produto.preco - produto.custo) / produto.preco * 100).toFixed(1);
-                  return (
+          <CardContent className="overflow-x-auto">
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : produtosFiltrados.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {busca
+                  ? "Nenhum produto encontrado com essa busca."
+                  : "Nenhum produto cadastrado. Clique em 'Novo Produto' para adicionar."}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                    <TableHead>Preço</TableHead>
+                    <TableHead className="hidden sm:table-cell">Estoque</TableHead>
+                    <TableHead className="hidden lg:table-cell">Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {produtosFiltrados.map((produto) => (
                     <TableRow key={produto.id}>
-                      <TableCell className="font-medium">{produto.codigo}</TableCell>
-                      <TableCell>{produto.nome}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{produto.categoria}</Badge>
+                      <TableCell className="font-medium">
+                        <div>
+                          {produto.nome}
+                          <span className="block md:hidden text-xs text-muted-foreground">
+                            {produto.categoria || "Sem categoria"}
+                          </span>
+                        </div>
                       </TableCell>
-                      <TableCell>R$ {produto.custo.toFixed(2)}</TableCell>
-                      <TableCell>R$ {produto.preco.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{margem}%</Badge>
+                      <TableCell className="hidden md:table-cell">
+                        <Badge variant="outline">{produto.categoria || "Sem categoria"}</Badge>
                       </TableCell>
                       <TableCell>
-                        <span className={produto.estoque <= produto.minimo ? "text-destructive font-medium" : ""}>
-                          {produto.estoque} / {produto.minimo}
+                        R$ {produto.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <span
+                          className={
+                            (produto.estoque || 0) < 10
+                              ? "text-destructive font-medium"
+                              : ""
+                          }
+                        >
+                          {produto.estoque || 0}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={produto.status === "Ativo" ? "default" : "destructive"}>
-                          {produto.status}
+                      <TableCell className="hidden lg:table-cell">
+                        <Badge variant={produto.ativo ? "default" : "destructive"}>
+                          {produto.ativo ? "Ativo" : "Inativo"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon">
+                        <div className="flex justify-end gap-1 md:gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditar(produto)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleExcluir(produto)}
+                            disabled={excluirProduto.isPending}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
