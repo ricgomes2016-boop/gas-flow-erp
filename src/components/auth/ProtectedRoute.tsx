@@ -1,7 +1,9 @@
 import { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -39,17 +41,22 @@ export function ProtectedRoute({
     
     if (!hasAccess) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="text-center space-y-4">
-            <h1 className="text-2xl font-bold text-foreground">Acesso Negado</h1>
-            <p className="text-muted-foreground">
-              Você não tem permissão para acessar esta página.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Roles necessárias: {allowedRoles.join(", ")}
-            </p>
+        <MainLayout>
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="text-center space-y-4">
+              <h1 className="text-2xl font-bold text-foreground">Acesso Negado</h1>
+              <p className="text-muted-foreground">
+                Você não tem permissão para acessar esta página.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Roles necessárias: {allowedRoles.join(", ")}
+              </p>
+              <Button asChild variant="outline">
+                <Link to="/">Voltar ao Dashboard</Link>
+              </Button>
+            </div>
           </div>
-        </div>
+        </MainLayout>
       );
     }
   }
