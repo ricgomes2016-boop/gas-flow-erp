@@ -84,8 +84,39 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
         // Busca por nome
         query = query.ilike("nome", `%${term}%`);
       } else if (field === "endereco") {
-        // Busca em qualquer parte do endereço (endereco, bairro, cidade)
-        query = query.or(`endereco.ilike.%${term}%,bairro.ilike.%${term}%,cidade.ilike.%${term}%`);
+        // Busca inteligente por endereço: divide os termos e busca cada parte
+        // Exemplo: "amaz 23" busca por "amaz" E "23" em endereco, bairro ou cidade
+        const terms = term.trim().split(/\s+/).filter(t => t.length >= 2);
+        
+        if (terms.length === 0) {
+          setSearchResults([]);
+          setShowResults(false);
+          return;
+        }
+
+        // Busca todos os clientes e filtra no frontend para maior flexibilidade
+        const { data, error } = await supabase
+          .from("clientes")
+          .select("id, nome, telefone, endereco, bairro, cep, cidade")
+          .eq("ativo", true)
+          .limit(50);
+
+        if (!error && data) {
+          const filtered = data.filter(cliente => {
+            const fullAddress = [
+              cliente.endereco || "",
+              cliente.bairro || "",
+              cliente.cidade || ""
+            ].join(" ").toLowerCase();
+
+            // Todos os termos devem estar presentes no endereço
+            return terms.every(t => fullAddress.includes(t.toLowerCase()));
+          }).slice(0, 8);
+
+          setSearchResults(filtered);
+          setShowResults(filtered.length > 0);
+        }
+        return;
       }
 
       const { data, error } = await query;
@@ -117,9 +148,9 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     onChange({ ...value, [field]: fieldValue, id: field === "nome" || field === "telefone" ? null : value.id });
   };
 
-  // CEP lookup
-  const buscarCEP = async () => {
-    const cep = value.cep.replace(/\D/g, "");
+  // CEP lookup - busca automática quando digita 8 dígitos
+  const buscarCEP = async (cepValue: string) => {
+    const cep = cepValue.replace(/\D/g, "");
     if (cep.length !== 8) return;
 
     try {
@@ -134,6 +165,17 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
       }
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
+    }
+  };
+
+  // Handler para CEP que dispara busca ao completar
+  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCEP(e.target.value);
+    handleFieldChange("cep", formatted);
+    
+    // Busca automaticamente quando tiver 8 dígitos
+    if (formatted.replace(/\D/g, "").length === 8) {
+      buscarCEP(formatted);
     }
   };
 
@@ -253,11 +295,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
             <Input
               placeholder="00000-000"
               value={value.cep}
-              onChange={(e) => {
-                const formatted = formatCEP(e.target.value);
-                handleFieldChange("cep", formatted);
-              }}
-              onBlur={buscarCEP}
+              onChange={handleCEPChange}
               maxLength={9}
             />
           </div>
