@@ -68,6 +68,39 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracoes_empresa: {
+        Row: {
+          cnpj: string | null
+          created_at: string
+          endereco: string | null
+          id: string
+          mensagem_cupom: string | null
+          nome_empresa: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          mensagem_cupom?: string | null
+          nome_empresa?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          mensagem_cupom?: string | null
+          nome_empresa?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       entregadores: {
         Row: {
           ativo: boolean | null

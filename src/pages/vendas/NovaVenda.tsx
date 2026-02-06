@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Calendar, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { generateReceiptPdf } from "@/services/receiptPdfService";
+import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
 
 // Componentes refatorados
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
@@ -137,6 +137,22 @@ export default function NovaVenda() {
 
       if (itensError) throw itensError;
 
+      // Buscar configurações da empresa para o comprovante
+      let empresaConfig: EmpresaConfig | undefined;
+      try {
+        const { data: configData } = await supabase
+          .from("configuracoes_empresa")
+          .select("nome_empresa, cnpj, telefone, endereco, mensagem_cupom")
+          .limit(1)
+          .single();
+        
+        if (configData) {
+          empresaConfig = configData;
+        }
+      } catch (e) {
+        console.warn("Não foi possível carregar configurações da empresa, usando padrão");
+      }
+
       // Gerar comprovante PDF
       generateReceiptPdf({
         pedidoId: pedido.id,
@@ -151,6 +167,7 @@ export default function NovaVenda() {
         entregadorNome: entregador.nome,
         canalVenda,
         observacoes: customer.observacao,
+        empresa: empresaConfig,
       });
 
       toast({

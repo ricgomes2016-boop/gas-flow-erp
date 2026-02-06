@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +7,121 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Building, CreditCard, Bell, Shield, Printer, Users } from "lucide-react";
+import { Building, CreditCard, Bell, Shield, Printer, Users, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface EmpresaConfig {
+  id: string;
+  nome_empresa: string;
+  cnpj: string;
+  telefone: string;
+  endereco: string;
+  mensagem_cupom: string;
+}
 
 export default function Configuracoes() {
+  const { toast } = useToast();
+  const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig>({
+    id: "",
+    nome_empresa: "",
+    cnpj: "",
+    telefone: "",
+    endereco: "",
+    mensagem_cupom: "",
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchEmpresaConfig();
+  }, []);
+
+  const fetchEmpresaConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("configuracoes_empresa")
+        .select("*")
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+
+      if (data) {
+        setEmpresaConfig({
+          id: data.id,
+          nome_empresa: data.nome_empresa || "",
+          cnpj: data.cnpj || "",
+          telefone: data.telefone || "",
+          endereco: data.endereco || "",
+          mensagem_cupom: data.mensagem_cupom || "",
+        });
+      }
+    } catch (error: any) {
+      console.error("Erro ao carregar configurações:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as configurações da empresa.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveEmpresa = async () => {
+    setIsSaving(true);
+    try {
+      if (empresaConfig.id) {
+        // Atualizar registro existente
+        const { error } = await supabase
+          .from("configuracoes_empresa")
+          .update({
+            nome_empresa: empresaConfig.nome_empresa,
+            cnpj: empresaConfig.cnpj,
+            telefone: empresaConfig.telefone,
+            endereco: empresaConfig.endereco,
+            mensagem_cupom: empresaConfig.mensagem_cupom,
+          })
+          .eq("id", empresaConfig.id);
+
+        if (error) throw error;
+      } else {
+        // Criar novo registro
+        const { data, error } = await supabase
+          .from("configuracoes_empresa")
+          .insert({
+            nome_empresa: empresaConfig.nome_empresa,
+            cnpj: empresaConfig.cnpj,
+            telefone: empresaConfig.telefone,
+            endereco: empresaConfig.endereco,
+            mensagem_cupom: empresaConfig.mensagem_cupom,
+          })
+          .select("id")
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setEmpresaConfig((prev) => ({ ...prev, id: data.id }));
+        }
+      }
+
+      toast({
+        title: "Salvo com sucesso!",
+        description: "As configurações da empresa foram atualizadas.",
+      });
+    } catch (error: any) {
+      console.error("Erro ao salvar configurações:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: error.message || "Não foi possível salvar as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <MainLayout>
       <Header title="Configurações" subtitle="Gerencie as configurações do sistema" />
@@ -22,27 +135,77 @@ export default function Configuracoes() {
                 <CardTitle>Dados da Empresa</CardTitle>
               </div>
               <CardDescription>
-                Informações básicas da sua revenda
+                Informações básicas da sua revenda (usadas no comprovante)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="nomeEmpresa">Nome da Empresa</Label>
-                <Input id="nomeEmpresa" defaultValue="GásPro Revenda" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="cnpj">CNPJ</Label>
-                <Input id="cnpj" defaultValue="12.345.678/0001-90" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="telefone">Telefone</Label>
-                <Input id="telefone" defaultValue="(11) 3333-4444" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="endereco">Endereço</Label>
-                <Input id="endereco" defaultValue="Av. Principal, 100 - Centro" />
-              </div>
-              <Button>Salvar Alterações</Button>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="nomeEmpresa">Nome da Empresa</Label>
+                    <Input
+                      id="nomeEmpresa"
+                      value={empresaConfig.nome_empresa}
+                      onChange={(e) =>
+                        setEmpresaConfig((prev) => ({ ...prev, nome_empresa: e.target.value }))
+                      }
+                      placeholder="Ex: GásPro Revenda"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="cnpj">CNPJ</Label>
+                    <Input
+                      id="cnpj"
+                      value={empresaConfig.cnpj}
+                      onChange={(e) =>
+                        setEmpresaConfig((prev) => ({ ...prev, cnpj: e.target.value }))
+                      }
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input
+                      id="telefone"
+                      value={empresaConfig.telefone}
+                      onChange={(e) =>
+                        setEmpresaConfig((prev) => ({ ...prev, telefone: e.target.value }))
+                      }
+                      placeholder="(00) 0000-0000"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="endereco">Endereço</Label>
+                    <Input
+                      id="endereco"
+                      value={empresaConfig.endereco}
+                      onChange={(e) =>
+                        setEmpresaConfig((prev) => ({ ...prev, endereco: e.target.value }))
+                      }
+                      placeholder="Rua, Número - Bairro, Cidade"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="mensagemCupomEmpresa">Mensagem do Comprovante</Label>
+                    <Input
+                      id="mensagemCupomEmpresa"
+                      value={empresaConfig.mensagem_cupom}
+                      onChange={(e) =>
+                        setEmpresaConfig((prev) => ({ ...prev, mensagem_cupom: e.target.value }))
+                      }
+                      placeholder="Obrigado pela preferência!"
+                    />
+                  </div>
+                  <Button onClick={handleSaveEmpresa} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Salvar Alterações
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
 
