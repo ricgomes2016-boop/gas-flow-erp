@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -26,9 +26,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles, User } from "lucide-react";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
 import { useToast } from "@/hooks/use-toast";
+import { PedidoViewDialog } from "@/components/pedidos/PedidoViewDialog";
+import { StatusDropdown } from "@/components/pedidos/StatusDropdown";
 
 interface Pedido {
   id: string;
@@ -90,9 +93,12 @@ const statusConfig = {
 };
 
 export default function Pedidos() {
+  const navigate = useNavigate();
   const [pedidos, setPedidos] = useState<Pedido[]>(pedidosIniciais);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
+  const [viewDialogAberto, setViewDialogAberto] = useState(false);
+  const [pedidoView, setPedidoView] = useState<Pedido | null>(null);
   const { toast } = useToast();
 
   const atribuirEntregador = (pedidoId: string, entregadorId: number, entregadorNome: string) => {
@@ -108,6 +114,50 @@ export default function Pedidos() {
       description: `${entregadorNome} foi atribuído ao pedido #${pedidoId}`,
     });
     setDialogAberto(false);
+  };
+
+  const alterarStatus = (pedidoId: string, novoStatus: Pedido["status"]) => {
+    setPedidos(prev => 
+      prev.map(p => 
+        p.id === pedidoId 
+          ? { ...p, status: novoStatus } 
+          : p
+      )
+    );
+    const statusLabels = {
+      pendente: "Pendente",
+      em_rota: "Em Rota",
+      entregue: "Entregue",
+      cancelado: "Cancelado",
+    };
+    toast({
+      title: "Status atualizado",
+      description: `Pedido #${pedidoId} alterado para ${statusLabels[novoStatus]}.`,
+    });
+  };
+
+  const cancelarPedido = (pedidoId: string) => {
+    alterarStatus(pedidoId, "cancelado");
+    toast({
+      title: "Pedido cancelado",
+      description: `Pedido #${pedidoId} foi cancelado.`,
+      variant: "destructive",
+    });
+  };
+
+  const abrirVisualizacao = (pedido: Pedido) => {
+    setPedidoView(pedido);
+    setViewDialogAberto(true);
+  };
+
+  const editarPedido = (pedidoId: string) => {
+    // Navegar para a tela de edição
+    toast({
+      title: "Editar pedido",
+      description: `Abrindo edição do pedido #${pedidoId}...`,
+    });
+    // TODO: Implementar tela de edição ou reutilizar nova venda
+    // navigate(`/vendas/pedidos/${pedidoId}/editar`);
   };
 
   const pedidosPendentes = pedidos.filter(p => p.status === "pendente" && !p.entregador);
@@ -290,11 +340,17 @@ export default function Pedidos() {
               </TableHeader>
               <TableBody>
                 {pedidos.map((pedido) => {
-                  const config = statusConfig[pedido.status as keyof typeof statusConfig];
-                  const StatusIcon = config.icon;
                   return (
                     <TableRow key={pedido.id}>
-                      <TableCell className="font-medium">#{pedido.id}</TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="link" 
+                          className="font-medium p-0 h-auto text-primary"
+                          onClick={() => editarPedido(pedido.id)}
+                        >
+                          #{pedido.id}
+                        </Button>
+                      </TableCell>
                       <TableCell>{pedido.cliente}</TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {pedido.endereco}
@@ -333,16 +389,20 @@ export default function Pedidos() {
                       </TableCell>
                       <TableCell>R$ {pedido.valor.toFixed(2)}</TableCell>
                       <TableCell>
-                        <Badge variant={config.variant} className="gap-1">
-                          <StatusIcon className="h-3 w-3" />
-                          {config.label}
-                        </Badge>
+                        <StatusDropdown
+                          status={pedido.status}
+                          onStatusChange={(novoStatus) => alterarStatus(pedido.id, novoStatus)}
+                        />
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {pedido.data}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => abrirVisualizacao(pedido)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -353,6 +413,13 @@ export default function Pedidos() {
             </Table>
           </CardContent>
         </Card>
+
+        <PedidoViewDialog
+          pedido={pedidoView}
+          open={viewDialogAberto}
+          onOpenChange={setViewDialogAberto}
+          onCancelar={cancelarPedido}
+        />
       </div>
     </MainLayout>
   );
