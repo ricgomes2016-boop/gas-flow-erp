@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -29,31 +29,39 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Minus, Package, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Package, AlertTriangle, ArrowUpDown, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProdutoEstoque {
-  id: number;
+  id: string;
   nome: string;
-  tipo: "cheio" | "vazio";
-  quantidade: number;
-  minimo: number;
-  maximo: number;
+  tipo_botijao: string | null;
+  estoque: number;
   preco: number;
+  categoria: string | null;
 }
 
-const estoqueInicial: ProdutoEstoque[] = [
-  { id: 1, nome: "Botijão P13", tipo: "cheio", quantidade: 45, minimo: 20, maximo: 100, preco: 110 },
-  { id: 2, nome: "Botijão P13", tipo: "vazio", quantidade: 30, minimo: 10, maximo: 100, preco: 0 },
-  { id: 3, nome: "Botijão P45", tipo: "cheio", quantidade: 12, minimo: 5, maximo: 30, preco: 380 },
-  { id: 4, nome: "Botijão P45", tipo: "vazio", quantidade: 8, minimo: 3, maximo: 30, preco: 0 },
-  { id: 5, nome: "Botijão P20", tipo: "cheio", quantidade: 6, minimo: 3, maximo: 20, preco: 180 },
-  { id: 6, nome: "Botijão P20", tipo: "vazio", quantidade: 4, minimo: 2, maximo: 20, preco: 0 },
-];
+// Limites de estoque por tipo de produto
+const LIMITES_ESTOQUE: Record<string, { minimo: number; maximo: number }> = {
+  "Gás P13": { minimo: 20, maximo: 100 },
+  "Gás P20": { minimo: 5, maximo: 30 },
+  "Gás P45": { minimo: 3, maximo: 20 },
+  default: { minimo: 10, maximo: 100 },
+};
+
+function getLimites(nome: string) {
+  // Extrair nome base (sem " (Vazio)")
+  const nomeBase = nome.replace(" (Vazio)", "");
+  return LIMITES_ESTOQUE[nomeBase] || LIMITES_ESTOQUE.default;
+}
 
 export default function Estoque() {
-  const [estoque, setEstoque] = useState<ProdutoEstoque[]>(estoqueInicial);
+  const { toast } = useToast();
+  const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [movimentacaoDialogOpen, setMovimentacaoDialogOpen] = useState(false);
   const [movimentacao, setMovimentacao] = useState({
     produtoId: "",
@@ -61,39 +69,101 @@ export default function Estoque() {
     quantidade: "",
   });
 
-  const handleMovimentacao = () => {
-    const produtoId = parseInt(movimentacao.produtoId);
-    const quantidade = parseInt(movimentacao.quantidade);
+  const fetchProdutos = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, tipo_botijao, estoque, preco, categoria")
+        .eq("ativo", true)
+        .order("nome");
 
-    setEstoque(
-      estoque.map((produto) => {
-        if (produto.id === produtoId) {
-          const novaQuantidade =
-            movimentacao.tipo === "entrada"
-              ? produto.quantidade + quantidade
-              : produto.quantidade - quantidade;
-          return { ...produto, quantidade: Math.max(0, novaQuantidade) };
-        }
-        return produto;
-      })
-    );
-
-    setMovimentacao({ produtoId: "", tipo: "entrada", quantidade: "" });
-    setMovimentacaoDialogOpen(false);
+      if (error) throw error;
+      setProdutos(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o estoque.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchProdutos();
+  }, []);
+
+  const handleMovimentacao = async () => {
+    const quantidade = parseInt(movimentacao.quantidade);
+    if (!movimentacao.produtoId || isNaN(quantidade) || quantidade <= 0) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos corretamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const produto = produtos.find((p) => p.id === movimentacao.produtoId);
+    if (!produto) return;
+
+    const novaQuantidade =
+      movimentacao.tipo === "entrada"
+        ? produto.estoque + quantidade
+        : Math.max(0, produto.estoque - quantidade);
+
+    try {
+      const { error } = await supabase
+        .from("produtos")
+        .update({ estoque: novaQuantidade })
+        .eq("id", movimentacao.produtoId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Movimentação registrada!",
+        description: `${movimentacao.tipo === "entrada" ? "Entrada" : "Saída"} de ${quantidade} unidades.`,
+      });
+
+      setMovimentacao({ produtoId: "", tipo: "entrada", quantidade: "" });
+      setMovimentacaoDialogOpen(false);
+      fetchProdutos();
+    } catch (error) {
+      console.error("Erro ao atualizar estoque:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar a movimentação.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Filtrar apenas produtos de gás para exibição principal
+  const produtosGas = produtos.filter((p) => p.categoria === "gas");
+  const outrosProdutos = produtos.filter((p) => p.categoria !== "gas");
+
   const getTotalCheios = () =>
-    estoque.filter((p) => p.tipo === "cheio").reduce((acc, p) => acc + p.quantidade, 0);
+    produtosGas
+      .filter((p) => p.tipo_botijao === "cheio")
+      .reduce((acc, p) => acc + (p.estoque || 0), 0);
 
   const getTotalVazios = () =>
-    estoque.filter((p) => p.tipo === "vazio").reduce((acc, p) => acc + p.quantidade, 0);
+    produtosGas
+      .filter((p) => p.tipo_botijao === "vazio")
+      .reduce((acc, p) => acc + (p.estoque || 0), 0);
 
   const getValorEstoque = () =>
-    estoque
-      .filter((p) => p.tipo === "cheio")
-      .reduce((acc, p) => acc + p.quantidade * p.preco, 0);
+    produtos
+      .filter((p) => p.tipo_botijao !== "vazio")
+      .reduce((acc, p) => acc + (p.estoque || 0) * (p.preco || 0), 0);
 
-  const produtosBaixoEstoque = estoque.filter((p) => p.quantidade <= p.minimo);
+  const produtosBaixoEstoque = produtosGas.filter((p) => {
+    const limites = getLimites(p.nome);
+    return (p.estoque || 0) <= limites.minimo;
+  });
 
   return (
     <MainLayout>
@@ -149,161 +219,206 @@ export default function Estoque() {
           </Card>
         </div>
 
-        {/* Tabela de estoque */}
-        <Card>
+        {/* Tabela de estoque de Gás */}
+        <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Produtos em Estoque</CardTitle>
-              <Dialog
-                open={movimentacaoDialogOpen}
-                onOpenChange={setMovimentacaoDialogOpen}
-              >
-                <DialogTrigger asChild>
-                  <Button>
-                    <ArrowUpDown className="mr-2 h-4 w-4" />
-                    Movimentação
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Movimentação de Estoque</DialogTitle>
-                    <DialogDescription>
-                      Registre entrada ou saída de produtos
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label>Produto</Label>
-                      <Select
-                        value={movimentacao.produtoId}
-                        onValueChange={(value) =>
-                          setMovimentacao({ ...movimentacao, produtoId: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o produto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {estoque.map((produto) => (
-                            <SelectItem key={produto.id} value={produto.id.toString()}>
-                              {produto.nome} ({produto.tipo})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Tipo</Label>
-                      <Select
-                        value={movimentacao.tipo}
-                        onValueChange={(value: "entrada" | "saida") =>
-                          setMovimentacao({ ...movimentacao, tipo: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="entrada">
-                            <div className="flex items-center gap-2">
-                              <Plus className="h-4 w-4 text-success" />
-                              Entrada
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="saida">
-                            <div className="flex items-center gap-2">
-                              <Minus className="h-4 w-4 text-destructive" />
-                              Saída
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="quantidade">Quantidade</Label>
-                      <Input
-                        id="quantidade"
-                        type="number"
-                        value={movimentacao.quantidade}
-                        onChange={(e) =>
-                          setMovimentacao({
-                            ...movimentacao,
-                            quantidade: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setMovimentacaoDialogOpen(false)}
-                    >
-                      Cancelar
+              <CardTitle>Botijões de Gás</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={fetchProdutos} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+                <Dialog
+                  open={movimentacaoDialogOpen}
+                  onOpenChange={setMovimentacaoDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button>
+                      <ArrowUpDown className="mr-2 h-4 w-4" />
+                      Movimentação
                     </Button>
-                    <Button onClick={handleMovimentacao}>Confirmar</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Movimentação de Estoque</DialogTitle>
+                      <DialogDescription>
+                        Registre entrada ou saída de produtos
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label>Produto</Label>
+                        <Select
+                          value={movimentacao.produtoId}
+                          onValueChange={(value) =>
+                            setMovimentacao({ ...movimentacao, produtoId: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o produto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {produtos.map((produto) => (
+                              <SelectItem key={produto.id} value={produto.id}>
+                                {produto.nome} (Estoque: {produto.estoque})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Tipo</Label>
+                        <Select
+                          value={movimentacao.tipo}
+                          onValueChange={(value: "entrada" | "saida") =>
+                            setMovimentacao({ ...movimentacao, tipo: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="entrada">
+                              <div className="flex items-center gap-2">
+                                ➕ Entrada
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="saida">
+                              <div className="flex items-center gap-2">
+                                ➖ Saída
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="quantidade">Quantidade</Label>
+                        <Input
+                          id="quantidade"
+                          type="number"
+                          min="1"
+                          value={movimentacao.quantidade}
+                          onChange={(e) =>
+                            setMovimentacao({
+                              ...movimentacao,
+                              quantidade: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setMovimentacaoDialogOpen(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleMovimentacao}>Confirmar</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>Nível</TableHead>
-                  <TableHead>Preço Unit.</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {estoque.map((produto) => {
-                  const porcentagem = (produto.quantidade / produto.maximo) * 100;
-                  const isBaixo = produto.quantidade <= produto.minimo;
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Carregando...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Nível</TableHead>
+                    <TableHead>Preço Unit.</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {produtosGas.map((produto) => {
+                    const limites = getLimites(produto.nome);
+                    const porcentagem = ((produto.estoque || 0) / limites.maximo) * 100;
+                    const isBaixo = (produto.estoque || 0) <= limites.minimo;
 
-                  return (
+                    return (
+                      <TableRow key={produto.id}>
+                        <TableCell className="font-medium">{produto.nome}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={produto.tipo_botijao === "cheio" ? "default" : "secondary"}
+                          >
+                            {produto.tipo_botijao === "cheio" ? "Cheio" : "Vazio"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {produto.estoque} / {limites.maximo}
+                        </TableCell>
+                        <TableCell className="w-32">
+                          <Progress value={Math.min(100, porcentagem)} className="h-2" />
+                        </TableCell>
+                        <TableCell>
+                          {produto.preco > 0
+                            ? `R$ ${produto.preco.toFixed(2)}`
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {isBaixo ? (
+                            <Badge variant="destructive">
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              Baixo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-success border-success">
+                              Normal
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Outros Produtos */}
+        {outrosProdutos.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Outros Produtos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Preço Unit.</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {outrosProdutos.map((produto) => (
                     <TableRow key={produto.id}>
                       <TableCell className="font-medium">{produto.nome}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={produto.tipo === "cheio" ? "default" : "secondary"}
-                        >
-                          {produto.tipo === "cheio" ? "Cheio" : "Vazio"}
-                        </Badge>
+                        <Badge variant="outline">{produto.categoria || "Sem categoria"}</Badge>
                       </TableCell>
-                      <TableCell>
-                        {produto.quantidade} / {produto.maximo}
-                      </TableCell>
-                      <TableCell className="w-32">
-                        <Progress value={porcentagem} className="h-2" />
-                      </TableCell>
-                      <TableCell>
-                        {produto.preco > 0
-                          ? `R$ ${produto.preco.toFixed(2)}`
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {isBaixo ? (
-                          <Badge variant="destructive">
-                            <AlertTriangle className="mr-1 h-3 w-3" />
-                            Baixo
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-success border-success">
-                            Normal
-                          </Badge>
-                        )}
-                      </TableCell>
+                      <TableCell>{produto.estoque}</TableCell>
+                      <TableCell>R$ {produto.preco.toFixed(2)}</TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );
