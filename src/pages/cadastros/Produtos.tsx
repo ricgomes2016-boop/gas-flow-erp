@@ -33,6 +33,7 @@ import { Package, Plus, Search, Edit, Trash2, Flame, Droplets, Box, Loader2 } fr
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 interface Produto {
   id: string;
@@ -44,6 +45,7 @@ interface Produto {
   codigo_barras: string | null;
   descricao: string | null;
   tipo_botijao: string | null;
+  image_url: string | null;
 }
 
 interface ProdutoForm {
@@ -54,6 +56,7 @@ interface ProdutoForm {
   codigo_barras: string;
   descricao: string;
   tipo_botijao: string;
+  image_url: string | null;
 }
 
 const initialForm: ProdutoForm = {
@@ -64,6 +67,7 @@ const initialForm: ProdutoForm = {
   codigo_barras: "",
   descricao: "",
   tipo_botijao: "",
+  image_url: null,
 };
 
 export default function Produtos() {
@@ -101,6 +105,7 @@ export default function Produtos() {
           codigo_barras: dados.codigo_barras || null,
           descricao: dados.descricao || null,
           tipo_botijao: dados.tipo_botijao || null,
+          image_url: dados.image_url || null,
           ativo: true,
         })
         .select()
@@ -137,6 +142,7 @@ export default function Produtos() {
           codigo_barras: dados.codigo_barras || null,
           descricao: dados.descricao || null,
           tipo_botijao: dados.tipo_botijao || null,
+          image_url: dados.image_url || null,
         })
         .eq("id", id)
         .select()
@@ -207,6 +213,7 @@ export default function Produtos() {
       codigo_barras: produto.codigo_barras || "",
       descricao: produto.descricao || "",
       tipo_botijao: produto.tipo_botijao || "",
+      image_url: produto.image_url || null,
     });
     setDialogAberto(true);
   };
@@ -341,6 +348,14 @@ export default function Produtos() {
                     onChange={(e) => setForm({ ...form, descricao: e.target.value })}
                   />
                 </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Imagem do Produto</Label>
+                  <ImageUpload
+                    value={form.image_url}
+                    onChange={(url) => setForm({ ...form, image_url: url })}
+                    disabled={isSubmitting}
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <Button
@@ -444,6 +459,7 @@ export default function Produtos() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16 hidden sm:table-cell">Imagem</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead className="hidden md:table-cell">Categoria</TableHead>
                     <TableHead>Preço</TableHead>
@@ -455,12 +471,40 @@ export default function Produtos() {
                 <TableBody>
                   {produtosFiltrados.map((produto) => (
                     <TableRow key={produto.id}>
+                      <TableCell className="hidden sm:table-cell">
+                        {produto.image_url ? (
+                          <img
+                            src={produto.image_url}
+                            alt={produto.nome}
+                            className="h-10 w-10 object-cover rounded-md border"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">
-                        <div>
-                          {produto.nome}
-                          <span className="block md:hidden text-xs text-muted-foreground">
-                            {produto.categoria || "Sem categoria"}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className="sm:hidden">
+                            {produto.image_url ? (
+                              <img
+                                src={produto.image_url}
+                                alt={produto.nome}
+                                className="h-8 w-8 object-cover rounded-md border"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            {produto.nome}
+                            <span className="block md:hidden text-xs text-muted-foreground">
+                              {produto.categoria || "Sem categoria"}
+                            </span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">

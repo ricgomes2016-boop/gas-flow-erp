@@ -264,6 +264,7 @@ export type Database = {
           descricao: string | null
           estoque: number | null
           id: string
+          image_url: string | null
           nome: string
           preco: number
           tipo_botijao: string | null
@@ -278,6 +279,7 @@ export type Database = {
           descricao?: string | null
           estoque?: number | null
           id?: string
+          image_url?: string | null
           nome: string
           preco: number
           tipo_botijao?: string | null
@@ -292,6 +294,7 @@ export type Database = {
           descricao?: string | null
           estoque?: number | null
           id?: string
+          image_url?: string | null
           nome?: string
           preco?: number
           tipo_botijao?: string | null
