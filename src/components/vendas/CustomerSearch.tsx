@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,9 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
   const [searchResults, setSearchResults] = useState<Cliente[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [activeField, setActiveField] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -52,14 +54,17 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const searchClientes = async (term: string, field: string) => {
+  // Função de busca principal
+  const executeSearch = useCallback(async (term: string, field: string) => {
     if (term.length < 2) {
       setSearchResults([]);
       setShowResults(false);
+      setIsSearching(false);
       return;
     }
 
     setActiveField(field);
+    setIsSearching(true);
 
     // Limpa caracteres especiais para busca por telefone
     const cleanTerm = field === "telefone" ? term.replace(/\D/g, "") : term;
@@ -67,6 +72,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     if (field === "telefone" && cleanTerm.length < 2) {
       setSearchResults([]);
       setShowResults(false);
+      setIsSearching(false);
       return;
     }
 
@@ -85,12 +91,12 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
         query = query.ilike("nome", `%${term}%`);
       } else if (field === "endereco") {
         // Busca inteligente por endereço: divide os termos e busca cada parte
-        // Exemplo: "amaz 23" busca por "amaz" E "23" em endereco, bairro ou cidade
         const terms = term.trim().split(/\s+/).filter(t => t.length >= 2);
         
         if (terms.length === 0) {
           setSearchResults([]);
           setShowResults(false);
+          setIsSearching(false);
           return;
         }
 
@@ -109,13 +115,13 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
               cliente.cidade || ""
             ].join(" ").toLowerCase();
 
-            // Todos os termos devem estar presentes no endereço
             return terms.every(t => fullAddress.includes(t.toLowerCase()));
           }).slice(0, 8);
 
           setSearchResults(filtered);
           setShowResults(filtered.length > 0);
         }
+        setIsSearching(false);
         return;
       }
 
@@ -127,8 +133,39 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
       }
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
+    } finally {
+      setIsSearching(false);
     }
-  };
+  }, []);
+
+  // Função com debounce para busca
+  const searchClientes = useCallback((term: string, field: string) => {
+    // Limpa timeout anterior
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Se termo muito curto, limpa resultados imediatamente
+    if (term.length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    // Define novo timeout com debounce de 300ms
+    debounceRef.current = setTimeout(() => {
+      executeSearch(term, field);
+    }, 300);
+  }, [executeSearch]);
+
+  // Limpa timeout ao desmontar componente
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   const selectCliente = (cliente: Cliente) => {
     onChange({
