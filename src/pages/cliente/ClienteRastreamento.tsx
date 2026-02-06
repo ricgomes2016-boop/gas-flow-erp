@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ClienteLayout } from "@/components/cliente/ClienteLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +14,11 @@ import {
   Package,
   Truck,
   CheckCircle2,
-  User
+  Bell
 } from "lucide-react";
 import { DeliveryMap } from "@/components/cliente/DeliveryMap";
+import { NotificationPermissionBanner, NotificationStatus } from "@/components/cliente/NotificationPermissionBanner";
+import { useDeliveryNotifications } from "@/hooks/useDeliveryNotifications";
 
 interface DeliveryStatus {
   id: string;
@@ -56,6 +58,8 @@ const statusProgress: Record<string, number> = {
 export default function ClienteRastreamento() {
   const navigate = useNavigate();
   const { orderId } = useParams();
+  const { notifyStatusChange, requestPermission } = useDeliveryNotifications();
+  const previousStatusRef = useRef<string | null>(null);
   
   // Simulated delivery data
   const [delivery, setDelivery] = useState<DeliveryStatus>({
@@ -98,6 +102,19 @@ export default function ClienteRastreamento() {
     return () => clearInterval(interval);
   }, []);
 
+  // Request notification permission on mount
+  useEffect(() => {
+    requestPermission();
+  }, [requestPermission]);
+
+  // Send notification when status changes
+  useEffect(() => {
+    if (previousStatusRef.current !== null && previousStatusRef.current !== delivery.status) {
+      notifyStatusChange(delivery.status, delivery.id);
+    }
+    previousStatusRef.current = delivery.status;
+  }, [delivery.status, delivery.id, notifyStatusChange]);
+
   // Simulate status changes
   useEffect(() => {
     const statusSequence: DeliveryStatus["status"][] = ["confirmed", "preparing", "on_the_way", "arriving"];
@@ -121,15 +138,21 @@ export default function ClienteRastreamento() {
   return (
     <ClienteLayout>
       <div className="space-y-4">
+        {/* Notification Banner */}
+        <NotificationPermissionBanner />
+
         {/* Header */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">Rastrear Pedido</h1>
-            <p className="text-sm text-muted-foreground">Pedido #{delivery.id}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">Rastrear Pedido</h1>
+              <p className="text-sm text-muted-foreground">Pedido #{delivery.id}</p>
+            </div>
           </div>
+          <NotificationStatus />
         </div>
 
         {/* Map */}
