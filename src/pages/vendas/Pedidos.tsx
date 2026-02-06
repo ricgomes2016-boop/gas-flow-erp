@@ -4,6 +4,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -27,140 +28,121 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles, User } from "lucide-react";
+import { Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles, User, RefreshCw } from "lucide-react";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
 import { useToast } from "@/hooks/use-toast";
 import { PedidoViewDialog } from "@/components/pedidos/PedidoViewDialog";
 import { StatusDropdown } from "@/components/pedidos/StatusDropdown";
-
-interface Pedido {
-  id: string;
-  cliente: string;
-  endereco: string;
-  produtos: string;
-  valor: number;
-  status: "pendente" | "em_rota" | "entregue" | "cancelado";
-  data: string;
-  entregador?: string;
-}
-
-const pedidosIniciais: Pedido[] = [
-  {
-    id: "001",
-    cliente: "João Silva",
-    endereco: "Rua das Flores, 123",
-    produtos: "2x Gás P13",
-    valor: 220.0,
-    status: "pendente",
-    data: "06/02/2026 10:30",
-  },
-  {
-    id: "002",
-    cliente: "Maria Santos",
-    endereco: "Av. Brasil, 456",
-    produtos: "1x Gás P20",
-    valor: 180.0,
-    status: "em_rota",
-    data: "06/02/2026 10:15",
-    entregador: "Carlos Souza",
-  },
-  {
-    id: "003",
-    cliente: "Pedro Costa",
-    endereco: "Rua do Comércio, 789",
-    produtos: "1x Gás P13, 1x Água 20L",
-    valor: 125.0,
-    status: "entregue",
-    data: "06/02/2026 09:45",
-    entregador: "Roberto Lima",
-  },
-  {
-    id: "004",
-    cliente: "Ana Oliveira",
-    endereco: "Rua Nova, 321",
-    produtos: "3x Gás P13",
-    valor: 330.0,
-    status: "cancelado",
-    data: "06/02/2026 09:00",
-  },
-];
-
-const statusConfig = {
-  pendente: { label: "Pendente", variant: "secondary" as const, icon: Clock },
-  em_rota: { label: "Em Rota", variant: "default" as const, icon: Truck },
-  entregue: { label: "Entregue", variant: "outline" as const, icon: CheckCircle },
-  cancelado: { label: "Cancelado", variant: "destructive" as const, icon: XCircle },
-};
+import { usePedidos } from "@/hooks/usePedidos";
+import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
 
 export default function Pedidos() {
   const navigate = useNavigate();
-  const [pedidos, setPedidos] = useState<Pedido[]>(pedidosIniciais);
-  const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
+  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, isUpdating } = usePedidos();
+  const [pedidoSelecionado, setPedidoSelecionado] = useState<PedidoFormatado | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [viewDialogAberto, setViewDialogAberto] = useState(false);
-  const [pedidoView, setPedidoView] = useState<Pedido | null>(null);
+  const [pedidoView, setPedidoView] = useState<PedidoFormatado | null>(null);
+  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+  const [busca, setBusca] = useState("");
   const { toast } = useToast();
 
-  const atribuirEntregador = (pedidoId: string, entregadorId: number, entregadorNome: string) => {
-    setPedidos(prev => 
-      prev.map(p => 
-        p.id === pedidoId 
-          ? { ...p, entregador: entregadorNome } 
-          : p
-      )
+  const handleAtribuirEntregador = (pedidoId: string, entregadorId: string, entregadorNome: string) => {
+    atribuirEntregador(
+      { pedidoId, entregadorId },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Entregador atribuído!",
+            description: `${entregadorNome} foi atribuído ao pedido.`,
+          });
+          setDialogAberto(false);
+        },
+        onError: (error) => {
+          toast({
+            title: "Erro ao atribuir entregador",
+            description: error.message,
+            variant: "destructive",
+          });
+        },
+      }
     );
-    toast({
-      title: "Entregador atribuído!",
-      description: `${entregadorNome} foi atribuído ao pedido #${pedidoId}`,
-    });
-    setDialogAberto(false);
   };
 
-  const alterarStatus = (pedidoId: string, novoStatus: Pedido["status"]) => {
-    setPedidos(prev => 
-      prev.map(p => 
-        p.id === pedidoId 
-          ? { ...p, status: novoStatus } 
-          : p
-      )
-    );
+  const alterarStatusPedido = (pedidoId: string, novoStatus: PedidoStatus) => {
     const statusLabels = {
       pendente: "Pendente",
       em_rota: "Em Rota",
       entregue: "Entregue",
       cancelado: "Cancelado",
     };
-    toast({
-      title: "Status atualizado",
-      description: `Pedido #${pedidoId} alterado para ${statusLabels[novoStatus]}.`,
-    });
+
+    atualizarStatus(
+      { pedidoId, novoStatus },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Status atualizado",
+            description: `Pedido alterado para ${statusLabels[novoStatus]}.`,
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Erro ao atualizar status",
+            description: error.message,
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const cancelarPedido = (pedidoId: string) => {
-    alterarStatus(pedidoId, "cancelado");
+    alterarStatusPedido(pedidoId, "cancelado");
     toast({
       title: "Pedido cancelado",
-      description: `Pedido #${pedidoId} foi cancelado.`,
+      description: "O pedido foi cancelado.",
       variant: "destructive",
     });
   };
 
-  const abrirVisualizacao = (pedido: Pedido) => {
+  const abrirVisualizacao = (pedido: PedidoFormatado) => {
     setPedidoView(pedido);
     setViewDialogAberto(true);
   };
 
   const editarPedido = (pedidoId: string) => {
-    // Navegar para a tela de edição
     toast({
       title: "Editar pedido",
-      description: `Abrindo edição do pedido #${pedidoId}...`,
+      description: `Abrindo edição do pedido...`,
     });
-    // TODO: Implementar tela de edição ou reutilizar nova venda
+    // TODO: Implementar tela de edição
     // navigate(`/vendas/pedidos/${pedidoId}/editar`);
   };
 
-  const pedidosPendentes = pedidos.filter(p => p.status === "pendente" && !p.entregador);
+  // Filtrar pedidos
+  const pedidosFiltrados = pedidos.filter((p) => {
+    const matchStatus = filtroStatus === "todos" || p.status === filtroStatus;
+    const matchBusca =
+      busca === "" ||
+      p.cliente.toLowerCase().includes(busca.toLowerCase()) ||
+      p.endereco.toLowerCase().includes(busca.toLowerCase()) ||
+      p.id.toLowerCase().includes(busca.toLowerCase());
+    return matchStatus && matchBusca;
+  });
+
+  const pedidosPendentes = pedidos.filter((p) => p.status === "pendente" && !p.entregador);
+
+  // Contadores
+  const contadores = {
+    pendente: pedidos.filter((p) => p.status === "pendente").length,
+    em_rota: pedidos.filter((p) => p.status === "em_rota").length,
+    entregue: pedidos.filter((p) => p.status === "entregue").length,
+    total: pedidos.filter((p) => p.status !== "cancelado").reduce((acc, p) => acc + p.valor, 0),
+  };
+
+  // ID curto para exibição
+  const getIdCurto = (id: string) => id.substring(0, 8).toUpperCase();
 
   return (
     <MainLayout>
@@ -170,7 +152,7 @@ export default function Pedidos() {
             <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
             <p className="text-muted-foreground">Gerenciar pedidos de venda</p>
           </div>
-          <Button>Nova Venda</Button>
+          <Button onClick={() => navigate("/vendas/nova")}>Nova Venda</Button>
         </div>
 
         {/* Sugestão IA para pedidos pendentes */}
@@ -190,20 +172,24 @@ export default function Pedidos() {
               </div>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {pedidosPendentes.slice(0, 3).map((pedido) => (
-                  <Dialog key={pedido.id} open={dialogAberto && pedidoSelecionado?.id === pedido.id} onOpenChange={(open) => {
-                    setDialogAberto(open);
-                    if (!open) setPedidoSelecionado(null);
-                  }}>
+                  <Dialog
+                    key={pedido.id}
+                    open={dialogAberto && pedidoSelecionado?.id === pedido.id}
+                    onOpenChange={(open) => {
+                      setDialogAberto(open);
+                      if (!open) setPedidoSelecionado(null);
+                    }}
+                  >
                     <DialogTrigger asChild>
-                      <div 
+                      <div
                         className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border cursor-pointer hover:shadow-md transition-all"
                         onClick={() => setPedidoSelecionado(pedido)}
                       >
                         <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center">
                           <User className="h-4 w-4 text-warning" />
                         </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{pedido.cliente}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{pedido.cliente}</p>
                           <p className="text-xs text-muted-foreground truncate">{pedido.endereco}</p>
                         </div>
                         <Button size="sm" variant="outline">
@@ -214,7 +200,7 @@ export default function Pedidos() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Sugerir Entregador - Pedido #{pedido.id}</DialogTitle>
+                        <DialogTitle>Sugerir Entregador - Pedido #{getIdCurto(pedido.id)}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <div className="p-4 bg-muted rounded-lg">
@@ -224,7 +210,7 @@ export default function Pedidos() {
                         </div>
                         <SugestaoEntregador
                           endereco={pedido.endereco}
-                          onSelecionar={(id, nome) => atribuirEntregador(pedido.id, id, nome)}
+                          onSelecionar={(id, nome) => handleAtribuirEntregador(pedido.id, String(id), nome)}
                         />
                       </div>
                     </DialogContent>
@@ -240,9 +226,13 @@ export default function Pedidos() {
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-4">
               <div className="flex-1 min-w-[200px]">
-                <Input placeholder="Buscar por cliente, endereço..." />
+                <Input
+                  placeholder="Buscar por cliente, endereço, ID..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
               </div>
-              <Select defaultValue="todos">
+              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -254,9 +244,9 @@ export default function Pedidos() {
                   <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline">
-                <Search className="h-4 w-4 mr-2" />
-                Filtrar
+              <Button variant="outline" onClick={() => setBusca("")}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Limpar
               </Button>
             </div>
           </CardContent>
@@ -267,11 +257,11 @@ export default function Pedidos() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-yellow-500/10">
-                  <Clock className="h-6 w-6 text-yellow-500" />
+                <div className="p-3 rounded-lg bg-warning/10">
+                  <Clock className="h-6 w-6 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{pedidos.filter(p => p.status === "pendente").length}</p>
+                  <p className="text-2xl font-bold">{contadores.pendente}</p>
                   <p className="text-sm text-muted-foreground">Pendentes</p>
                 </div>
               </div>
@@ -280,11 +270,11 @@ export default function Pedidos() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-blue-500/10">
-                  <Truck className="h-6 w-6 text-blue-500" />
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Truck className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{pedidos.filter(p => p.status === "em_rota").length}</p>
+                  <p className="text-2xl font-bold">{contadores.em_rota}</p>
                   <p className="text-sm text-muted-foreground">Em Rota</p>
                 </div>
               </div>
@@ -293,12 +283,12 @@ export default function Pedidos() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <CheckCircle className="h-6 w-6 text-green-500" />
+                <div className="p-3 rounded-lg bg-success/10">
+                  <CheckCircle className="h-6 w-6 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{pedidos.filter(p => p.status === "entregue").length}</p>
-                  <p className="text-sm text-muted-foreground">Entregues Hoje</p>
+                  <p className="text-2xl font-bold">{contadores.entregue}</p>
+                  <p className="text-sm text-muted-foreground">Entregues</p>
                 </div>
               </div>
             </CardContent>
@@ -310,8 +300,10 @@ export default function Pedidos() {
                   <Search className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">R$ {pedidos.filter(p => p.status !== "cancelado").reduce((acc, p) => acc + p.valor, 0).toLocaleString("pt-BR")}</p>
-                  <p className="text-sm text-muted-foreground">Vendas Hoje</p>
+                  <p className="text-2xl font-bold">
+                    R$ {contadores.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Total Vendas</p>
                 </div>
               </div>
             </CardContent>
@@ -321,48 +313,61 @@ export default function Pedidos() {
         {/* Tabela */}
         <Card>
           <CardHeader>
-            <CardTitle>Pedidos do Dia</CardTitle>
+            <CardTitle>Pedidos</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pedido</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Endereço</TableHead>
-                  <TableHead>Produtos</TableHead>
-                  <TableHead>Entregador</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data/Hora</TableHead>
-                  <TableHead className="w-16"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pedidos.map((pedido) => {
-                  return (
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : pedidosFiltrados.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Nenhum pedido encontrado.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pedido</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Endereço</TableHead>
+                    <TableHead>Produtos</TableHead>
+                    <TableHead>Entregador</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Data/Hora</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pedidosFiltrados.map((pedido) => (
                     <TableRow key={pedido.id}>
                       <TableCell>
-                        <Button 
-                          variant="link" 
+                        <Button
+                          variant="link"
                           className="font-medium p-0 h-auto text-primary"
                           onClick={() => editarPedido(pedido.id)}
                         >
-                          #{pedido.id}
+                          #{getIdCurto(pedido.id)}
                         </Button>
                       </TableCell>
                       <TableCell>{pedido.cliente}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {pedido.endereco}
-                      </TableCell>
-                      <TableCell>{pedido.produtos}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{pedido.endereco}</TableCell>
+                      <TableCell className="max-w-[150px] truncate">{pedido.produtos}</TableCell>
                       <TableCell>
                         {pedido.entregador ? (
                           <Badge variant="outline">{pedido.entregador}</Badge>
                         ) : pedido.status === "pendente" ? (
                           <Dialog>
                             <DialogTrigger asChild>
-                              <Button size="sm" variant="ghost" className="text-primary" onClick={() => setPedidoSelecionado(pedido)}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-primary"
+                                onClick={() => setPedidoSelecionado(pedido)}
+                              >
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 Sugerir
                               </Button>
@@ -378,7 +383,9 @@ export default function Pedidos() {
                                 </div>
                                 <SugestaoEntregador
                                   endereco={pedido.endereco}
-                                  onSelecionar={(id, nome) => atribuirEntregador(pedido.id, id, nome)}
+                                  onSelecionar={(id, nome) =>
+                                    handleAtribuirEntregador(pedido.id, String(id), nome)
+                                  }
                                 />
                               </div>
                             </DialogContent>
@@ -391,26 +398,21 @@ export default function Pedidos() {
                       <TableCell>
                         <StatusDropdown
                           status={pedido.status}
-                          onStatusChange={(novoStatus) => alterarStatus(pedido.id, novoStatus)}
+                          onStatusChange={(novoStatus) => alterarStatusPedido(pedido.id, novoStatus)}
+                          disabled={isUpdating}
                         />
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {pedido.data}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{pedido.data}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => abrirVisualizacao(pedido)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => abrirVisualizacao(pedido)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
