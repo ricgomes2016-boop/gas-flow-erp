@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -234,6 +235,7 @@ export default function NovaVenda() {
 
   return (
     <MainLayout>
+      <Header title="Nova Venda" subtitle="Registrar nova venda" />
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
