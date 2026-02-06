@@ -359,10 +359,10 @@ export function Sidebar() {
                     <div
                       className={cn(
                         "overflow-hidden transition-all duration-200",
-                        isOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+                        isOpen ? "max-h-[320px] opacity-100" : "max-h-0 opacity-0"
                       )}
                     >
-                      <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-4">
+                      <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-4 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
                         {item.submenu?.map((subItem) => (
                           <Link
                             key={subItem.path}
