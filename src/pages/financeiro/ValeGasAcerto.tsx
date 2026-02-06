@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -120,6 +121,7 @@ export default function ValeGasAcerto() {
 
   return (
     <MainLayout>
+      <Header title="Acerto de Contas - Vale Gás" subtitle="Gerencie os acertos com parceiros consignados" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,7 @@ export default function EditarPedido() {
   if (loading) {
     return (
       <MainLayout>
+        <Header title="Editar Pedido" subtitle="Carregando..." />
         <div className="p-6 space-y-6">
           <Skeleton className="h-10 w-64" />
           <div className="grid gap-6 lg:grid-cols-3">
@@ -230,6 +232,7 @@ export default function EditarPedido() {
   if (!pedido) {
     return (
       <MainLayout>
+        <Header title="Pedido não encontrado" />
         <div className="p-6">
           <p className="text-muted-foreground">Pedido não encontrado.</p>
         </div>
@@ -239,6 +242,7 @@ export default function EditarPedido() {
 
   return (
     <MainLayout>
+      <Header title="Editar Pedido" subtitle={`#${pedido.id.slice(0, 6)} • ${pedido.cliente_nome}`} />
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
