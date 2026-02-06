@@ -1,0 +1,154 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ShoppingCart, Truck, CheckCircle, XCircle } from "lucide-react";
+import type { ItemVenda } from "./ProductSearch";
+import type { Pagamento } from "./PaymentSection";
+
+interface OrderSummaryProps {
+  itens: ItemVenda[];
+  pagamentos: Pagamento[];
+  entregadorNome: string | null;
+  canalVenda: string;
+  onFinalizar: () => void;
+  onCancelar: () => void;
+  isLoading?: boolean;
+}
+
+export function OrderSummary({
+  itens,
+  pagamentos,
+  entregadorNome,
+  canalVenda,
+  onFinalizar,
+  onCancelar,
+  isLoading = false,
+}: OrderSummaryProps) {
+  const subtotal = itens.reduce((acc, item) => acc + item.total, 0);
+  const totalPago = pagamentos.reduce((acc, p) => acc + p.valor, 0);
+  const desconto = 0; // Pode ser expandido no futuro
+  const total = subtotal - desconto;
+  const pagamentoCompleto = totalPago >= total && total > 0;
+
+  return (
+    <Card className="sticky top-4">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ShoppingCart className="h-5 w-5" />
+          Resumo da Venda
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Canal de venda */}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Canal</span>
+          <Badge variant="outline">{canalVenda}</Badge>
+        </div>
+
+        <Separator />
+
+        {/* Itens resumidos */}
+        <div className="space-y-2">
+          {itens.map((item) => (
+            <div key={item.id} className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                {item.quantidade}x {item.nome}
+              </span>
+              <span>R$ {item.total.toFixed(2)}</span>
+            </div>
+          ))}
+          {itens.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              Nenhum item adicionado
+            </p>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Totais */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>R$ {subtotal.toFixed(2)}</span>
+          </div>
+          {desconto > 0 && (
+            <div className="flex justify-between text-sm text-success">
+              <span>Desconto</span>
+              <span>- R$ {desconto.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-lg font-bold pt-2 border-t">
+            <span>Total</span>
+            <span className="text-primary">R$ {total.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Pagamento */}
+        {pagamentos.length > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Pagamentos
+              </p>
+              {pagamentos.map((p) => (
+                <div key={p.id} className="flex justify-between text-sm">
+                  <span className="capitalize">{p.forma.replace("_", " ")}</span>
+                  <span>R$ {p.valor.toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-medium pt-1">
+                <span>Total Pago</span>
+                <span className={pagamentoCompleto ? "text-success" : "text-destructive"}>
+                  R$ {totalPago.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Entregador */}
+        {entregadorNome && (
+          <>
+            <Separator />
+            <div className="flex items-center gap-2 text-sm">
+              <Truck className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Entregador:</span>
+              <span className="font-medium text-success">{entregadorNome}</span>
+            </div>
+          </>
+        )}
+
+        {/* Ações */}
+        <div className="space-y-2 pt-4">
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={onFinalizar}
+            disabled={!pagamentoCompleto || itens.length === 0 || isLoading}
+          >
+            {isLoading ? (
+              "Processando..."
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Finalizar Venda
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={onCancelar}
+            disabled={isLoading}
+          >
+            <XCircle className="h-4 w-4 mr-2" />
+            Cancelar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
