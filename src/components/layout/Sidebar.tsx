@@ -49,6 +49,7 @@ const menuItems: MenuItem[] = [
     icon: ShoppingCart,
     label: "Vendas",
     submenu: [
+      { label: "PDV", path: "/vendas/pdv" },
       { label: "Nova Venda", path: "/vendas/nova" },
       { label: "Pedidos", path: "/vendas/pedidos" },
     ],
