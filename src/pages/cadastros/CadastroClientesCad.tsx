@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,27 +17,286 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2 } from "lucide-react";
 import { CpfCnpjInput } from "@/components/ui/cpf-cnpj-input";
-import { formatPhone, formatCEP } from "@/hooks/useInputMasks";
+import { formatPhone, formatCEP, validateCpfCnpj } from "@/hooks/useInputMasks";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
-const clientes = [
-  { id: 1, nome: "João Silva", telefone: "(11) 99999-1111", endereco: "Rua A, 123", bairro: "Centro", tipo: "Residencial", status: "Ativo", ultimaCompra: "2024-01-15" },
-  { id: 2, nome: "Maria Santos", telefone: "(11) 99999-2222", endereco: "Av. B, 456", bairro: "Jardim", tipo: "Comercial", status: "Ativo", ultimaCompra: "2024-01-14" },
-  { id: 3, nome: "Pedro Oliveira", telefone: "(11) 99999-3333", endereco: "Rua C, 789", bairro: "Vila Nova", tipo: "Residencial", status: "Inativo", ultimaCompra: "2023-12-20" },
-  { id: 4, nome: "Ana Costa", telefone: "(11) 99999-4444", endereco: "Rua D, 321", bairro: "Centro", tipo: "Residencial", status: "Ativo", ultimaCompra: "2024-01-16" },
-  { id: 5, nome: "Carlos Ferreira", telefone: "(11) 99999-5555", endereco: "Av. E, 654", bairro: "Industrial", tipo: "Comercial", status: "Ativo", ultimaCompra: "2024-01-10" },
-];
+interface Cliente {
+  id: string;
+  nome: string;
+  cpf: string | null;
+  telefone: string | null;
+  email: string | null;
+  endereco: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  cep: string | null;
+  tipo: string | null;
+  ativo: boolean | null;
+  created_at: string;
+}
+
+interface FormData {
+  nome: string;
+  cpf: string;
+  telefone: string;
+  email: string;
+  endereco: string;
+  bairro: string;
+  cidade: string;
+  cep: string;
+  tipo: string;
+}
+
+const initialFormData: FormData = {
+  nome: "",
+  cpf: "",
+  telefone: "",
+  email: "",
+  endereco: "",
+  bairro: "",
+  cidade: "",
+  cep: "",
+  tipo: "residencial",
+};
 
 export default function CadastroClientesCad() {
-  const [cpfCnpj, setCpfCnpj] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [telefone2, setTelefone2] = useState("");
-  const [cep, setCep] = useState("");
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Stats
+  const [stats, setStats] = useState({
+    total: 0,
+    ativos: 0,
+    residenciais: 0,
+    comerciais: 0,
+  });
+
+  useEffect(() => {
+    fetchClientes();
+  }, []);
+
+  const fetchClientes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setClientes(data || []);
+      
+      // Calculate stats
+      const total = data?.length || 0;
+      const ativos = data?.filter(c => c.ativo).length || 0;
+      const residenciais = data?.filter(c => c.tipo === "residencial").length || 0;
+      const comerciais = data?.filter(c => c.tipo === "comercial").length || 0;
+      
+      setStats({ total, ativos, residenciais, comerciais });
+    } catch (error) {
+      console.error("Erro ao buscar clientes:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os clientes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const buscarCEP = async () => {
+    const cep = formData.cep.replace(/\D/g, "");
+    if (cep.length !== 8) return;
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setFormData((prev) => ({
+          ...prev,
+          endereco: data.logradouro || prev.endereco,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade || prev.cidade,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingCliente(null);
+    setFormData(initialFormData);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (cliente: Cliente) => {
+    setEditingCliente(cliente);
+    setFormData({
+      nome: cliente.nome,
+      cpf: cliente.cpf || "",
+      telefone: cliente.telefone || "",
+      email: cliente.email || "",
+      endereco: cliente.endereco || "",
+      bairro: cliente.bairro || "",
+      cidade: cliente.cidade || "",
+      cep: cliente.cep || "",
+      tipo: cliente.tipo || "residencial",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.nome.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O nome do cliente é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.telefone.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O telefone é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar CPF/CNPJ se preenchido
+    if (formData.cpf) {
+      const cpfValidation = validateCpfCnpj(formData.cpf);
+      const numbers = formData.cpf.replace(/\D/g, "");
+      if ((numbers.length === 11 || numbers.length === 14) && !cpfValidation.valid) {
+        toast({
+          title: "CPF/CNPJ inválido",
+          description: "Por favor, verifique o CPF/CNPJ informado.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setIsSaving(true);
+
+    try {
+      const clienteData = {
+        nome: formData.nome.trim(),
+        cpf: formData.cpf || null,
+        telefone: formData.telefone || null,
+        email: formData.email || null,
+        endereco: formData.endereco || null,
+        bairro: formData.bairro || null,
+        cidade: formData.cidade || null,
+        cep: formData.cep || null,
+        tipo: formData.tipo,
+      };
+
+      if (editingCliente) {
+        // Update
+        const { error } = await supabase
+          .from("clientes")
+          .update(clienteData)
+          .eq("id", editingCliente.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Cliente atualizado!",
+          description: `${formData.nome} foi atualizado com sucesso.`,
+        });
+      } else {
+        // Create
+        const { error } = await supabase
+          .from("clientes")
+          .insert({ ...clienteData, ativo: true });
+
+        if (error) throw error;
+
+        toast({
+          title: "Cliente cadastrado!",
+          description: `${formData.nome} foi adicionado com sucesso.`,
+        });
+      }
+
+      setIsModalOpen(false);
+      fetchClientes();
+    } catch (error: any) {
+      console.error("Erro ao salvar cliente:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: error.message || "Não foi possível salvar o cliente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async (cliente: Cliente) => {
+    try {
+      const { error } = await supabase
+        .from("clientes")
+        .update({ ativo: !cliente.ativo })
+        .eq("id", cliente.id);
+
+      if (error) throw error;
+
+      toast({
+        title: cliente.ativo ? "Cliente inativado" : "Cliente ativado",
+        description: `${cliente.nome} foi ${cliente.ativo ? "inativado" : "ativado"}.`,
+      });
+
+      fetchClientes();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível alterar o status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Filter clients
+  const filteredClientes = clientes.filter((cliente) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      cliente.nome.toLowerCase().includes(term) ||
+      cliente.telefone?.toLowerCase().includes(term) ||
+      cliente.endereco?.toLowerCase().includes(term) ||
+      cliente.bairro?.toLowerCase().includes(term)
+    );
+  });
 
   return (
     <MainLayout>
@@ -47,116 +306,13 @@ export default function CadastroClientesCad() {
             <h1 className="text-3xl font-bold text-foreground">Cadastro de Clientes</h1>
             <p className="text-muted-foreground">Gerencie todos os clientes da revenda</p>
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Novo Cliente
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
-              </DialogHeader>
-              <Tabs defaultValue="dados" className="mt-4">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="dados">Dados Pessoais</TabsTrigger>
-                  <TabsTrigger value="endereco">Endereço</TabsTrigger>
-                  <TabsTrigger value="observacoes">Observações</TabsTrigger>
-                </TabsList>
-                <TabsContent value="dados" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome Completo</Label>
-                      <Input placeholder="Nome do cliente" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>CPF/CNPJ</Label>
-                      <CpfCnpjInput value={cpfCnpj} onChange={setCpfCnpj} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Telefone Principal</Label>
-                      <Input
-                        placeholder="(00) 00000-0000"
-                        value={telefone}
-                        onChange={(e) => setTelefone(formatPhone(e.target.value))}
-                        maxLength={16}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Telefone Secundário</Label>
-                      <Input
-                        placeholder="(00) 00000-0000"
-                        value={telefone2}
-                        onChange={(e) => setTelefone2(formatPhone(e.target.value))}
-                        maxLength={16}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>E-mail</Label>
-                      <Input type="email" placeholder="email@exemplo.com" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipo de Cliente</Label>
-                      <Input placeholder="Residencial / Comercial" />
-                    </div>
-                  </div>
-                </TabsContent>
-                <TabsContent value="endereco" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>CEP</Label>
-                      <Input
-                        placeholder="00000-000"
-                        value={cep}
-                        onChange={(e) => setCep(formatCEP(e.target.value))}
-                        maxLength={9}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Rua</Label>
-                      <Input placeholder="Nome da rua" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Número</Label>
-                      <Input placeholder="123" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Complemento</Label>
-                      <Input placeholder="Apto, Bloco, etc" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Bairro</Label>
-                      <Input placeholder="Nome do bairro" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Cidade</Label>
-                      <Input placeholder="Nome da cidade" />
-                    </div>
-                  </div>
-                </TabsContent>
-                <TabsContent value="observacoes" className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label>Ponto de Referência</Label>
-                    <Input placeholder="Próximo a..." />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Observações Gerais</Label>
-                    <textarea 
-                      className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="Observações sobre o cliente..."
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline">Cancelar</Button>
-                <Button>Salvar Cliente</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button className="gap-2" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" />
+            Novo Cliente
+          </Button>
         </div>
 
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -164,42 +320,42 @@ export default function CadastroClientesCad() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1.234</div>
-              <p className="text-xs text-muted-foreground">+45 este mês</p>
+              <div className="text-2xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
-              <Users className="h-4 w-4 text-green-600" />
+              <Users className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">1.180</div>
-              <p className="text-xs text-muted-foreground">96% do total</p>
+              <div className="text-2xl font-bold text-success">{stats.ativos}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.total > 0 ? Math.round((stats.ativos / stats.total) * 100) : 0}% do total
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Residenciais</CardTitle>
-              <Users className="h-4 w-4 text-blue-600" />
+              <Users className="h-4 w-4 text-info" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">890</div>
-              <p className="text-xs text-muted-foreground">72% do total</p>
+              <div className="text-2xl font-bold text-info">{stats.residenciais}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Comerciais</CardTitle>
-              <Users className="h-4 w-4 text-orange-600" />
+              <Users className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">344</div>
-              <p className="text-xs text-muted-foreground">28% do total</p>
+              <div className="text-2xl font-bold text-warning">{stats.comerciais}</div>
             </CardContent>
           </Card>
         </div>
 
+        {/* Client List */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -207,74 +363,197 @@ export default function CadastroClientesCad() {
               <div className="flex gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar cliente..." className="pl-10 w-[300px]" />
+                  <Input
+                    placeholder="Buscar cliente..."
+                    className="pl-10 w-[300px]"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-                <Button variant="outline">Filtros</Button>
-                <Button variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Endereço</TableHead>
-                  <TableHead>Bairro</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Última Compra</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clientes.map((cliente) => (
-                  <TableRow key={cliente.id}>
-                    <TableCell className="font-medium">{cliente.nome}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {cliente.telefone}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {cliente.endereco}
-                      </div>
-                    </TableCell>
-                    <TableCell>{cliente.bairro}</TableCell>
-                    <TableCell>
-                      <Badge variant={cliente.tipo === "Comercial" ? "default" : "secondary"}>
-                        {cliente.tipo}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={cliente.status === "Ativo" ? "default" : "destructive"}>
-                        {cliente.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{new Date(cliente.ultimaCompra).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredClientes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado."}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Endereço</TableHead>
+                    <TableHead>Bairro</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredClientes.map((cliente) => (
+                    <TableRow key={cliente.id}>
+                      <TableCell className="font-medium">{cliente.nome}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {cliente.telefone || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {cliente.endereco || "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>{cliente.bairro || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={cliente.tipo === "comercial" ? "default" : "secondary"}>
+                          {cliente.tipo === "comercial" ? "Comercial" : "Residencial"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={cliente.ativo ? "default" : "destructive"}
+                          className="cursor-pointer"
+                          onClick={() => handleToggleStatus(cliente)}
+                        >
+                          {cliente.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditModal(cliente)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
+
+        {/* Create/Edit Modal */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingCliente ? "Editar Cliente" : "Cadastrar Novo Cliente"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nome Completo *</Label>
+                  <Input
+                    placeholder="Nome do cliente"
+                    value={formData.nome}
+                    onChange={(e) => handleChange("nome", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>CPF/CNPJ</Label>
+                  <CpfCnpjInput
+                    value={formData.cpf}
+                    onChange={(v) => handleChange("cpf", v)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone *</Label>
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={formData.telefone}
+                    onChange={(e) => handleChange("telefone", formatPhone(e.target.value))}
+                    maxLength={16}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail</Label>
+                  <Input
+                    type="email"
+                    placeholder="email@exemplo.com"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de Cliente</Label>
+                  <Select
+                    value={formData.tipo}
+                    onValueChange={(v) => handleChange("tipo", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="residencial">Residencial</SelectItem>
+                      <SelectItem value="comercial">Comercial</SelectItem>
+                      <SelectItem value="industrial">Industrial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>CEP</Label>
+                  <Input
+                    placeholder="00000-000"
+                    value={formData.cep}
+                    onChange={(e) => handleChange("cep", formatCEP(e.target.value))}
+                    onBlur={buscarCEP}
+                    maxLength={9}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Endereço</Label>
+                  <Input
+                    placeholder="Rua, número"
+                    value={formData.endereco}
+                    onChange={(e) => handleChange("endereco", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bairro</Label>
+                  <Input
+                    placeholder="Nome do bairro"
+                    value={formData.bairro}
+                    onChange={(e) => handleChange("bairro", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Cidade</Label>
+                  <Input
+                    placeholder="Nome da cidade"
+                    value={formData.cidade}
+                    onChange={(e) => handleChange("cidade", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSubmit} disabled={isSaving}>
+                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {editingCliente ? "Salvar Alterações" : "Cadastrar Cliente"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
