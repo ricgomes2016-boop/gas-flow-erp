@@ -14,6 +14,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Table,
@@ -37,6 +43,9 @@ import {
   BarChart3,
   Filter,
   RefreshCw,
+  FileSpreadsheet,
+  File,
+  ChevronDown,
 } from "lucide-react";
 import {
   BarChart,
@@ -53,6 +62,10 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useToast } from "@/hooks/use-toast";
 
 // Dados mock para o relatório
 const parceiros = [
@@ -162,6 +175,7 @@ const valesDetalhados = [
 ];
 
 export default function ValeGasRelatorio() {
+  const { toast } = useToast();
   const [dataInicio, setDataInicio] = useState<Date>(subDays(new Date(), 30));
   const [dataFim, setDataFim] = useState<Date>(new Date());
   const [parceiroSelecionado, setParceiroSelecionado] = useState("todos");
@@ -210,6 +224,202 @@ export default function ValeGasRelatorio() {
   const totalValor = dadosMensais.reduce((acc, d) => acc + d.valor, 0);
   const taxaConversao = ((totalUtilizados / totalEmitidos) * 100).toFixed(1);
 
+  // Exportar para Excel
+  const exportarExcel = () => {
+    try {
+      // Preparar dados para Excel
+      const dadosVales = valesDetalhados.map((vale) => ({
+        Número: vale.numero,
+        Parceiro: vale.parceiro,
+        "Data Emissão": vale.dataEmissao
+          ? format(new Date(vale.dataEmissao), "dd/MM/yyyy", { locale: ptBR })
+          : "-",
+        "Data Venda": vale.dataVenda
+          ? format(new Date(vale.dataVenda), "dd/MM/yyyy", { locale: ptBR })
+          : "-",
+        "Data Utilização": vale.dataUtilizacao
+          ? format(new Date(vale.dataUtilizacao), "dd/MM/yyyy", { locale: ptBR })
+          : "-",
+        Consumidor: vale.consumidor || "-",
+        Valor: `R$ ${vale.valor.toFixed(2)}`,
+        Status: vale.status,
+      }));
+
+      const dadosResumo = [
+        { Indicador: "Total Emitidos", Valor: totalEmitidos },
+        { Indicador: "Total Vendidos", Valor: totalVendidos },
+        { Indicador: "Total Utilizados", Valor: totalUtilizados },
+        { Indicador: "Valor Total", Valor: `R$ ${totalValor.toLocaleString("pt-BR")}` },
+        { Indicador: "Taxa de Conversão", Valor: `${taxaConversao}%` },
+      ];
+
+      const dadosParceiros = dadosPorParceiro.map((p) => ({
+        Parceiro: p.nome,
+        Quantidade: p.quantidade,
+        Valor: `R$ ${p.valor.toLocaleString("pt-BR")}`,
+        Percentual: `${p.percentual}%`,
+      }));
+
+      // Criar workbook com múltiplas abas
+      const wb = XLSX.utils.book_new();
+
+      const wsResumo = XLSX.utils.json_to_sheet(dadosResumo);
+      XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+      const wsVales = XLSX.utils.json_to_sheet(dadosVales);
+      XLSX.utils.book_append_sheet(wb, wsVales, "Detalhamento");
+
+      const wsParceiros = XLSX.utils.json_to_sheet(dadosParceiros);
+      XLSX.utils.book_append_sheet(wb, wsParceiros, "Por Parceiro");
+
+      const wsMensal = XLSX.utils.json_to_sheet(
+        dadosMensais.map((d) => ({
+          Mês: d.mes,
+          Emitidos: d.emitidos,
+          Vendidos: d.vendidos,
+          Utilizados: d.utilizados,
+          Valor: `R$ ${d.valor.toLocaleString("pt-BR")}`,
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, wsMensal, "Evolução Mensal");
+
+      // Gerar arquivo
+      const nomeArquivo = `relatorio-vale-gas-${format(dataInicio, "dd-MM-yyyy")}-a-${format(dataFim, "dd-MM-yyyy")}.xlsx`;
+      XLSX.writeFile(wb, nomeArquivo);
+
+      toast({
+        title: "Excel exportado!",
+        description: `Arquivo ${nomeArquivo} gerado com sucesso.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao exportar",
+        description: "Não foi possível gerar o arquivo Excel.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Exportar para PDF
+  const exportarPDF = () => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Título
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Relatório de Vale Gás", pageWidth / 2, 20, { align: "center" });
+
+      // Período
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Período: ${format(dataInicio, "dd/MM/yyyy", { locale: ptBR })} a ${format(dataFim, "dd/MM/yyyy", { locale: ptBR })}`,
+        pageWidth / 2,
+        28,
+        { align: "center" }
+      );
+
+      // Resumo
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Resumo Geral", 14, 40);
+
+      autoTable(doc, {
+        startY: 45,
+        head: [["Indicador", "Valor"]],
+        body: [
+          ["Total Emitidos", String(totalEmitidos)],
+          ["Total Vendidos", String(totalVendidos)],
+          ["Total Utilizados", String(totalUtilizados)],
+          ["Valor Total", `R$ ${totalValor.toLocaleString("pt-BR")}`],
+          ["Taxa de Conversão", `${taxaConversao}%`],
+        ],
+        theme: "striped",
+        headStyles: { fillColor: [79, 70, 229] },
+      });
+
+      // Desempenho por Parceiro
+      const finalY1 = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Desempenho por Parceiro", 14, finalY1 + 15);
+
+      autoTable(doc, {
+        startY: finalY1 + 20,
+        head: [["Parceiro", "Quantidade", "Valor", "%"]],
+        body: dadosPorParceiro.map((p) => [
+          p.nome,
+          String(p.quantidade),
+          `R$ ${p.valor.toLocaleString("pt-BR")}`,
+          `${p.percentual}%`,
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [79, 70, 229] },
+      });
+
+      // Nova página para detalhamento
+      doc.addPage();
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Detalhamento de Vales", 14, 20);
+
+      autoTable(doc, {
+        startY: 25,
+        head: [["Número", "Parceiro", "Emissão", "Venda", "Utilização", "Status", "Valor"]],
+        body: valesDetalhados.map((vale) => [
+          vale.numero,
+          vale.parceiro.substring(0, 20),
+          vale.dataEmissao
+            ? format(new Date(vale.dataEmissao), "dd/MM/yy", { locale: ptBR })
+            : "-",
+          vale.dataVenda
+            ? format(new Date(vale.dataVenda), "dd/MM/yy", { locale: ptBR })
+            : "-",
+          vale.dataUtilizacao
+            ? format(new Date(vale.dataUtilizacao), "dd/MM/yy", { locale: ptBR })
+            : "-",
+          vale.status,
+          `R$ ${vale.valor.toFixed(2)}`,
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [79, 70, 229] },
+        styles: { fontSize: 8 },
+      });
+
+      // Rodapé
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} - Página ${i} de ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: "center" }
+        );
+      }
+
+      // Salvar arquivo
+      const nomeArquivo = `relatorio-vale-gas-${format(dataInicio, "dd-MM-yyyy")}-a-${format(dataFim, "dd-MM-yyyy")}.pdf`;
+      doc.save(nomeArquivo);
+
+      toast({
+        title: "PDF exportado!",
+        description: `Arquivo ${nomeArquivo} gerado com sucesso.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao exportar",
+        description: "Não foi possível gerar o arquivo PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -223,10 +433,25 @@ export default function ValeGasRelatorio() {
               Análise gerencial de emissão, vendas e utilização de vales
             </p>
           </div>
-          <Button className="gradient-primary text-white">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar Relatório
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="gradient-primary text-white">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Relatório
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportarExcel}>
+                <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                Exportar para Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarPDF}>
+                <File className="h-4 w-4 mr-2 text-red-600" />
+                Exportar para PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Filtros */}
