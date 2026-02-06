@@ -6,8 +6,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DeliveryNotificationProvider } from "@/contexts/DeliveryNotificationContext";
 import { ClienteProvider } from "@/contexts/ClienteContext";
 import { ValeGasProvider } from "@/contexts/ValeGasContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import Auth from "./pages/Auth";
 
 // Vendas
 import NovaVenda from "./pages/vendas/NovaVenda";
@@ -114,121 +117,387 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <DeliveryNotificationProvider>
-        <ClienteProvider>
-          <ValeGasProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            
-            {/* Vendas */}
-            <Route path="/vendas/nova" element={<NovaVenda />} />
-            <Route path="/vendas/pedidos" element={<Pedidos />} />
-            
-            {/* Caixa */}
-            <Route path="/caixa/acerto" element={<AcertoEntregador />} />
-            <Route path="/caixa/dia" element={<CaixaDia />} />
-            <Route path="/caixa/despesas" element={<Despesas />} />
-            
-            {/* Operacional */}
-            <Route path="/operacional/ia" element={<ConselhosIA />} />
-            <Route path="/operacional/executivo" element={<DashboardExecutivo />} />
-            <Route path="/operacional/avancado" element={<DashboardAvancado />} />
-            <Route path="/operacional/trabalhista" element={<DashboardTrabalhista />} />
-            <Route path="/operacional/logistico" element={<DashboardLogistico />} />
-            <Route path="/operacional/dre" element={<DRE />} />
-            <Route path="/operacional/metas" element={<MetasDesafios />} />
-            <Route path="/operacional/mapa" element={<MapaEntregadores />} />
-            <Route path="/operacional/anual" element={<PlanejamentoAnual />} />
-            <Route path="/operacional/mensal" element={<PlanejamentoMensal />} />
-            
-            {/* Clientes */}
-            <Route path="/clientes/cadastro" element={<CadastroClientes />} />
-            <Route path="/clientes/campanhas" element={<Campanhas />} />
-            <Route path="/clientes/fidelidade" element={<Fidelidade />} />
-            <Route path="/clientes/crm" element={<CRM />} />
-            <Route path="/clientes/ranking" element={<RankingClientes />} />
-            
-            {/* Estoque */}
-            <Route path="/estoque/compras" element={<Compras />} />
-            <Route path="/estoque/comodatos" element={<Comodatos />} />
-            <Route path="/estoque/rota" element={<EstoqueRota />} />
-            <Route path="/estoque/mcmm" element={<MCMM />} />
-            
-            {/* Cadastros */}
-            <Route path="/cadastros/clientes" element={<CadastroClientesCad />} />
-            <Route path="/cadastros/fornecedores" element={<Fornecedores />} />
-            <Route path="/cadastros/veiculos" element={<Veiculos />} />
-            <Route path="/cadastros/funcionarios" element={<Funcionarios />} />
-            <Route path="/cadastros/produtos" element={<Produtos />} />
-            
-            {/* Financeiro */}
-            <Route path="/financeiro/fluxo" element={<FluxoCaixa />} />
-            <Route path="/financeiro/previsao" element={<PrevisaoCaixa />} />
-            <Route path="/financeiro/pagar" element={<ContasPagar />} />
-            <Route path="/financeiro/receber" element={<ContasReceber />} />
-            <Route path="/financeiro/aprovar" element={<AprovarDespesas />} />
-            <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
-            <Route path="/financeiro/contador" element={<Contador />} />
-            <Route path="/financeiro/vale-gas/parceiros" element={<ValeGasParceiros />} />
-            <Route path="/financeiro/vale-gas/emissao" element={<ValeGasEmissao />} />
-            <Route path="/financeiro/vale-gas/controle" element={<ValeGasControle />} />
-            <Route path="/financeiro/vale-gas/acerto" element={<ValeGasAcerto />} />
-            <Route path="/financeiro/vale-gas/relatorio" element={<ValeGasRelatorio />} />
-            
-            {/* Frota */}
-            <Route path="/frota/combustivel" element={<Combustivel />} />
-            <Route path="/frota/manutencao" element={<Manutencao />} />
-            <Route path="/frota/relatorios" element={<RelatoriosFrota />} />
-            <Route path="/frota/gamificacao" element={<Gamificacao />} />
-            
-            {/* RH */}
-            <Route path="/rh/folha" element={<FolhaPagamento />} />
-            <Route path="/rh/vale" element={<ValeFuncionario />} />
-            <Route path="/rh/comissao" element={<ComissaoEntregador />} />
-            <Route path="/rh/premiacao" element={<Premiacao />} />
-            <Route path="/rh/bonus" element={<Bonus />} />
-            <Route path="/rh/jornada" element={<AlertaJornada />} />
-            <Route path="/rh/banco-horas" element={<BancoHoras />} />
-            <Route path="/rh/horarios" element={<Horarios />} />
-            <Route path="/rh/prevencao-ia" element={<PrevencaoTrabalhistaIA />} />
-            <Route path="/rh/produtividade-ia" element={<ProdutividadeIA />} />
-            
-            {/* Configurações */}
-            <Route path="/config/auditoria" element={<Auditoria />} />
-            <Route path="/config/permissoes" element={<Permissoes />} />
-            
-            {/* App Entregador */}
-            <Route path="/entregador" element={<EntregadorDashboard />} />
-            <Route path="/entregador/entregas" element={<EntregadorEntregas />} />
-            <Route path="/entregador/entregas/:id/finalizar" element={<FinalizarEntrega />} />
-            <Route path="/entregador/rotas" element={<EntregadorRotas />} />
-            <Route path="/entregador/nova-venda" element={<EntregadorNovaVenda />} />
-            <Route path="/entregador/despesas" element={<EntregadorDespesas />} />
-            <Route path="/entregador/perfil" element={<EntregadorPerfil />} />
-            
-            {/* App Cliente */}
-            <Route path="/cliente" element={<ClienteHome />} />
-            <Route path="/cliente/cadastro" element={<ClienteCadastro />} />
-            <Route path="/cliente/carrinho" element={<ClienteCarrinho />} />
-            <Route path="/cliente/checkout" element={<ClienteCheckout />} />
-            <Route path="/cliente/indicacao" element={<ClienteIndicacao />} />
-            <Route path="/cliente/carteira" element={<ClienteCarteira />} />
-            <Route path="/cliente/vale-gas" element={<ClienteValeGas />} />
-            <Route path="/cliente/historico" element={<ClienteHistorico />} />
-            <Route path="/cliente/dicas" element={<ClienteDicas />} />
-            <Route path="/cliente/consumo" element={<ClienteConsumo />} />
-            <Route path="/cliente/perfil" element={<ClientePerfil />} />
-            <Route path="/cliente/rastreamento/:orderId" element={<ClienteRastreamento />} />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-          </ValeGasProvider>
-        </ClienteProvider>
-      </DeliveryNotificationProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <DeliveryNotificationProvider>
+            <ClienteProvider>
+              <ValeGasProvider>
+                <Toaster />
+                <Sonner />
+                <Routes>
+                  {/* Auth - Pública */}
+                  <Route path="/auth" element={<Auth />} />
+                  
+                  {/* Dashboard - Protegida */}
+                  <Route path="/" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Vendas - Operacional+ */}
+                  <Route path="/vendas/nova" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
+                      <NovaVenda />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/vendas/pedidos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
+                      <Pedidos />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Caixa - Financeiro+ */}
+                  <Route path="/caixa/acerto" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <AcertoEntregador />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/caixa/dia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <CaixaDia />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/caixa/despesas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <Despesas />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Operacional - Gestor+ */}
+                  <Route path="/operacional/ia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <ConselhosIA />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/executivo" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <DashboardExecutivo />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/avancado" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <DashboardAvancado />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/trabalhista" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <DashboardTrabalhista />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/logistico" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <DashboardLogistico />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/dre" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <DRE />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/metas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <MetasDesafios />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/mapa" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <MapaEntregadores />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/anual" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PlanejamentoAnual />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/mensal" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PlanejamentoMensal />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Clientes - Operacional+ */}
+                  <Route path="/clientes/cadastro" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <CadastroClientes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/clientes/campanhas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Campanhas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/clientes/fidelidade" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Fidelidade />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/clientes/crm" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <CRM />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/clientes/ranking" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <RankingClientes />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Estoque - Operacional+ */}
+                  <Route path="/estoque/compras" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Compras />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/estoque/comodatos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Comodatos />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/estoque/rota" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
+                      <EstoqueRota />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/estoque/mcmm" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <MCMM />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Cadastros - Gestor+ */}
+                  <Route path="/cadastros/clientes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <CadastroClientesCad />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/cadastros/fornecedores" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Fornecedores />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/cadastros/veiculos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Veiculos />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/cadastros/funcionarios" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Funcionarios />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/cadastros/produtos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Produtos />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Financeiro */}
+                  <Route path="/financeiro/fluxo" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <FluxoCaixa />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/previsao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <PrevisaoCaixa />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/pagar" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ContasPagar />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/receber" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ContasReceber />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/aprovar" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AprovarDespesas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/conciliacao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <Conciliacao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/contador" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <Contador />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/vale-gas/parceiros" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ValeGasParceiros />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/vale-gas/emissao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ValeGasEmissao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/vale-gas/controle" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ValeGasControle />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/vale-gas/acerto" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ValeGasAcerto />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/vale-gas/relatorio" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ValeGasRelatorio />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Frota */}
+                  <Route path="/frota/combustivel" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Combustivel />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/frota/manutencao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Manutencao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/frota/relatorios" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <RelatoriosFrota />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/frota/gamificacao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Gamificacao />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* RH */}
+                  <Route path="/rh/folha" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <FolhaPagamento />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/vale" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ValeFuncionario />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/comissao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ComissaoEntregador />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/premiacao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Premiacao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/bonus" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Bonus />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/jornada" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AlertaJornada />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/banco-horas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <BancoHoras />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/horarios" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Horarios />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/prevencao-ia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PrevencaoTrabalhistaIA />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/produtividade-ia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <ProdutividadeIA />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Configurações - Admin */}
+                  <Route path="/config/auditoria" element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <Auditoria />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/config/permissoes" element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <Permissoes />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* App Entregador */}
+                  <Route path="/entregador" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/entregas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorEntregas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/entregas/:id/finalizar" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <FinalizarEntrega />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/rotas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorRotas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/nova-venda" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorNovaVenda />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/despesas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorDespesas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/perfil" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorPerfil />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* App Cliente - Público (sem autenticação) */}
+                  <Route path="/cliente" element={<ClienteHome />} />
+                  <Route path="/cliente/cadastro" element={<ClienteCadastro />} />
+                  <Route path="/cliente/carrinho" element={<ClienteCarrinho />} />
+                  <Route path="/cliente/checkout" element={<ClienteCheckout />} />
+                  <Route path="/cliente/indicacao" element={<ClienteIndicacao />} />
+                  <Route path="/cliente/carteira" element={<ClienteCarteira />} />
+                  <Route path="/cliente/vale-gas" element={<ClienteValeGas />} />
+                  <Route path="/cliente/historico" element={<ClienteHistorico />} />
+                  <Route path="/cliente/dicas" element={<ClienteDicas />} />
+                  <Route path="/cliente/consumo" element={<ClienteConsumo />} />
+                  <Route path="/cliente/perfil" element={<ClientePerfil />} />
+                  <Route path="/cliente/rastreamento/:orderId" element={<ClienteRastreamento />} />
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ValeGasProvider>
+            </ClienteProvider>
+          </DeliveryNotificationProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
