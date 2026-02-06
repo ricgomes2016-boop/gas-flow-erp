@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Eye, FileText, DollarSign, ShoppingCart, TrendingUp } from "lucide-react";
+import { Plus, Search, Eye, FileText, DollarSign, ShoppingCart, TrendingUp, Store } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface Venda {
@@ -122,6 +123,7 @@ const produtos = [
 ];
 
 export default function Vendas() {
+  const navigate = useNavigate();
   const [vendas, setVendas] = useState<Venda[]>(vendasIniciais);
   const [busca, setBusca] = useState("");
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
@@ -215,6 +217,19 @@ export default function Vendas() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Botão de acesso rápido ao PDV */}
+        <div className="mb-6">
+          <Button 
+            size="lg" 
+            className="w-full sm:w-auto gap-2 h-14 text-lg"
+            onClick={() => navigate("/vendas/pdv")}
+          >
+            <Store className="h-5 w-5" />
+            Abrir PDV - Portaria
+            <span className="text-xs opacity-70 ml-2">(Venda Balcão)</span>
+          </Button>
         </div>
 
         {/* Tabela de vendas */}

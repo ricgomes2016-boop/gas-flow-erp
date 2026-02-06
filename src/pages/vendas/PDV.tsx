@@ -49,10 +49,32 @@ export default function PDV() {
   const total = itens.reduce((acc, item) => acc + item.total, 0);
   const totalItens = itens.reduce((acc, item) => acc + item.quantidade, 0);
 
-  // Focus search input on mount
+  // Focus search input on mount and handle keyboard shortcuts
   useEffect(() => {
     searchInputRef.current?.focus();
-  }, []);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F12 - Finalizar venda
+      if (e.key === "F12") {
+        e.preventDefault();
+        if (itens.length > 0) {
+          setPaymentOpen(true);
+        }
+      }
+      // Escape - Cancelar/Fechar
+      if (e.key === "Escape") {
+        if (paymentOpen) {
+          setPaymentOpen(false);
+        } else if (showResults) {
+          setShowResults(false);
+          setSearchResults([]);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [itens.length, paymentOpen, showResults]);
 
   // Search products
   const searchProdutos = async (term: string) => {
@@ -120,16 +142,27 @@ export default function PDV() {
   // Handle barcode scan
   const handleBarcodeScan = useCallback(async (barcode: string) => {
     try {
-      // Try to find product by barcode (assuming barcode could be in nome or ID)
-      const { data, error } = await supabase
+      // Try to find product by barcode field first, then fallback to nome/ID
+      let { data, error } = await supabase
         .from("produtos")
         .select("id, nome, preco, estoque, categoria, tipo_botijao, botijao_par_id")
         .eq("ativo", true)
-        .or(`nome.ilike.%${barcode}%,id.eq.${barcode}`)
-        .limit(1)
-        .single();
+        .eq("codigo_barras", barcode)
+        .limit(1);
 
-      if (error || !data) {
+      // If not found by barcode, try nome/ID
+      if (!data || data.length === 0) {
+        const result = await supabase
+          .from("produtos")
+          .select("id, nome, preco, estoque, categoria, tipo_botijao, botijao_par_id")
+          .eq("ativo", true)
+          .or(`nome.ilike.%${barcode}%`)
+          .limit(1);
+        data = result.data;
+        error = result.error;
+      }
+
+      if (error || !data || data.length === 0) {
         toast({
           title: "Produto não encontrado",
           description: `Código: ${barcode}`,
@@ -138,10 +171,10 @@ export default function PDV() {
         return;
       }
 
-      addProduct(data);
+      addProduct(data[0]);
       toast({
         title: "Produto adicionado",
-        description: data.nome,
+        description: data[0].nome,
       });
     } catch (error) {
       console.error("Erro ao buscar produto por código:", error);
