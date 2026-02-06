@@ -3,6 +3,14 @@ import autoTable from "jspdf-autotable";
 import type { ItemVenda } from "@/components/vendas/ProductSearch";
 import type { Pagamento } from "@/components/vendas/PaymentSection";
 
+export interface EmpresaConfig {
+  nome_empresa: string;
+  cnpj?: string | null;
+  telefone?: string | null;
+  endereco?: string | null;
+  mensagem_cupom?: string | null;
+}
+
 interface ReceiptData {
   pedidoId: string;
   data: Date;
@@ -16,6 +24,7 @@ interface ReceiptData {
   entregadorNome: string | null;
   canalVenda: string;
   observacoes?: string;
+  empresa?: EmpresaConfig;
 }
 
 const formatCurrency = (value: number): string => {
@@ -67,16 +76,41 @@ export function generateReceiptPdf(data: ReceiptData): void {
   const contentWidth = pageWidth - marginLeft - marginRight;
   let yPos = 8;
 
+  // Dados da empresa (usa padrão se não fornecido)
+  const empresa = data.empresa || {
+    nome_empresa: "Distribuidora Gás",
+    cnpj: null,
+    telefone: null,
+    endereco: null,
+    mensagem_cupom: "Obrigado pela preferência!",
+  };
+
   // Header - Company Info
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("DISTRIBUIDORA GÁS", pageWidth / 2, yPos, { align: "center" });
-  yPos += 5;
+  doc.text(empresa.nome_empresa.toUpperCase(), pageWidth / 2, yPos, { align: "center" });
+  yPos += 4;
 
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.text("Matriz", pageWidth / 2, yPos, { align: "center" });
-  yPos += 6;
+  
+  if (empresa.cnpj) {
+    doc.text(`CNPJ: ${empresa.cnpj}`, pageWidth / 2, yPos, { align: "center" });
+    yPos += 3;
+  }
+  
+  if (empresa.telefone) {
+    doc.text(`Tel: ${empresa.telefone}`, pageWidth / 2, yPos, { align: "center" });
+    yPos += 3;
+  }
+  
+  if (empresa.endereco) {
+    const enderecoLines = doc.splitTextToSize(empresa.endereco, contentWidth);
+    doc.text(enderecoLines, pageWidth / 2, yPos, { align: "center" });
+    yPos += enderecoLines.length * 3;
+  }
+  
+  yPos += 2;
 
   // Divider
   doc.setLineWidth(0.1);
@@ -229,7 +263,8 @@ export function generateReceiptPdf(data: ReceiptData): void {
   yPos += 4;
 
   doc.setFontSize(7);
-  doc.text("Obrigado pela preferência!", pageWidth / 2, yPos, { align: "center" });
+  const mensagemRodape = empresa.mensagem_cupom || "Obrigado pela preferência!";
+  doc.text(mensagemRodape, pageWidth / 2, yPos, { align: "center" });
   yPos += 3;
   doc.text("Volte sempre!", pageWidth / 2, yPos, { align: "center" });
 
