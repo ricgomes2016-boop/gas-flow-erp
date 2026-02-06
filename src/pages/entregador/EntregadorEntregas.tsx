@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { IniciarRotaModal } from "@/components/entregador/IniciarRotaModal";
 
 interface Entrega {
   id: number;
@@ -30,6 +31,8 @@ interface Entrega {
   horarioPrevisto: string;
   valorTotal: number;
   formaPagamento: string;
+  veiculo?: string;
+  kmInicial?: number;
 }
 
 const entregasIniciais: Entrega[] = [
@@ -88,6 +91,8 @@ const entregasIniciais: Entrega[] = [
     horarioPrevisto: "12:00",
     valorTotal: 360.0,
     formaPagamento: "Vale Gás",
+    veiculo: "ABC-1234",
+    kmInicial: 45230,
   },
   {
     id: 5,
@@ -102,6 +107,8 @@ const entregasIniciais: Entrega[] = [
     horarioPrevisto: "09:00",
     valorTotal: 180.0,
     formaPagamento: "Dinheiro",
+    veiculo: "DEF-5678",
+    kmInicial: 62100,
   },
 ];
 
@@ -115,6 +122,8 @@ const statusConfig = {
 export default function EntregadorEntregas() {
   const [entregas, setEntregas] = useState<Entrega[]>(entregasIniciais);
   const [tabAtiva, setTabAtiva] = useState("pendentes");
+  const [modalIniciarRota, setModalIniciarRota] = useState(false);
+  const [entregaParaIniciar, setEntregaParaIniciar] = useState<Entrega | null>(null);
   const { toast } = useToast();
 
   const aceitarEntrega = (id: number) => {
@@ -127,14 +136,35 @@ export default function EntregadorEntregas() {
     });
   };
 
-  const iniciarRota = (id: number) => {
-    setEntregas((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: "em_rota" as const } : e))
-    );
-    toast({
-      title: "Rota iniciada!",
-      description: "Boa entrega!",
-    });
+  const handleIniciarRota = (id: number) => {
+    const entrega = entregas.find(e => e.id === id);
+    if (entrega) {
+      setEntregaParaIniciar(entrega);
+      setModalIniciarRota(true);
+    }
+  };
+
+  const confirmarInicioRota = (veiculoId: number, veiculoPlaca: string, kmInicial: number) => {
+    if (entregaParaIniciar) {
+      setEntregas((prev) =>
+        prev.map((e) => 
+          e.id === entregaParaIniciar.id 
+            ? { 
+                ...e, 
+                status: "em_rota" as const,
+                veiculo: veiculoPlaca,
+                kmInicial: kmInicial
+              } 
+            : e
+        )
+      );
+      toast({
+        title: "Rota iniciada!",
+        description: `Veículo ${veiculoPlaca} - KM Inicial: ${kmInicial.toLocaleString("pt-BR")}`,
+      });
+      setModalIniciarRota(false);
+      setEntregaParaIniciar(null);
+    }
   };
 
   const abrirMapa = (endereco: string) => {
@@ -201,6 +231,18 @@ export default function EntregadorEntregas() {
               </div>
             </div>
 
+            {/* Info do veículo se em rota */}
+            {entrega.veiculo && (
+              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-xs">
+                <Truck className="h-4 w-4 text-primary" />
+                <span className="font-medium">{entrega.veiculo}</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-muted-foreground">
+                  KM: {entrega.kmInicial?.toLocaleString("pt-BR")}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <div>
                 <p className="text-xs text-muted-foreground">{entrega.formaPagamento}</p>
@@ -242,7 +284,7 @@ export default function EntregadorEntregas() {
                   Ligar
                 </Button>
                 <Button
-                  onClick={() => iniciarRota(entrega.id)}
+                  onClick={() => handleIniciarRota(entrega.id)}
                   className="flex-1 rounded-none gradient-primary text-white h-12"
                 >
                   <Truck className="h-4 w-4 mr-2" />
@@ -341,6 +383,17 @@ export default function EntregadorEntregas() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal de Iniciar Rota */}
+      <IniciarRotaModal
+        isOpen={modalIniciarRota}
+        onClose={() => {
+          setModalIniciarRota(false);
+          setEntregaParaIniciar(null);
+        }}
+        onConfirm={confirmarInicioRota}
+        entregaNome={entregaParaIniciar?.cliente}
+      />
     </EntregadorLayout>
   );
 }
