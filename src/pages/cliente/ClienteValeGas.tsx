@@ -14,14 +14,28 @@ import {
 } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useState } from "react";
+import { ValeGasQRCode } from "@/components/valegas/ValeGasQRCode";
 
 export default function ClienteValeGas() {
   const { valesGas } = useCliente();
+  const [qrCodeOpen, setQrCodeOpen] = useState(false);
+  const [selectedVale, setSelectedVale] = useState<{ numero: number; codigo: string; valor: number; parceiroNome?: string } | null>(null);
 
   const activeVales = valesGas.filter(v => !v.used && !isBefore(v.expiryDate, new Date()));
   const usedOrExpiredVales = valesGas.filter(v => v.used || isBefore(v.expiryDate, new Date()));
 
   const totalAvailable = activeVales.reduce((sum, v) => sum + v.value, 0);
+
+  const handleOpenQRCode = (vale: typeof valesGas[0]) => {
+    setSelectedVale({
+      numero: parseInt(vale.code.split("-")[2]) || 0,
+      codigo: vale.code,
+      valor: vale.value,
+      parceiroNome: vale.partner,
+    });
+    setQrCodeOpen(true);
+  };
 
   return (
     <ClienteLayout>
@@ -78,7 +92,11 @@ export default function ClienteValeGas() {
                     </p>
                   </div>
                   
-                  <Button variant="outline" className="w-full mt-3 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-3 gap-2"
+                    onClick={() => handleOpenQRCode(vale)}
+                  >
                     <QrCode className="h-4 w-4" />
                     Ver QR Code
                   </Button>
@@ -161,6 +179,18 @@ export default function ClienteValeGas() {
             </div>
           </CardContent>
         </Card>
+
+        {/* QR Code Dialog */}
+        {selectedVale && (
+          <ValeGasQRCode
+            open={qrCodeOpen}
+            onClose={() => {
+              setQrCodeOpen(false);
+              setSelectedVale(null);
+            }}
+            vale={selectedVale}
+          />
+        )}
       </div>
     </ClienteLayout>
   );
