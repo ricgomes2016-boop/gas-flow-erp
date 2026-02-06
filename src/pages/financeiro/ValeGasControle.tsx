@@ -42,6 +42,7 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { ValeGasQRCode } from "@/components/valegas/ValeGasQRCode";
 
 export default function ValeGasControle() {
   const { vales, parceiros, getValeByNumero, getValeByCodigo, registrarVendaConsumidor, utilizarVale } = useValeGas();
@@ -52,6 +53,8 @@ export default function ValeGasControle() {
   const [selectedVale, setSelectedVale] = useState<string | null>(null);
   const [vendaDialogOpen, setVendaDialogOpen] = useState(false);
   const [utilizacaoDialogOpen, setUtilizacaoDialogOpen] = useState(false);
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false);
+  const [qrCodeVale, setQrCodeVale] = useState<{ numero: number; codigo: string; valor: number; parceiroNome?: string } | null>(null);
   
   const [consumidorData, setConsumidorData] = useState({
     nome: "",
@@ -334,6 +337,21 @@ export default function ValeGasControle() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setQrCodeVale({
+                                  numero: vale.numero,
+                                  codigo: vale.codigo,
+                                  valor: vale.valor,
+                                  parceiroNome: parceiro?.nome,
+                                });
+                                setQrCodeDialogOpen(true);
+                              }}
+                            >
+                              <QrCode className="h-4 w-4" />
+                            </Button>
                             {vale.status === "disponivel" && (
                               <Button 
                                 size="sm" 
@@ -484,6 +502,18 @@ export default function ValeGasControle() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* QR Code Dialog */}
+        {qrCodeVale && (
+          <ValeGasQRCode
+            open={qrCodeDialogOpen}
+            onClose={() => {
+              setQrCodeDialogOpen(false);
+              setQrCodeVale(null);
+            }}
+            vale={qrCodeVale}
+          />
+        )}
       </div>
     </MainLayout>
   );
