@@ -121,6 +121,10 @@ const menuItems: MenuItem[] = [
       { label: "Aprovar Despesas", path: "/financeiro/aprovar" },
       { label: "Conciliação (OFX / CSV)", path: "/financeiro/conciliacao" },
       { label: "Contador", path: "/financeiro/contador" },
+      { label: "Vale Gás - Parceiros", path: "/financeiro/vale-gas/parceiros" },
+      { label: "Vale Gás - Emissão", path: "/financeiro/vale-gas/emissao" },
+      { label: "Vale Gás - Controle", path: "/financeiro/vale-gas/controle" },
+      { label: "Vale Gás - Acerto", path: "/financeiro/vale-gas/acerto" },
     ],
   },
   {
