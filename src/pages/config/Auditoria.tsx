@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ const logs = [
 export default function Auditoria() {
   return (
     <MainLayout>
+      <Header title="Auditoria" subtitle="Histórico de ações do sistema" />
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Auditoria</h1>

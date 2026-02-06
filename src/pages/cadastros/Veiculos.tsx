@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ const veiculos = [
 export default function Veiculos() {
   return (
     <MainLayout>
+      <Header title="Veículos" subtitle="Gerencie a frota de veículos" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

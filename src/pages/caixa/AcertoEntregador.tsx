@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ export default function AcertoEntregador() {
 
   return (
     <MainLayout>
+      <Header title="Acerto do Entregador" subtitle="Conferência de entregas e valores" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
