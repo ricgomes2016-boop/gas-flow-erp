@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,7 @@ export default function MapaEntregadores() {
 
   return (
     <MainLayout>
+      <Header title="Mapa dos Entregadores" subtitle="Acompanhe a localização em tempo real" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

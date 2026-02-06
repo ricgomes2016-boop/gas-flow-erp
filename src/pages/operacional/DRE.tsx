@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -46,6 +47,7 @@ export default function DRE() {
 
   return (
     <MainLayout>
+      <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">

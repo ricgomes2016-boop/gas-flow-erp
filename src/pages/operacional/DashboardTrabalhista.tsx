@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ const funcionarios = [
 export default function DashboardTrabalhista() {
   return (
     <MainLayout>
+      <Header title="Dashboard Trabalhista" subtitle="Controle de jornadas e horas extras" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

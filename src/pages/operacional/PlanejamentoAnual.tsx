@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export default function PlanejamentoAnual() {
 
   return (
     <MainLayout>
+      <Header title="Planejamento Anual" subtitle="Metas e objetivos para 2026" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
