@@ -12,7 +12,8 @@ import {
   Truck,
   ChevronRight,
   ShoppingBag,
-  RotateCcw
+  RotateCcw,
+  MapPin
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -141,6 +142,14 @@ export default function ClienteHistorico() {
                         <RotateCcw className="h-4 w-4" />
                         Repetir Pedido
                       </Button>
+                      {purchase.status !== "delivered" && (
+                        <Button asChild variant="default" size="sm" className="gap-1">
+                          <Link to={`/cliente/rastreamento/${purchase.id}`}>
+                            <MapPin className="h-4 w-4" />
+                            Rastrear
+                          </Link>
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="gap-1">
                         Detalhes
                         <ChevronRight className="h-4 w-4" />
