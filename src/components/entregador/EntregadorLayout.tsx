@@ -1,0 +1,123 @@
+import { ReactNode, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import {
+  Home,
+  Package,
+  MapPin,
+  Receipt,
+  PlusCircle,
+  User,
+  Menu,
+  X,
+  Flame,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+
+interface EntregadorLayoutProps {
+  children: ReactNode;
+  title?: string;
+}
+
+const menuItems = [
+  { path: "/entregador", icon: Home, label: "Início" },
+  { path: "/entregador/entregas", icon: Package, label: "Entregas" },
+  { path: "/entregador/rotas", icon: MapPin, label: "Rotas" },
+  { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
+  { path: "/entregador/despesas", icon: Receipt, label: "Despesas" },
+  { path: "/entregador/perfil", icon: User, label: "Perfil" },
+];
+
+export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-50 gradient-primary text-primary-foreground shadow-lg">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/20">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0 border-none">
+                <div className="gradient-dark h-full">
+                  <div className="flex items-center gap-3 p-6 border-b border-white/10">
+                    <div className="h-12 w-12 rounded-full gradient-primary flex items-center justify-center shadow-glow">
+                      <Flame className="h-7 w-7 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-white text-lg">App Entregador</h2>
+                      <p className="text-sm text-white/70">Revenda de Gás</p>
+                    </div>
+                  </div>
+                  <nav className="p-4 space-y-2">
+                    {menuItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setMenuOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-3 rounded-lg transition-all",
+                            isActive
+                              ? "gradient-primary text-white shadow-glow"
+                              : "text-white/80 hover:bg-white/10"
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                          <span className="font-medium">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              </SheetContent>
+            </Sheet>
+            <div className="flex items-center gap-2">
+              <Flame className="h-6 w-6" />
+              <span className="font-bold text-lg">{title || "Entregador"}</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto pb-20">
+        {children}
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">
+        <div className="flex justify-around items-center py-2">
+          {menuItems.slice(0, 5).map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[60px]",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className={cn("h-5 w-5", isActive && "scale-110")} />
+                <span className="text-xs font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
+  );
+}

@@ -78,6 +78,15 @@ import ProdutividadeIA from "./pages/rh/ProdutividadeIA";
 import Auditoria from "./pages/config/Auditoria";
 import Permissoes from "./pages/config/Permissoes";
 
+// App Entregador
+import EntregadorDashboard from "./pages/entregador/EntregadorDashboard";
+import EntregadorEntregas from "./pages/entregador/EntregadorEntregas";
+import FinalizarEntrega from "./pages/entregador/FinalizarEntrega";
+import EntregadorRotas from "./pages/entregador/EntregadorRotas";
+import EntregadorNovaVenda from "./pages/entregador/EntregadorNovaVenda";
+import EntregadorDespesas from "./pages/entregador/EntregadorDespesas";
+import EntregadorPerfil from "./pages/entregador/EntregadorPerfil";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -160,6 +169,15 @@ const App = () => (
           {/* Configurações */}
           <Route path="/config/auditoria" element={<Auditoria />} />
           <Route path="/config/permissoes" element={<Permissoes />} />
+          
+          {/* App Entregador */}
+          <Route path="/entregador" element={<EntregadorDashboard />} />
+          <Route path="/entregador/entregas" element={<EntregadorEntregas />} />
+          <Route path="/entregador/entregas/:id/finalizar" element={<FinalizarEntrega />} />
+          <Route path="/entregador/rotas" element={<EntregadorRotas />} />
+          <Route path="/entregador/nova-venda" element={<EntregadorNovaVenda />} />
+          <Route path="/entregador/despesas" element={<EntregadorDespesas />} />
+          <Route path="/entregador/perfil" element={<EntregadorPerfil />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>
