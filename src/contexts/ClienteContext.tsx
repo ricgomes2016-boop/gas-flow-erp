@@ -120,6 +120,14 @@ export function ClienteProvider({ children }: { children: ReactNode }) {
   
   const [purchases, setPurchases] = useState<Purchase[]>([
     {
+      id: "order-001",
+      date: new Date(),
+      items: [{ ...mockProducts[0], quantity: 1 }, { ...mockProducts[2], quantity: 2 }],
+      total: 134.00,
+      paymentMethod: "PIX",
+      status: "confirmed"
+    },
+    {
       id: "1",
       date: new Date(2024, 0, 10),
       items: [{ ...mockProducts[0], quantity: 1 }],
