@@ -1,9 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -11,237 +10,252 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Trash2, Search, ShoppingCart } from "lucide-react";
-import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Calendar, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-interface ItemVenda {
-  id: number;
-  produto: string;
-  quantidade: number;
-  preco: number;
-  total: number;
+// Componentes refatorados
+import { CustomerSearch } from "@/components/vendas/CustomerSearch";
+import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
+import { PaymentSection, Pagamento } from "@/components/vendas/PaymentSection";
+import { OrderSummary } from "@/components/vendas/OrderSummary";
+import { CustomerHistory } from "@/components/vendas/CustomerHistory";
+import { DeliveryPersonSelect } from "@/components/vendas/DeliveryPersonSelect";
+
+interface CustomerData {
+  id: string | null;
+  nome: string;
+  telefone: string;
+  endereco: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cep: string;
+  observacao: string;
 }
 
+const initialCustomerData: CustomerData = {
+  id: null,
+  nome: "",
+  telefone: "",
+  endereco: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cep: "",
+  observacao: "",
+};
+
 export default function NovaVenda() {
-  const [itens, setItens] = useState<ItemVenda[]>([
-    { id: 1, produto: "Gás P13", quantidade: 2, preco: 110.0, total: 220.0 },
-  ]);
-  const [endereco, setEndereco] = useState("");
-  const [entregadorSelecionado, setEntregadorSelecionado] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { toast } = useToast();
 
-  const total = itens.reduce((acc, item) => acc + item.total, 0);
+  // Estados
+  const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split("T")[0]);
+  const [canalVenda, setCanalVenda] = useState("telefone");
+  const [customer, setCustomer] = useState<CustomerData>(initialCustomerData);
+  const [itens, setItens] = useState<ItemVenda[]>([]);
+  const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+  const [entregador, setEntregador] = useState<{ id: string | null; nome: string | null }>({
+    id: null,
+    nome: null,
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const adicionarItem = () => {
-    setItens([
-      ...itens,
-      {
-        id: itens.length + 1,
-        produto: "",
-        quantidade: 1,
-        preco: 0,
-        total: 0,
-      },
-    ]);
-  };
+  const totalVenda = itens.reduce((acc, item) => acc + item.total, 0);
 
-  const removerItem = (id: number) => {
-    setItens(itens.filter((item) => item.id !== id));
-  };
-
-  const handleSelecionarEntregador = (id: number, nome: string) => {
-    setEntregadorSelecionado(nome);
+  const handleSelecionarEntregador = (id: string, nome: string) => {
+    setEntregador({ id, nome });
     toast({
       title: "Entregador selecionado!",
       description: `${nome} foi atribuído a esta venda.`,
     });
   };
 
+  const handleFinalizar = async () => {
+    if (itens.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um produto.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalPago = pagamentos.reduce((acc, p) => acc + p.valor, 0);
+    if (totalPago < totalVenda) {
+      toast({
+        title: "Pagamento incompleto",
+        description: `Falta pagar R$ ${(totalVenda - totalPago).toFixed(2)}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Criar o pedido
+      const enderecoCompleto = [
+        customer.endereco,
+        customer.numero && `Nº ${customer.numero}`,
+        customer.complemento,
+        customer.bairro,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      const { data: pedido, error: pedidoError } = await supabase
+        .from("pedidos")
+        .insert({
+          cliente_id: customer.id,
+          entregador_id: entregador.id,
+          endereco_entrega: enderecoCompleto,
+          valor_total: totalVenda,
+          forma_pagamento: pagamentos.map((p) => p.forma).join(", "),
+          canal_venda: canalVenda,
+          observacoes: customer.observacao,
+          status: "pendente",
+        })
+        .select("id")
+        .single();
+
+      if (pedidoError) throw pedidoError;
+
+      // Criar os itens do pedido
+      const itensInsert = itens.map((item) => ({
+        pedido_id: pedido.id,
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+        preco_unitario: item.preco_unitario,
+      }));
+
+      const { error: itensError } = await supabase.from("pedido_itens").insert(itensInsert);
+
+      if (itensError) throw itensError;
+
+      toast({
+        title: "Venda finalizada!",
+        description: `Pedido #${pedido.id.slice(0, 6)} criado com sucesso.`,
+      });
+
+      navigate("/vendas");
+    } catch (error: any) {
+      console.error("Erro ao salvar venda:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: error.message || "Ocorreu um erro ao finalizar a venda.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelar = () => {
+    if (itens.length > 0 || pagamentos.length > 0) {
+      if (!confirm("Deseja realmente cancelar esta venda? Os dados serão perdidos.")) {
+        return;
+      }
+    }
+    navigate("/vendas");
+  };
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Nova Venda</h1>
-            <p className="text-muted-foreground">Registrar novo pedido de venda</p>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <ShoppingBag className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Nova Venda</h1>
+              <p className="text-sm text-muted-foreground">Matriz</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            #{new Date().getTime().toString().slice(-6)}
+          </Badge>
+        </div>
+
+        {/* Layout Principal */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Coluna Esquerda - Formulário */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Data e Canal */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Data de Entrega
+                    </Label>
+                    <Input
+                      type="date"
+                      value={dataEntrega}
+                      onChange={(e) => setDataEntrega(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Canal de Venda</Label>
+                    <Select value={canalVenda} onValueChange={setCanalVenda}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="telefone">📞 Telefone</SelectItem>
+                        <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
+                        <SelectItem value="portaria">🏢 Portaria</SelectItem>
+                        <SelectItem value="balcao">🏪 Balcão</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cliente */}
+            <CustomerSearch value={customer} onChange={setCustomer} />
+
+            {/* Entregador */}
+            <DeliveryPersonSelect
+              value={entregador.id}
+              onChange={handleSelecionarEntregador}
+              endereco={customer.endereco}
+            />
+
+            {/* Produtos */}
+            <ProductSearch itens={itens} onChange={setItens} />
+
+            {/* Pagamento */}
+            <PaymentSection
+              pagamentos={pagamentos}
+              onChange={setPagamentos}
+              totalVenda={totalVenda}
+            />
+          </div>
+
+          {/* Coluna Direita - Resumo e Histórico */}
+          <div className="space-y-6">
+            <OrderSummary
+              itens={itens}
+              pagamentos={pagamentos}
+              entregadorNome={entregador.nome}
+              canalVenda={canalVenda}
+              onFinalizar={handleFinalizar}
+              onCancelar={handleCancelar}
+              isLoading={isLoading}
+            />
+
+            <CustomerHistory clienteId={customer.id} />
           </div>
         </div>
-
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Cliente */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" />
-                Dados do Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <Label>Buscar Cliente</Label>
-                  <Input placeholder="Nome, telefone ou endereço..." />
-                </div>
-                <Button className="mt-6">Buscar</Button>
-                <Button variant="outline" className="mt-6">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo
-                </Button>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Nome</Label>
-                  <Input placeholder="Nome do cliente" />
-                </div>
-                <div>
-                  <Label>Telefone</Label>
-                  <Input placeholder="(00) 00000-0000" />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Endereço</Label>
-                  <Input 
-                    placeholder="Endereço completo" 
-                    value={endereco}
-                    onChange={(e) => setEndereco(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Sugestão de Entregador */}
-              {endereco.length > 10 && (
-                <div className="pt-4 border-t border-border">
-                  <SugestaoEntregador
-                    endereco={endereco}
-                    onSelecionar={handleSelecionarEntregador}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Resumo */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5" />
-                Resumo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>R$ {total.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Desconto</span>
-                <span>R$ 0,00</span>
-              </div>
-              <div className="flex justify-between text-lg font-bold border-t pt-4">
-                <span>Total</span>
-                <span className="text-primary">R$ {total.toFixed(2)}</span>
-              </div>
-
-              {entregadorSelecionado && (
-                <div className="flex justify-between text-sm pt-2 border-t">
-                  <span>Entregador</span>
-                  <span className="font-medium text-success">{entregadorSelecionado}</span>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Forma de Pagamento</Label>
-                <Select defaultValue="dinheiro">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="cartao">Cartão</SelectItem>
-                    <SelectItem value="fiado">Fiado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full" size="lg">
-                Finalizar Venda
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Itens */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Itens do Pedido</CardTitle>
-            <Button onClick={adicionarItem}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Item
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead className="w-32">Quantidade</TableHead>
-                  <TableHead className="w-32">Preço Unit.</TableHead>
-                  <TableHead className="w-32">Total</TableHead>
-                  <TableHead className="w-16"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {itens.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <Select defaultValue={item.produto || undefined}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o produto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Gás P13">Gás P13</SelectItem>
-                          <SelectItem value="Gás P20">Gás P20</SelectItem>
-                          <SelectItem value="Gás P45">Gás P45</SelectItem>
-                          <SelectItem value="Água 20L">Água 20L</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input type="number" defaultValue={item.quantidade} min={1} />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        defaultValue={item.preco.toFixed(2)}
-                        step="0.01"
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      R$ {item.total.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removerItem(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       </div>
     </MainLayout>
   );
