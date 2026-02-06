@@ -4,11 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
-import Clientes from "./pages/Clientes";
-import Estoque from "./pages/Estoque";
-import Vendas from "./pages/Vendas";
-import Entregas from "./pages/Entregas";
-import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 
 // Vendas
@@ -45,6 +40,44 @@ import Comodatos from "./pages/estoque/Comodatos";
 import EstoqueRota from "./pages/estoque/EstoqueRota";
 import MCMM from "./pages/estoque/MCMM";
 
+// Cadastros
+import CadastroClientesCad from "./pages/cadastros/CadastroClientesCad";
+import Fornecedores from "./pages/cadastros/Fornecedores";
+import Veiculos from "./pages/cadastros/Veiculos";
+import Funcionarios from "./pages/cadastros/Funcionarios";
+import Produtos from "./pages/cadastros/Produtos";
+
+// Financeiro
+import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
+import PrevisaoCaixa from "./pages/financeiro/PrevisaoCaixa";
+import ContasPagar from "./pages/financeiro/ContasPagar";
+import ContasReceber from "./pages/financeiro/ContasReceber";
+import AprovarDespesas from "./pages/financeiro/AprovarDespesas";
+import Conciliacao from "./pages/financeiro/Conciliacao";
+import Contador from "./pages/financeiro/Contador";
+
+// Frota
+import Combustivel from "./pages/frota/Combustivel";
+import Manutencao from "./pages/frota/Manutencao";
+import RelatoriosFrota from "./pages/frota/RelatoriosFrota";
+import Gamificacao from "./pages/frota/Gamificacao";
+
+// RH
+import FolhaPagamento from "./pages/rh/FolhaPagamento";
+import ValeFuncionario from "./pages/rh/ValeFuncionario";
+import ComissaoEntregador from "./pages/rh/ComissaoEntregador";
+import Premiacao from "./pages/rh/Premiacao";
+import Bonus from "./pages/rh/Bonus";
+import AlertaJornada from "./pages/rh/AlertaJornada";
+import BancoHoras from "./pages/rh/BancoHoras";
+import Horarios from "./pages/rh/Horarios";
+import PrevencaoTrabalhistaIA from "./pages/rh/PrevencaoTrabalhistaIA";
+import ProdutividadeIA from "./pages/rh/ProdutividadeIA";
+
+// Configurações
+import Auditoria from "./pages/config/Auditoria";
+import Permissoes from "./pages/config/Permissoes";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -55,11 +88,6 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/estoque" element={<Estoque />} />
-          <Route path="/vendas" element={<Vendas />} />
-          <Route path="/entregas" element={<Entregas />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
           
           {/* Vendas */}
           <Route path="/vendas/nova" element={<NovaVenda />} />
@@ -95,7 +123,44 @@ const App = () => (
           <Route path="/estoque/rota" element={<EstoqueRota />} />
           <Route path="/estoque/mcmm" element={<MCMM />} />
           
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Cadastros */}
+          <Route path="/cadastros/clientes" element={<CadastroClientesCad />} />
+          <Route path="/cadastros/fornecedores" element={<Fornecedores />} />
+          <Route path="/cadastros/veiculos" element={<Veiculos />} />
+          <Route path="/cadastros/funcionarios" element={<Funcionarios />} />
+          <Route path="/cadastros/produtos" element={<Produtos />} />
+          
+          {/* Financeiro */}
+          <Route path="/financeiro/fluxo" element={<FluxoCaixa />} />
+          <Route path="/financeiro/previsao" element={<PrevisaoCaixa />} />
+          <Route path="/financeiro/pagar" element={<ContasPagar />} />
+          <Route path="/financeiro/receber" element={<ContasReceber />} />
+          <Route path="/financeiro/aprovar" element={<AprovarDespesas />} />
+          <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
+          <Route path="/financeiro/contador" element={<Contador />} />
+          
+          {/* Frota */}
+          <Route path="/frota/combustivel" element={<Combustivel />} />
+          <Route path="/frota/manutencao" element={<Manutencao />} />
+          <Route path="/frota/relatorios" element={<RelatoriosFrota />} />
+          <Route path="/frota/gamificacao" element={<Gamificacao />} />
+          
+          {/* RH */}
+          <Route path="/rh/folha" element={<FolhaPagamento />} />
+          <Route path="/rh/vale" element={<ValeFuncionario />} />
+          <Route path="/rh/comissao" element={<ComissaoEntregador />} />
+          <Route path="/rh/premiacao" element={<Premiacao />} />
+          <Route path="/rh/bonus" element={<Bonus />} />
+          <Route path="/rh/jornada" element={<AlertaJornada />} />
+          <Route path="/rh/banco-horas" element={<BancoHoras />} />
+          <Route path="/rh/horarios" element={<Horarios />} />
+          <Route path="/rh/prevencao-ia" element={<PrevencaoTrabalhistaIA />} />
+          <Route path="/rh/produtividade-ia" element={<ProdutividadeIA />} />
+          
+          {/* Configurações */}
+          <Route path="/config/auditoria" element={<Auditoria />} />
+          <Route path="/config/permissoes" element={<Permissoes />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
