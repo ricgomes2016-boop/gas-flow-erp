@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -327,6 +328,7 @@ export default function PDV() {
 
   return (
     <MainLayout>
+      <Header title="PDV" subtitle="Venda rápida para retirada no local" />
       <div className="h-[calc(100vh-4rem)] flex flex-col p-4 gap-4">
         {/* Header */}
         <div className="flex items-center justify-between">

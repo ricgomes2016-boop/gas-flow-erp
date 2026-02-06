@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ const perfis = [
 export default function Permissoes() {
   return (
     <MainLayout>
+      <Header title="Permissões" subtitle="Gerencie perfis e acessos" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ const comodatos = [
 export default function Comodatos() {
   return (
     <MainLayout>
+      <Header title="Comodatos" subtitle="Controle de botijões emprestados" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

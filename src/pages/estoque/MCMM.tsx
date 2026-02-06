@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +49,7 @@ const produtos = [
 export default function MCMM() {
   return (
     <MainLayout>
+      <Header title="MCMM" subtitle="Controle de níveis de estoque" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

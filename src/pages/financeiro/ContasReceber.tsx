@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ export default function ContasReceber() {
 
   return (
     <MainLayout>
+      <Header title="Contas a Receber" subtitle="Acompanhe os recebíveis" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
