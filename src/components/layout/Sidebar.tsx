@@ -52,6 +52,7 @@ const menuItems: MenuItem[] = [
       { label: "PDV", path: "/vendas/pdv" },
       { label: "Nova Venda", path: "/vendas/nova" },
       { label: "Pedidos", path: "/vendas/pedidos" },
+      { label: "Relatório de Vendas", path: "/vendas/relatorio" },
     ],
   },
   {
