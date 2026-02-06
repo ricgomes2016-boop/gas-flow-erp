@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DeliveryNotificationProvider } from "@/contexts/DeliveryNotificationContext";
 import { ClienteProvider } from "@/contexts/ClienteContext";
+import { ValeGasProvider } from "@/contexts/ValeGasContext";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
@@ -57,6 +58,10 @@ import ContasReceber from "./pages/financeiro/ContasReceber";
 import AprovarDespesas from "./pages/financeiro/AprovarDespesas";
 import Conciliacao from "./pages/financeiro/Conciliacao";
 import Contador from "./pages/financeiro/Contador";
+import ValeGasParceiros from "./pages/financeiro/ValeGasParceiros";
+import ValeGasEmissao from "./pages/financeiro/ValeGasEmissao";
+import ValeGasControle from "./pages/financeiro/ValeGasControle";
+import ValeGasAcerto from "./pages/financeiro/ValeGasAcerto";
 
 // Frota
 import Combustivel from "./pages/frota/Combustivel";
@@ -110,6 +115,7 @@ const App = () => (
     <TooltipProvider>
       <DeliveryNotificationProvider>
         <ClienteProvider>
+          <ValeGasProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -165,6 +171,10 @@ const App = () => (
             <Route path="/financeiro/aprovar" element={<AprovarDespesas />} />
             <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
             <Route path="/financeiro/contador" element={<Contador />} />
+            <Route path="/financeiro/vale-gas/parceiros" element={<ValeGasParceiros />} />
+            <Route path="/financeiro/vale-gas/emissao" element={<ValeGasEmissao />} />
+            <Route path="/financeiro/vale-gas/controle" element={<ValeGasControle />} />
+            <Route path="/financeiro/vale-gas/acerto" element={<ValeGasAcerto />} />
             
             {/* Frota */}
             <Route path="/frota/combustivel" element={<Combustivel />} />
@@ -214,6 +224,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+          </ValeGasProvider>
         </ClienteProvider>
       </DeliveryNotificationProvider>
     </TooltipProvider>
