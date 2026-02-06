@@ -26,6 +26,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { VendasPorHoraChart } from "@/components/vendas/VendasPorHoraChart";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pendente: { label: "Pendente", variant: "secondary" },
@@ -171,6 +172,9 @@ export default function Vendas() {
             Ver Todos os Pedidos
           </Button>
         </div>
+
+        {/* Gráfico de vendas por hora */}
+        <VendasPorHoraChart pedidos={pedidosHoje} isLoading={isLoading} />
 
         {/* Últimos pedidos */}
         <Card>
