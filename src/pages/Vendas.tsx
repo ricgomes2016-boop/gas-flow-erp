@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -13,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -21,10 +23,11 @@ import {
   Plus, 
   List,
   Clock,
-  Users
+  Users,
+  Calendar
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { VendasPorHoraChart } from "@/components/vendas/VendasPorHoraChart";
 
@@ -36,13 +39,41 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   cancelado: { label: "Cancelado", variant: "destructive" },
 };
 
+type Periodo = "hoje" | "semana" | "mes";
+
+const periodoLabels: Record<Periodo, string> = {
+  hoje: "Hoje",
+  semana: "Esta Semana",
+  mes: "Este Mês",
+};
+
 export default function Vendas() {
   const navigate = useNavigate();
+  const [periodo, setPeriodo] = useState<Periodo>("hoje");
   const today = new Date();
 
-  // Buscar pedidos de hoje
-  const { data: pedidosHoje = [], isLoading } = useQuery({
-    queryKey: ["pedidos-hoje"],
+  // Calcular datas do período
+  const { dataInicio, dataFim } = useMemo(() => {
+    const fim = endOfDay(today);
+    let inicio: Date;
+
+    switch (periodo) {
+      case "semana":
+        inicio = startOfWeek(today, { weekStartsOn: 0 }); // Domingo
+        break;
+      case "mes":
+        inicio = startOfMonth(today);
+        break;
+      default:
+        inicio = startOfDay(today);
+    }
+
+    return { dataInicio: inicio, dataFim: fim };
+  }, [periodo]);
+
+  // Buscar pedidos do período
+  const { data: pedidos = [], isLoading } = useQuery({
+    queryKey: ["pedidos-periodo", periodo],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pedidos")
@@ -55,8 +86,8 @@ export default function Vendas() {
             produtos (nome)
           )
         `)
-        .gte("created_at", startOfDay(today).toISOString())
-        .lte("created_at", endOfDay(today).toISOString())
+        .gte("created_at", dataInicio.toISOString())
+        .lte("created_at", dataFim.toISOString())
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -65,27 +96,36 @@ export default function Vendas() {
   });
 
   // Calcular métricas
-  const totalVendasHoje = pedidosHoje
+  const totalVendas = pedidos
     .filter((p) => p.status !== "cancelado")
     .reduce((acc, p) => acc + (p.valor_total || 0), 0);
 
-  const totalPedidosHoje = pedidosHoje.length;
+  const totalPedidos = pedidos.length;
   
-  const pedidosPagos = pedidosHoje.filter((p) => p.status === "entregue").length;
-  
-  const pedidosPendentes = pedidosHoje.filter(
+  const pedidosPendentes = pedidos.filter(
     (p) => p.status === "pendente" || p.status === "em_preparo" || p.status === "em_rota"
   ).length;
 
-  const ticketMedio = totalPedidosHoje > 0 ? totalVendasHoje / totalPedidosHoje : 0;
+  const ticketMedio = totalPedidos > 0 ? totalVendas / totalPedidos : 0;
 
   // Últimos 5 pedidos
-  const ultimosPedidos = pedidosHoje.slice(0, 5);
+  const ultimosPedidos = pedidos.slice(0, 5);
 
   return (
     <MainLayout>
-      <Header title="Vendas" subtitle="Visão geral das vendas do dia" />
+      <Header title="Vendas" subtitle={`Visão geral das vendas - ${periodoLabels[periodo]}`} />
       <div className="p-6 space-y-6">
+        {/* Filtro de período */}
+        <div className="flex items-center gap-3">
+          <Calendar className="h-5 w-5 text-muted-foreground" />
+          <Tabs value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
+            <TabsList>
+              <TabsTrigger value="hoje">Hoje</TabsTrigger>
+              <TabsTrigger value="semana">Semana</TabsTrigger>
+              <TabsTrigger value="mes">Mês</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         {/* Cards de métricas */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -94,9 +134,9 @@ export default function Vendas() {
                 <DollarSign className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Vendas Hoje</p>
+                <p className="text-sm text-muted-foreground">Vendas</p>
                 <p className="text-2xl font-bold">
-                  R$ {totalVendasHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  R$ {totalVendas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </CardContent>
@@ -108,8 +148,8 @@ export default function Vendas() {
                 <ShoppingCart className="h-6 w-6 text-info" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Pedidos Hoje</p>
-                <p className="text-2xl font-bold">{totalPedidosHoje}</p>
+                <p className="text-sm text-muted-foreground">Pedidos</p>
+                <p className="text-2xl font-bold">{totalPedidos}</p>
               </div>
             </CardContent>
           </Card>
@@ -174,14 +214,16 @@ export default function Vendas() {
         </div>
 
         {/* Gráfico de vendas por hora */}
-        <VendasPorHoraChart pedidos={pedidosHoje} isLoading={isLoading} />
+        {periodo === "hoje" && (
+          <VendasPorHoraChart pedidos={pedidos} isLoading={isLoading} />
+        )}
 
         {/* Últimos pedidos */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Últimos Pedidos de Hoje
+              Últimos Pedidos
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={() => navigate("/vendas/pedidos")}>
               Ver todos
@@ -194,13 +236,13 @@ export default function Vendas() {
               </div>
             ) : ultimosPedidos.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Nenhum pedido registrado hoje
+                Nenhum pedido registrado no período
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Hora</TableHead>
+                    <TableHead>Data/Hora</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Itens</TableHead>
                     <TableHead>Total</TableHead>
@@ -216,7 +258,7 @@ export default function Vendas() {
                       onClick={() => navigate("/vendas/pedidos")}
                     >
                       <TableCell className="font-medium">
-                        {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
+                        {format(new Date(pedido.created_at), periodo === "hoje" ? "HH:mm" : "dd/MM HH:mm", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
                         {pedido.clientes?.nome || "Cliente não identificado"}
