@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
 import { Plus, Trash2, Search, ShoppingCart } from "lucide-react";
+import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
+import { useToast } from "@/hooks/use-toast";
 
 interface ItemVenda {
   id: number;
@@ -33,6 +35,9 @@ export default function NovaVenda() {
   const [itens, setItens] = useState<ItemVenda[]>([
     { id: 1, produto: "Gás P13", quantidade: 2, preco: 110.0, total: 220.0 },
   ]);
+  const [endereco, setEndereco] = useState("");
+  const [entregadorSelecionado, setEntregadorSelecionado] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const total = itens.reduce((acc, item) => acc + item.total, 0);
 
@@ -51,6 +56,14 @@ export default function NovaVenda() {
 
   const removerItem = (id: number) => {
     setItens(itens.filter((item) => item.id !== id));
+  };
+
+  const handleSelecionarEntregador = (id: number, nome: string) => {
+    setEntregadorSelecionado(nome);
+    toast({
+      title: "Entregador selecionado!",
+      description: `${nome} foi atribuído a esta venda.`,
+    });
   };
 
   return (
@@ -95,9 +108,23 @@ export default function NovaVenda() {
                 </div>
                 <div className="md:col-span-2">
                   <Label>Endereço</Label>
-                  <Input placeholder="Endereço completo" />
+                  <Input 
+                    placeholder="Endereço completo" 
+                    value={endereco}
+                    onChange={(e) => setEndereco(e.target.value)}
+                  />
                 </div>
               </div>
+
+              {/* Sugestão de Entregador */}
+              {endereco.length > 10 && (
+                <div className="pt-4 border-t border-border">
+                  <SugestaoEntregador
+                    endereco={endereco}
+                    onSelecionar={handleSelecionarEntregador}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -122,6 +149,14 @@ export default function NovaVenda() {
                 <span>Total</span>
                 <span className="text-primary">R$ {total.toFixed(2)}</span>
               </div>
+
+              {entregadorSelecionado && (
+                <div className="flex justify-between text-sm pt-2 border-t">
+                  <span>Entregador</span>
+                  <span className="font-medium text-success">{entregadorSelecionado}</span>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Forma de Pagamento</Label>
                 <Select defaultValue="dinheiro">
