@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DeliveryNotificationProvider } from "@/contexts/DeliveryNotificationContext";
+import { ClienteProvider } from "@/contexts/ClienteContext";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
@@ -88,102 +89,130 @@ import EntregadorNovaVenda from "./pages/entregador/EntregadorNovaVenda";
 import EntregadorDespesas from "./pages/entregador/EntregadorDespesas";
 import EntregadorPerfil from "./pages/entregador/EntregadorPerfil";
 
+// App Cliente
+import ClienteHome from "./pages/cliente/ClienteHome";
+import ClienteCadastro from "./pages/cliente/ClienteCadastro";
+import ClienteCarrinho from "./pages/cliente/ClienteCarrinho";
+import ClienteCheckout from "./pages/cliente/ClienteCheckout";
+import ClienteIndicacao from "./pages/cliente/ClienteIndicacao";
+import ClienteCarteira from "./pages/cliente/ClienteCarteira";
+import ClienteValeGas from "./pages/cliente/ClienteValeGas";
+import ClienteHistorico from "./pages/cliente/ClienteHistorico";
+import ClienteDicas from "./pages/cliente/ClienteDicas";
+import ClienteConsumo from "./pages/cliente/ClienteConsumo";
+import ClientePerfil from "./pages/cliente/ClientePerfil";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <DeliveryNotificationProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          
-          {/* Vendas */}
-          <Route path="/vendas/nova" element={<NovaVenda />} />
-          <Route path="/vendas/pedidos" element={<Pedidos />} />
-          
-          {/* Caixa */}
-          <Route path="/caixa/acerto" element={<AcertoEntregador />} />
-          <Route path="/caixa/dia" element={<CaixaDia />} />
-          <Route path="/caixa/despesas" element={<Despesas />} />
-          
-          {/* Operacional */}
-          <Route path="/operacional/ia" element={<ConselhosIA />} />
-          <Route path="/operacional/executivo" element={<DashboardExecutivo />} />
-          <Route path="/operacional/avancado" element={<DashboardAvancado />} />
-          <Route path="/operacional/trabalhista" element={<DashboardTrabalhista />} />
-          <Route path="/operacional/logistico" element={<DashboardLogistico />} />
-          <Route path="/operacional/dre" element={<DRE />} />
-          <Route path="/operacional/metas" element={<MetasDesafios />} />
-          <Route path="/operacional/mapa" element={<MapaEntregadores />} />
-          <Route path="/operacional/anual" element={<PlanejamentoAnual />} />
-          <Route path="/operacional/mensal" element={<PlanejamentoMensal />} />
-          
-          {/* Clientes */}
-          <Route path="/clientes/cadastro" element={<CadastroClientes />} />
-          <Route path="/clientes/campanhas" element={<Campanhas />} />
-          <Route path="/clientes/fidelidade" element={<Fidelidade />} />
-          <Route path="/clientes/crm" element={<CRM />} />
-          <Route path="/clientes/ranking" element={<RankingClientes />} />
-          
-          {/* Estoque */}
-          <Route path="/estoque/compras" element={<Compras />} />
-          <Route path="/estoque/comodatos" element={<Comodatos />} />
-          <Route path="/estoque/rota" element={<EstoqueRota />} />
-          <Route path="/estoque/mcmm" element={<MCMM />} />
-          
-          {/* Cadastros */}
-          <Route path="/cadastros/clientes" element={<CadastroClientesCad />} />
-          <Route path="/cadastros/fornecedores" element={<Fornecedores />} />
-          <Route path="/cadastros/veiculos" element={<Veiculos />} />
-          <Route path="/cadastros/funcionarios" element={<Funcionarios />} />
-          <Route path="/cadastros/produtos" element={<Produtos />} />
-          
-          {/* Financeiro */}
-          <Route path="/financeiro/fluxo" element={<FluxoCaixa />} />
-          <Route path="/financeiro/previsao" element={<PrevisaoCaixa />} />
-          <Route path="/financeiro/pagar" element={<ContasPagar />} />
-          <Route path="/financeiro/receber" element={<ContasReceber />} />
-          <Route path="/financeiro/aprovar" element={<AprovarDespesas />} />
-          <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
-          <Route path="/financeiro/contador" element={<Contador />} />
-          
-          {/* Frota */}
-          <Route path="/frota/combustivel" element={<Combustivel />} />
-          <Route path="/frota/manutencao" element={<Manutencao />} />
-          <Route path="/frota/relatorios" element={<RelatoriosFrota />} />
-          <Route path="/frota/gamificacao" element={<Gamificacao />} />
-          
-          {/* RH */}
-          <Route path="/rh/folha" element={<FolhaPagamento />} />
-          <Route path="/rh/vale" element={<ValeFuncionario />} />
-          <Route path="/rh/comissao" element={<ComissaoEntregador />} />
-          <Route path="/rh/premiacao" element={<Premiacao />} />
-          <Route path="/rh/bonus" element={<Bonus />} />
-          <Route path="/rh/jornada" element={<AlertaJornada />} />
-          <Route path="/rh/banco-horas" element={<BancoHoras />} />
-          <Route path="/rh/horarios" element={<Horarios />} />
-          <Route path="/rh/prevencao-ia" element={<PrevencaoTrabalhistaIA />} />
-          <Route path="/rh/produtividade-ia" element={<ProdutividadeIA />} />
-          
-          {/* Configurações */}
-          <Route path="/config/auditoria" element={<Auditoria />} />
-          <Route path="/config/permissoes" element={<Permissoes />} />
-          
-          {/* App Entregador */}
-          <Route path="/entregador" element={<EntregadorDashboard />} />
-          <Route path="/entregador/entregas" element={<EntregadorEntregas />} />
-          <Route path="/entregador/entregas/:id/finalizar" element={<FinalizarEntrega />} />
-          <Route path="/entregador/rotas" element={<EntregadorRotas />} />
-          <Route path="/entregador/nova-venda" element={<EntregadorNovaVenda />} />
-          <Route path="/entregador/despesas" element={<EntregadorDespesas />} />
-          <Route path="/entregador/perfil" element={<EntregadorPerfil />} />
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+        <ClienteProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            
+            {/* Vendas */}
+            <Route path="/vendas/nova" element={<NovaVenda />} />
+            <Route path="/vendas/pedidos" element={<Pedidos />} />
+            
+            {/* Caixa */}
+            <Route path="/caixa/acerto" element={<AcertoEntregador />} />
+            <Route path="/caixa/dia" element={<CaixaDia />} />
+            <Route path="/caixa/despesas" element={<Despesas />} />
+            
+            {/* Operacional */}
+            <Route path="/operacional/ia" element={<ConselhosIA />} />
+            <Route path="/operacional/executivo" element={<DashboardExecutivo />} />
+            <Route path="/operacional/avancado" element={<DashboardAvancado />} />
+            <Route path="/operacional/trabalhista" element={<DashboardTrabalhista />} />
+            <Route path="/operacional/logistico" element={<DashboardLogistico />} />
+            <Route path="/operacional/dre" element={<DRE />} />
+            <Route path="/operacional/metas" element={<MetasDesafios />} />
+            <Route path="/operacional/mapa" element={<MapaEntregadores />} />
+            <Route path="/operacional/anual" element={<PlanejamentoAnual />} />
+            <Route path="/operacional/mensal" element={<PlanejamentoMensal />} />
+            
+            {/* Clientes */}
+            <Route path="/clientes/cadastro" element={<CadastroClientes />} />
+            <Route path="/clientes/campanhas" element={<Campanhas />} />
+            <Route path="/clientes/fidelidade" element={<Fidelidade />} />
+            <Route path="/clientes/crm" element={<CRM />} />
+            <Route path="/clientes/ranking" element={<RankingClientes />} />
+            
+            {/* Estoque */}
+            <Route path="/estoque/compras" element={<Compras />} />
+            <Route path="/estoque/comodatos" element={<Comodatos />} />
+            <Route path="/estoque/rota" element={<EstoqueRota />} />
+            <Route path="/estoque/mcmm" element={<MCMM />} />
+            
+            {/* Cadastros */}
+            <Route path="/cadastros/clientes" element={<CadastroClientesCad />} />
+            <Route path="/cadastros/fornecedores" element={<Fornecedores />} />
+            <Route path="/cadastros/veiculos" element={<Veiculos />} />
+            <Route path="/cadastros/funcionarios" element={<Funcionarios />} />
+            <Route path="/cadastros/produtos" element={<Produtos />} />
+            
+            {/* Financeiro */}
+            <Route path="/financeiro/fluxo" element={<FluxoCaixa />} />
+            <Route path="/financeiro/previsao" element={<PrevisaoCaixa />} />
+            <Route path="/financeiro/pagar" element={<ContasPagar />} />
+            <Route path="/financeiro/receber" element={<ContasReceber />} />
+            <Route path="/financeiro/aprovar" element={<AprovarDespesas />} />
+            <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
+            <Route path="/financeiro/contador" element={<Contador />} />
+            
+            {/* Frota */}
+            <Route path="/frota/combustivel" element={<Combustivel />} />
+            <Route path="/frota/manutencao" element={<Manutencao />} />
+            <Route path="/frota/relatorios" element={<RelatoriosFrota />} />
+            <Route path="/frota/gamificacao" element={<Gamificacao />} />
+            
+            {/* RH */}
+            <Route path="/rh/folha" element={<FolhaPagamento />} />
+            <Route path="/rh/vale" element={<ValeFuncionario />} />
+            <Route path="/rh/comissao" element={<ComissaoEntregador />} />
+            <Route path="/rh/premiacao" element={<Premiacao />} />
+            <Route path="/rh/bonus" element={<Bonus />} />
+            <Route path="/rh/jornada" element={<AlertaJornada />} />
+            <Route path="/rh/banco-horas" element={<BancoHoras />} />
+            <Route path="/rh/horarios" element={<Horarios />} />
+            <Route path="/rh/prevencao-ia" element={<PrevencaoTrabalhistaIA />} />
+            <Route path="/rh/produtividade-ia" element={<ProdutividadeIA />} />
+            
+            {/* Configurações */}
+            <Route path="/config/auditoria" element={<Auditoria />} />
+            <Route path="/config/permissoes" element={<Permissoes />} />
+            
+            {/* App Entregador */}
+            <Route path="/entregador" element={<EntregadorDashboard />} />
+            <Route path="/entregador/entregas" element={<EntregadorEntregas />} />
+            <Route path="/entregador/entregas/:id/finalizar" element={<FinalizarEntrega />} />
+            <Route path="/entregador/rotas" element={<EntregadorRotas />} />
+            <Route path="/entregador/nova-venda" element={<EntregadorNovaVenda />} />
+            <Route path="/entregador/despesas" element={<EntregadorDespesas />} />
+            <Route path="/entregador/perfil" element={<EntregadorPerfil />} />
+            
+            {/* App Cliente */}
+            <Route path="/cliente" element={<ClienteHome />} />
+            <Route path="/cliente/cadastro" element={<ClienteCadastro />} />
+            <Route path="/cliente/carrinho" element={<ClienteCarrinho />} />
+            <Route path="/cliente/checkout" element={<ClienteCheckout />} />
+            <Route path="/cliente/indicacao" element={<ClienteIndicacao />} />
+            <Route path="/cliente/carteira" element={<ClienteCarteira />} />
+            <Route path="/cliente/vale-gas" element={<ClienteValeGas />} />
+            <Route path="/cliente/historico" element={<ClienteHistorico />} />
+            <Route path="/cliente/dicas" element={<ClienteDicas />} />
+            <Route path="/cliente/consumo" element={<ClienteConsumo />} />
+            <Route path="/cliente/perfil" element={<ClientePerfil />} />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+        </ClienteProvider>
       </DeliveryNotificationProvider>
     </TooltipProvider>
   </QueryClientProvider>
