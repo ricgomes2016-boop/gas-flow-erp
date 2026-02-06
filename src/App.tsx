@@ -101,6 +101,7 @@ import ClienteHistorico from "./pages/cliente/ClienteHistorico";
 import ClienteDicas from "./pages/cliente/ClienteDicas";
 import ClienteConsumo from "./pages/cliente/ClienteConsumo";
 import ClientePerfil from "./pages/cliente/ClientePerfil";
+import ClienteRastreamento from "./pages/cliente/ClienteRastreamento";
 
 const queryClient = new QueryClient();
 
@@ -208,6 +209,7 @@ const App = () => (
             <Route path="/cliente/dicas" element={<ClienteDicas />} />
             <Route path="/cliente/consumo" element={<ClienteConsumo />} />
             <Route path="/cliente/perfil" element={<ClientePerfil />} />
+            <Route path="/cliente/rastreamento/:orderId" element={<ClienteRastreamento />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
