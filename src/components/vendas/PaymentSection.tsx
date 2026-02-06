@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { CreditCard, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCurrency, parseCurrency } from "@/hooks/useInputMasks";
 
 export interface Pagamento {
   id: string;
@@ -34,14 +35,19 @@ const formasPagamento = [
 
 export function PaymentSection({ pagamentos, onChange, totalVenda }: PaymentSectionProps) {
   const [forma, setForma] = useState("");
-  const [valor, setValor] = useState("");
+  const [valorDisplay, setValorDisplay] = useState("");
 
   const totalPago = pagamentos.reduce((acc, p) => acc + p.valor, 0);
   const diferenca = totalVenda - totalPago;
 
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCurrency(e.target.value);
+    setValorDisplay(formatted);
+  };
+
   const addPagamento = () => {
-    const valorNum = parseFloat(valor);
-    if (!forma || isNaN(valorNum) || valorNum <= 0) return;
+    const valorNum = parseCurrency(valorDisplay);
+    if (!forma || valorNum <= 0) return;
 
     const novoPagamento: Pagamento = {
       id: crypto.randomUUID(),
@@ -51,7 +57,7 @@ export function PaymentSection({ pagamentos, onChange, totalVenda }: PaymentSect
 
     onChange([...pagamentos, novoPagamento]);
     setForma("");
-    setValor("");
+    setValorDisplay("");
   };
 
   const removePagamento = (id: string) => {
@@ -120,14 +126,17 @@ export function PaymentSection({ pagamentos, onChange, totalVenda }: PaymentSect
               ))}
             </SelectContent>
           </Select>
-          <Input
-            type="number"
-            step="0.01"
-            placeholder="Valor"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            className="w-28"
-          />
+          <div className="relative flex-shrink-0 w-32">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+              R$
+            </span>
+            <Input
+              placeholder="0,00"
+              value={valorDisplay}
+              onChange={handleValorChange}
+              className="pl-9"
+            />
+          </div>
           <Button onClick={addPagamento} size="icon">
             <Plus className="h-4 w-4" />
           </Button>

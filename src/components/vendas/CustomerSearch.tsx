@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Search, UserPlus, User, Phone, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatPhone, formatCEP } from "@/hooks/useInputMasks";
 
 interface Cliente {
   id: string;
@@ -60,19 +61,31 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
 
     setActiveField(field);
 
+    // Limpa caracteres especiais para busca por telefone
+    const cleanTerm = field === "telefone" ? term.replace(/\D/g, "") : term;
+
+    if (field === "telefone" && cleanTerm.length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
     try {
       let query = supabase
         .from("clientes")
         .select("id, nome, telefone, endereco, bairro, cep, cidade")
         .eq("ativo", true)
-        .limit(5);
+        .limit(8);
 
       if (field === "telefone") {
-        query = query.ilike("telefone", `%${term}%`);
+        // Busca por telefone (apenas números)
+        query = query.ilike("telefone", `%${cleanTerm}%`);
       } else if (field === "nome") {
+        // Busca por nome
         query = query.ilike("nome", `%${term}%`);
       } else if (field === "endereco") {
-        query = query.ilike("endereco", `%${term}%`);
+        // Busca em qualquer parte do endereço (endereco, bairro, cidade)
+        query = query.or(`endereco.ilike.%${term}%,bairro.ilike.%${term}%,cidade.ilike.%${term}%`);
       }
 
       const { data, error } = await query;
@@ -143,10 +156,12 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
                 placeholder="(00) 00000-0000"
                 value={value.telefone}
                 onChange={(e) => {
-                  handleFieldChange("telefone", e.target.value);
-                  searchClientes(e.target.value, "telefone");
+                  const formatted = formatPhone(e.target.value);
+                  handleFieldChange("telefone", formatted);
+                  searchClientes(formatted, "telefone");
                 }}
                 className="pl-10"
+                maxLength={16}
               />
             </div>
           </div>
@@ -238,8 +253,12 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
             <Input
               placeholder="00000-000"
               value={value.cep}
-              onChange={(e) => handleFieldChange("cep", e.target.value)}
+              onChange={(e) => {
+                const formatted = formatCEP(e.target.value);
+                handleFieldChange("cep", formatted);
+              }}
               onBlur={buscarCEP}
+              maxLength={9}
             />
           </div>
         </div>
