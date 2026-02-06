@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { UserPlus, Save, MapPin, Phone, Mail } from "lucide-react";
+import { CpfCnpjInput } from "@/components/ui/cpf-cnpj-input";
+import { formatPhone, formatCEP } from "@/hooks/useInputMasks";
 
 export default function CadastroClientes() {
+  const [cpfCnpj, setCpfCnpj] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [telefone2, setTelefone2] = useState("");
+  const [cep, setCep] = useState("");
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
@@ -43,17 +51,27 @@ export default function CadastroClientes() {
                 </div>
                 <div>
                   <Label>CPF/CNPJ</Label>
-                  <Input placeholder="000.000.000-00" />
+                  <CpfCnpjInput value={cpfCnpj} onChange={setCpfCnpj} />
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Telefone *</Label>
-                  <Input placeholder="(00) 00000-0000" />
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={telefone}
+                    onChange={(e) => setTelefone(formatPhone(e.target.value))}
+                    maxLength={16}
+                  />
                 </div>
                 <div>
                   <Label>Telefone 2</Label>
-                  <Input placeholder="(00) 00000-0000" />
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={telefone2}
+                    onChange={(e) => setTelefone2(formatPhone(e.target.value))}
+                    maxLength={16}
+                  />
                 </div>
               </div>
               <div>
@@ -97,7 +115,12 @@ export default function CadastroClientes() {
                 </div>
                 <div>
                   <Label>CEP</Label>
-                  <Input placeholder="00000-000" />
+                  <Input
+                    placeholder="00000-000"
+                    value={cep}
+                    onChange={(e) => setCep(formatCEP(e.target.value))}
+                    maxLength={9}
+                  />
                 </div>
               </div>
               <div>
