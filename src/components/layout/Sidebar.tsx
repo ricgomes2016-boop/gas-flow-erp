@@ -125,6 +125,7 @@ const menuItems: MenuItem[] = [
       { label: "Vale Gás - Emissão", path: "/financeiro/vale-gas/emissao" },
       { label: "Vale Gás - Controle", path: "/financeiro/vale-gas/controle" },
       { label: "Vale Gás - Acerto", path: "/financeiro/vale-gas/acerto" },
+      { label: "Vale Gás - Relatório", path: "/financeiro/vale-gas/relatorio" },
     ],
   },
   {

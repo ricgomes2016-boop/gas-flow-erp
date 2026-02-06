@@ -62,6 +62,7 @@ import ValeGasParceiros from "./pages/financeiro/ValeGasParceiros";
 import ValeGasEmissao from "./pages/financeiro/ValeGasEmissao";
 import ValeGasControle from "./pages/financeiro/ValeGasControle";
 import ValeGasAcerto from "./pages/financeiro/ValeGasAcerto";
+import ValeGasRelatorio from "./pages/financeiro/ValeGasRelatorio";
 
 // Frota
 import Combustivel from "./pages/frota/Combustivel";
@@ -175,6 +176,7 @@ const App = () => (
             <Route path="/financeiro/vale-gas/emissao" element={<ValeGasEmissao />} />
             <Route path="/financeiro/vale-gas/controle" element={<ValeGasControle />} />
             <Route path="/financeiro/vale-gas/acerto" element={<ValeGasAcerto />} />
+            <Route path="/financeiro/vale-gas/relatorio" element={<ValeGasRelatorio />} />
             
             {/* Frota */}
             <Route path="/frota/combustivel" element={<Combustivel />} />
