@@ -112,12 +112,7 @@ export default function Pedidos() {
   };
 
   const editarPedido = (pedidoId: string) => {
-    toast({
-      title: "Editar pedido",
-      description: `Abrindo edição do pedido...`,
-    });
-    // TODO: Implementar tela de edição
-    // navigate(`/vendas/pedidos/${pedidoId}/editar`);
+    navigate(`/vendas/pedidos/${pedidoId}/editar`);
   };
 
   // Filtrar pedidos
