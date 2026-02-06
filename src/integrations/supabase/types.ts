@@ -259,6 +259,7 @@ export type Database = {
           ativo: boolean | null
           botijao_par_id: string | null
           categoria: string | null
+          codigo_barras: string | null
           created_at: string
           descricao: string | null
           estoque: number | null
@@ -272,6 +273,7 @@ export type Database = {
           ativo?: boolean | null
           botijao_par_id?: string | null
           categoria?: string | null
+          codigo_barras?: string | null
           created_at?: string
           descricao?: string | null
           estoque?: number | null
@@ -285,6 +287,7 @@ export type Database = {
           ativo?: boolean | null
           botijao_par_id?: string | null
           categoria?: string | null
+          codigo_barras?: string | null
           created_at?: string
           descricao?: string | null
           estoque?: number | null
