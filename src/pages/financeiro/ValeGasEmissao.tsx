@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +102,7 @@ export default function ValeGasEmissao() {
 
   return (
     <MainLayout>
+      <Header title="Emissão de Vale Gás" subtitle="Emita e gerencie lotes de vales" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>

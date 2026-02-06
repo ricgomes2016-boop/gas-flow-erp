@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -422,6 +423,7 @@ export default function ValeGasRelatorio() {
 
   return (
     <MainLayout>
+      <Header title="Relatório de Vale Gás" subtitle="Análise gerencial de emissão, vendas e utilização" />
       <div className="space-y-6">
         {/* Cabeçalho */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

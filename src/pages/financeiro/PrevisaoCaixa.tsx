@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Calendar, DollarSign, AlertTriangle } from "lucide-react";
@@ -22,6 +23,7 @@ const projecoes = [
 export default function PrevisaoCaixa() {
   return (
     <MainLayout>
+      <Header title="Previsão de Caixa" subtitle="Projeções financeiras baseadas em histórico" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
