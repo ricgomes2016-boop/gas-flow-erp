@@ -7,6 +7,7 @@ import { DeliveryNotificationProvider } from "@/contexts/DeliveryNotificationCon
 import { ClienteProvider } from "@/contexts/ClienteContext";
 import { ValeGasProvider } from "@/contexts/ValeGasContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { UnidadeProvider } from "@/contexts/UnidadeContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -123,11 +124,12 @@ const App = () => (
     <TooltipProvider>
       <BrowserRouter>
         <AuthProvider>
-          <DeliveryNotificationProvider>
-            <ClienteProvider>
-              <ValeGasProvider>
-                <Toaster />
-                <Sonner />
+          <UnidadeProvider>
+            <DeliveryNotificationProvider>
+              <ClienteProvider>
+                <ValeGasProvider>
+                  <Toaster />
+                  <Sonner />
                 <Routes>
                   {/* Auth - Pública */}
                   <Route path="/auth" element={<Auth />} />
@@ -520,8 +522,9 @@ const App = () => (
               </ValeGasProvider>
             </ClienteProvider>
           </DeliveryNotificationProvider>
-        </AuthProvider>
-      </BrowserRouter>
+        </UnidadeProvider>
+      </AuthProvider>
+    </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
