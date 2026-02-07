@@ -189,16 +189,25 @@ export function MobileNav() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0 border-none">
-        <div className="bg-slate-900 h-full overflow-y-auto">
+        <div className="bg-slate-900 h-full overflow-y-auto flex flex-col">
           {/* Header */}
           <div className="flex items-center gap-3 p-4 border-b border-slate-700">
             <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
               <Flame className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="font-bold text-white text-lg">GasFlow</h2>
+              <h2 className="font-bold text-white text-lg">Gas Express25</h2>
               <p className="text-xs text-slate-400">Gestão de Gás</p>
             </div>
+          </div>
+
+          {/* Store Selector */}
+          <div className="p-3 border-b border-slate-700">
+            <select className="w-full bg-slate-800 text-white border border-slate-600 rounded-lg px-3 py-2 text-sm">
+              <option value="matriz">🏪 Matriz</option>
+              <option value="filial1">🏬 Filial 1</option>
+              <option value="filial2">🏬 Filial 2</option>
+            </select>
           </div>
 
           {/* Menu */}
@@ -277,8 +286,12 @@ export function MobileNav() {
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
+          {/* User Info */}
+          <div className="mt-auto border-t border-slate-700 p-3">
+            <div className="rounded-lg bg-slate-800 p-3 mb-3">
+              <p className="text-xs text-slate-400">Logado como</p>
+              <p className="text-sm font-medium text-white">Administrador</p>
+            </div>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-900/20"
