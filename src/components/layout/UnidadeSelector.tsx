@@ -1,0 +1,79 @@
+import { Building2, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export function UnidadeSelector() {
+  const { unidades, unidadeAtual, loading, setUnidadeAtual } = useUnidade();
+
+  if (loading) {
+    return <Skeleton className="h-9 w-32" />;
+  }
+
+  if (unidades.length === 0) {
+    return null;
+  }
+
+  // If only one unidade, just show it without dropdown
+  if (unidades.length === 1) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium truncate max-w-[120px]">
+          {unidadeAtual?.nome}
+        </span>
+        <Badge variant="outline" className="text-xs capitalize">
+          {unidadeAtual?.tipo}
+        </Badge>
+      </div>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 h-9">
+          <Building2 className="h-4 w-4" />
+          <span className="hidden sm:inline truncate max-w-[100px] lg:max-w-[150px]">
+            {unidadeAtual?.nome || "Selecionar"}
+          </span>
+          <Badge variant="secondary" className="text-xs capitalize hidden md:inline-flex">
+            {unidadeAtual?.tipo}
+          </Badge>
+          <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>Selecionar Unidade</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {unidades.map((unidade) => (
+          <DropdownMenuItem
+            key={unidade.id}
+            onClick={() => setUnidadeAtual(unidade)}
+            className="flex items-center justify-between cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{unidade.nome}</span>
+            </div>
+            <Badge 
+              variant={unidade.tipo === "matriz" ? "default" : "secondary"} 
+              className="text-xs capitalize"
+            >
+              {unidade.tipo}
+            </Badge>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
