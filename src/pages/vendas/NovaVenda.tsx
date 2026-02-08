@@ -17,6 +17,7 @@ import { Calendar, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 // Componentes refatorados
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
@@ -53,6 +54,7 @@ const initialCustomerData: CustomerData = {
 export default function NovaVenda() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
 
   // Estados
   const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split("T")[0]);
@@ -120,6 +122,7 @@ export default function NovaVenda() {
           canal_venda: canalVenda,
           observacoes: customer.observacao,
           status: "pendente",
+          unidade_id: unidadeAtual?.id,
         })
         .select("id")
         .single();
@@ -245,7 +248,7 @@ export default function NovaVenda() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Nova Venda</h1>
-              <p className="text-sm text-muted-foreground">Matriz</p>
+              <p className="text-sm text-muted-foreground">{unidadeAtual?.nome || "Carregando..."}</p>
             </div>
           </div>
           <Badge variant="outline" className="text-xs">

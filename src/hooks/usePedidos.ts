@@ -2,15 +2,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 export function usePedidos() {
   const queryClient = useQueryClient();
+  const { unidadeAtual } = useUnidade();
 
   const { data: pedidos = [], isLoading, error } = useQuery({
-    queryKey: ["pedidos"],
+    queryKey: ["pedidos", unidadeAtual?.id],
     queryFn: async () => {
       // Buscar pedidos com cliente e entregador
-      const { data: pedidosData, error: pedidosError } = await supabase
+      let query = supabase
         .from("pedidos")
         .select(`
           *,
@@ -18,6 +20,13 @@ export function usePedidos() {
           entregadores (id, nome)
         `)
         .order("created_at", { ascending: false });
+
+      // Filtrar por unidade se houver unidade selecionada
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data: pedidosData, error: pedidosError } = await query;
 
       if (pedidosError) throw pedidosError;
 

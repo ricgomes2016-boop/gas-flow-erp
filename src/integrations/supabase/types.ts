@@ -204,6 +204,7 @@ export type Database = {
           longitude: number | null
           observacoes: string | null
           status: string | null
+          unidade_id: string | null
           updated_at: string
           valor_total: number | null
         }
@@ -219,6 +220,7 @@ export type Database = {
           longitude?: number | null
           observacoes?: string | null
           status?: string | null
+          unidade_id?: string | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -234,6 +236,7 @@ export type Database = {
           longitude?: number | null
           observacoes?: string | null
           status?: string | null
+          unidade_id?: string | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -252,6 +255,13 @@ export type Database = {
             referencedRelation: "entregadores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pedidos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
         ]
       }
       produtos: {
@@ -268,6 +278,7 @@ export type Database = {
           nome: string
           preco: number
           tipo_botijao: string | null
+          unidade_id: string | null
           updated_at: string
         }
         Insert: {
@@ -283,6 +294,7 @@ export type Database = {
           nome: string
           preco: number
           tipo_botijao?: string | null
+          unidade_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -298,6 +310,7 @@ export type Database = {
           nome?: string
           preco?: number
           tipo_botijao?: string | null
+          unidade_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -306,6 +319,13 @@ export type Database = {
             columns: ["botijao_par_id"]
             isOneToOne: false
             referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produtos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
             referencedColumns: ["id"]
           },
         ]
