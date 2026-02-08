@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface ProdutoEstoque {
   id: string;
@@ -60,6 +61,7 @@ function getLimites(nome: string) {
 
 export default function Estoque() {
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [movimentacaoDialogOpen, setMovimentacaoDialogOpen] = useState(false);
@@ -72,11 +74,18 @@ export default function Estoque() {
   const fetchProdutos = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("produtos")
         .select("id, nome, tipo_botijao, estoque, preco, categoria")
         .eq("ativo", true)
         .order("nome");
+
+      // Filtrar por unidade se houver unidade selecionada
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setProdutos(data || []);
@@ -94,7 +103,7 @@ export default function Estoque() {
 
   useEffect(() => {
     fetchProdutos();
-  }, []);
+  }, [unidadeAtual?.id]);
 
   const handleMovimentacao = async () => {
     const quantidade = parseInt(movimentacao.quantidade);

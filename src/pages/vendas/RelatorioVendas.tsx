@@ -38,6 +38,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pendente: { label: "Pendente", variant: "secondary" },
@@ -65,6 +66,7 @@ interface PedidoRelatorio {
 
 export default function RelatorioVendas() {
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
   const hoje = new Date();
   
   const [dataInicio, setDataInicio] = useState(format(startOfMonth(hoje), "yyyy-MM-dd"));
@@ -74,9 +76,9 @@ export default function RelatorioVendas() {
 
   // Buscar pedidos
   const { data: pedidos = [], isLoading, refetch } = useQuery({
-    queryKey: ["relatorio-vendas", dataInicio, dataFim],
+    queryKey: ["relatorio-vendas", dataInicio, dataFim, unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("pedidos")
         .select(`
           id,
@@ -96,6 +98,13 @@ export default function RelatorioVendas() {
         .gte("created_at", `${dataInicio}T00:00:00`)
         .lte("created_at", `${dataFim}T23:59:59`)
         .order("created_at", { ascending: false });
+
+      // Filtrar por unidade se houver unidade selecionada
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as PedidoRelatorio[];
