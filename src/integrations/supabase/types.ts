@@ -305,6 +305,57 @@ export type Database = {
         }
         Relationships: []
       }
+      funcionarios: {
+        Row: {
+          ativo: boolean | null
+          cargo: string | null
+          cpf: string | null
+          created_at: string
+          data_admissao: string | null
+          email: string | null
+          endereco: string | null
+          id: string
+          nome: string
+          salario: number | null
+          setor: string | null
+          status: string | null
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          nome: string
+          salario?: number | null
+          setor?: string | null
+          status?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          nome?: string
+          salario?: number | null
+          setor?: string | null
+          status?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pedido_itens: {
         Row: {
           created_at: string
