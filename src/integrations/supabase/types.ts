@@ -68,6 +68,102 @@ export type Database = {
         }
         Relationships: []
       }
+      compra_itens: {
+        Row: {
+          compra_id: string
+          created_at: string
+          id: string
+          preco_unitario: number
+          produto_id: string | null
+          quantidade: number
+        }
+        Insert: {
+          compra_id: string
+          created_at?: string
+          id?: string
+          preco_unitario: number
+          produto_id?: string | null
+          quantidade?: number
+        }
+        Update: {
+          compra_id?: string
+          created_at?: string
+          id?: string
+          preco_unitario?: number
+          produto_id?: string | null
+          quantidade?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compra_itens_compra_id_fkey"
+            columns: ["compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compra_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compras: {
+        Row: {
+          created_at: string
+          data_prevista: string | null
+          data_recebimento: string | null
+          fornecedor_id: string | null
+          id: string
+          observacoes: string | null
+          status: string | null
+          unidade_id: string | null
+          updated_at: string
+          valor_total: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_prevista?: string | null
+          data_recebimento?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          valor_total?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_prevista?: string | null
+          data_recebimento?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracoes_empresa: {
         Row: {
           cnpj: string | null
@@ -146,6 +242,66 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      fornecedores: {
+        Row: {
+          ativo: boolean | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          contato_cargo: string | null
+          contato_nome: string | null
+          created_at: string
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          id: string
+          inscricao_estadual: string | null
+          nome_fantasia: string | null
+          razao_social: string
+          telefone: string | null
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          nome_fantasia?: string | null
+          razao_social: string
+          telefone?: string | null
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          nome_fantasia?: string | null
+          razao_social?: string
+          telefone?: string | null
+          tipo?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

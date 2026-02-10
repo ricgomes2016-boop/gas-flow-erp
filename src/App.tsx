@@ -53,6 +53,7 @@ import MCMM from "./pages/estoque/MCMM";
 
 // Cadastros
 import CadastroClientesCad from "./pages/cadastros/CadastroClientesCad";
+import Entregadores from "./pages/cadastros/Entregadores";
 import Fornecedores from "./pages/cadastros/Fornecedores";
 import Veiculos from "./pages/cadastros/Veiculos";
 import Funcionarios from "./pages/cadastros/Funcionarios";
@@ -295,6 +296,11 @@ const App = () => (
                   <Route path="/cadastros/clientes" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <CadastroClientesCad />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/cadastros/entregadores" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Entregadores />
                     </ProtectedRoute>
                   } />
                   <Route path="/cadastros/fornecedores" element={

@@ -98,6 +98,7 @@ const menuItems: MenuItem[] = [
     label: "Cadastros",
     submenu: [
       { label: "Clientes", path: "/cadastros/clientes" },
+      { label: "Entregadores", path: "/cadastros/entregadores" },
       { label: "Fornecedores", path: "/cadastros/fornecedores" },
       { label: "Veículos", path: "/cadastros/veiculos" },
       { label: "Funcionários", path: "/cadastros/funcionarios" },
