@@ -1,31 +1,83 @@
+import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, Plus } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { format, subDays, startOfDay } from "date-fns";
 
-const fluxoData = [
-  { data: "01/01", entradas: 8500, saidas: 6200, saldo: 2300 },
-  { data: "02/01", entradas: 12000, saidas: 8500, saldo: 3500 },
-  { data: "03/01", entradas: 9800, saidas: 7200, saldo: 2600 },
-  { data: "04/01", entradas: 15000, saidas: 11000, saldo: 4000 },
-  { data: "05/01", entradas: 11500, saidas: 9800, saldo: 1700 },
-  { data: "06/01", entradas: 13200, saidas: 8900, saldo: 4300 },
-  { data: "07/01", entradas: 16800, saidas: 12500, saldo: 4300 },
-];
-
-const movimentacoes = [
-  { id: 1, tipo: "entrada", descricao: "Vendas do dia", valor: 8500, categoria: "Vendas", data: "2024-01-16" },
-  { id: 2, tipo: "saida", descricao: "Compra de botijões", valor: 5200, categoria: "Fornecedores", data: "2024-01-16" },
-  { id: 3, tipo: "entrada", descricao: "Recebimento PIX", valor: 1200, categoria: "Recebíveis", data: "2024-01-16" },
-  { id: 4, tipo: "saida", descricao: "Combustível", valor: 850, categoria: "Frota", data: "2024-01-16" },
-  { id: 5, tipo: "saida", descricao: "Folha de pagamento", valor: 3500, categoria: "RH", data: "2024-01-15" },
-  { id: 6, tipo: "entrada", descricao: "Vendas do dia", valor: 12000, categoria: "Vendas", data: "2024-01-15" },
-];
+interface Movimentacao {
+  id: string;
+  tipo: string;
+  descricao: string;
+  valor: number;
+  categoria: string | null;
+  created_at: string;
+}
 
 export default function FluxoCaixa() {
+  const [movs, setMovs] = useState<Movimentacao[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const { unidadeAtual } = useUnidade();
+  const [form, setForm] = useState({ tipo: "entrada", descricao: "", valor: "", categoria: "" });
+
+  const fetchMovs = async () => {
+    setLoading(true);
+    const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+    let query = supabase.from("movimentacoes_caixa").select("*").gte("created_at", sevenDaysAgo).order("created_at", { ascending: false });
+    if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+    const { data, error } = await query;
+    if (error) console.error(error);
+    else setMovs((data as Movimentacao[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchMovs(); }, [unidadeAtual]);
+
+  const handleSubmit = async () => {
+    if (!form.descricao || !form.valor) { toast.error("Preencha os campos obrigatórios"); return; }
+    const { error } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: form.tipo, descricao: form.descricao,
+      valor: parseFloat(form.valor), categoria: form.categoria || null,
+      unidade_id: unidadeAtual?.id || null,
+    });
+    if (error) { toast.error("Erro ao registrar"); console.error(error); }
+    else { toast.success("Movimentação registrada!"); setDialogOpen(false); setForm({ tipo: "entrada", descricao: "", valor: "", categoria: "" }); fetchMovs(); }
+  };
+
+  const hoje = startOfDay(new Date());
+  const entradaHoje = movs.filter(m => m.tipo === "entrada" && new Date(m.created_at) >= hoje).reduce((a, m) => a + Number(m.valor), 0);
+  const saidaHoje = movs.filter(m => m.tipo === "saida" && new Date(m.created_at) >= hoje).reduce((a, m) => a + Number(m.valor), 0);
+  const totalEntradas = movs.filter(m => m.tipo === "entrada").reduce((a, m) => a + Number(m.valor), 0);
+  const totalSaidas = movs.filter(m => m.tipo === "saida").reduce((a, m) => a + Number(m.valor), 0);
+
+  const chartData = useMemo(() => {
+    const days: Record<string, { entradas: number; saidas: number }> = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = format(subDays(new Date(), i), "dd/MM");
+      days[d] = { entradas: 0, saidas: 0 };
+    }
+    movs.forEach(m => {
+      const d = format(new Date(m.created_at), "dd/MM");
+      if (days[d]) { if (m.tipo === "entrada") days[d].entradas += Number(m.valor); else days[d].saidas += Number(m.valor); }
+    });
+    return Object.entries(days).map(([data, v]) => ({ data, ...v }));
+  }, [movs]);
+
   return (
     <MainLayout>
       <Header title="Fluxo de Caixa" subtitle="Entradas e saídas em tempo real" />
@@ -35,103 +87,83 @@ export default function FluxoCaixa() {
             <h1 className="text-3xl font-bold text-foreground">Fluxo de Caixa</h1>
             <p className="text-muted-foreground">Acompanhe entradas e saídas em tempo real</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">Exportar</Button>
-            <Button>Nova Movimentação</Button>
-          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Movimentação</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nova Movimentação</DialogTitle></DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div><Label>Tipo</Label>
+                  <Select value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="entrada">Entrada</SelectItem><SelectItem value="saida">Saída</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Descrição *</Label><Input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
+                <div><Label>Valor *</Label><Input type="number" step="0.01" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></div>
+                <div><Label>Categoria</Label>
+                  <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Vendas">Vendas</SelectItem><SelectItem value="Fornecedores">Fornecedores</SelectItem>
+                      <SelectItem value="Frota">Frota</SelectItem><SelectItem value="RH">RH</SelectItem>
+                      <SelectItem value="Recebíveis">Recebíveis</SelectItem><SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Salvar</Button></div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Saldo Atual</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">R$ 45.680</div>
-              <p className="text-xs text-muted-foreground">Em caixa</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Entradas Hoje</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">R$ 9.700</div>
-              <p className="text-xs text-muted-foreground">+15% vs ontem</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Saídas Hoje</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">R$ 6.050</div>
-              <p className="text-xs text-muted-foreground">-8% vs ontem</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Saldo do Dia</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">R$ 3.650</div>
-              <p className="text-xs text-muted-foreground">Positivo</p>
-            </CardContent>
-          </Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saldo 7 dias</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">R$ {(totalEntradas - totalSaidas).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Entradas Hoje</CardTitle><TrendingUp className="h-4 w-4 text-success" /></CardHeader><CardContent><div className="text-2xl font-bold text-success">R$ {entradaHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saídas Hoje</CardTitle><TrendingDown className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">R$ {saidaHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saldo do Dia</CardTitle><DollarSign className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-2xl font-bold text-primary">R$ {(entradaHoje - saidaHoje).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Fluxo de Caixa - Últimos 7 dias</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Fluxo de Caixa — Últimos 7 dias</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={fluxoData}>
+              <AreaChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="data" />
-                <YAxis />
-                <Tooltip formatter={(value) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
-                <Area type="monotone" dataKey="entradas" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.6} name="Entradas" />
-                <Area type="monotone" dataKey="saidas" stackId="2" stroke="#ef4444" fill="#ef4444" fillOpacity={0.6} name="Saídas" />
+                <XAxis dataKey="data" /><YAxis />
+                <Tooltip formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR")}`} />
+                <Area type="monotone" dataKey="entradas" stroke="hsl(var(--success))" fill="hsl(var(--success))" fillOpacity={0.4} name="Entradas" />
+                <Area type="monotone" dataKey="saidas" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive))" fillOpacity={0.4} name="Saídas" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Últimas Movimentações</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Últimas Movimentações</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {movimentacoes.map((mov) => (
-                <div key={mov.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-full ${mov.tipo === "entrada" ? "bg-green-100" : "bg-red-100"}`}>
-                      {mov.tipo === "entrada" ? (
-                        <ArrowUpRight className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <ArrowDownRight className="h-4 w-4 text-red-600" />
-                      )}
+            {loading ? <p className="text-center py-6 text-muted-foreground">Carregando...</p> : movs.length === 0 ? <p className="text-center py-6 text-muted-foreground">Nenhuma movimentação encontrada</p> : (
+              <div className="space-y-4">
+                {movs.slice(0, 20).map(mov => (
+                  <div key={mov.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-full ${mov.tipo === "entrada" ? "bg-success/10" : "bg-destructive/10"}`}>
+                        {mov.tipo === "entrada" ? <ArrowUpRight className="h-4 w-4 text-success" /> : <ArrowDownRight className="h-4 w-4 text-destructive" />}
+                      </div>
+                      <div>
+                        <p className="font-medium">{mov.descricao}</p>
+                        <p className="text-sm text-muted-foreground">{format(new Date(mov.created_at), "dd/MM/yyyy HH:mm")}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{mov.descricao}</p>
-                      <p className="text-sm text-muted-foreground">{new Date(mov.data).toLocaleDateString('pt-BR')}</p>
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline">{mov.categoria || "—"}</Badge>
+                      <span className={`font-bold ${mov.tipo === "entrada" ? "text-success" : "text-destructive"}`}>
+                        {mov.tipo === "entrada" ? "+" : "-"} R$ {Number(mov.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline">{mov.categoria}</Badge>
-                    <span className={`font-bold ${mov.tipo === "entrada" ? "text-green-600" : "text-red-600"}`}>
-                      {mov.tipo === "entrada" ? "+" : "-"} R$ {mov.valor.toLocaleString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -197,6 +197,116 @@ export type Database = {
         }
         Relationships: []
       }
+      contas_pagar: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          descricao: string
+          fornecedor: string
+          id: string
+          observacoes: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          descricao: string
+          fornecedor: string
+          id?: string
+          observacoes?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          vencimento: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          descricao?: string
+          fornecedor?: string
+          id?: string
+          observacoes?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contas_receber: {
+        Row: {
+          cliente: string
+          created_at: string
+          descricao: string
+          forma_pagamento: string | null
+          id: string
+          observacoes: string | null
+          pedido_id: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          cliente: string
+          created_at?: string
+          descricao: string
+          forma_pagamento?: string | null
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          vencimento: string
+        }
+        Update: {
+          cliente?: string
+          created_at?: string
+          descricao?: string
+          forma_pagamento?: string | null
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_receber_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_receber_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entregadores: {
         Row: {
           ativo: boolean | null
@@ -355,6 +465,72 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      movimentacoes_caixa: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          descricao: string
+          id: string
+          observacoes: string | null
+          pedido_id: string | null
+          responsavel: string | null
+          solicitante: string | null
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          urgencia: string | null
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          descricao: string
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          responsavel?: string | null
+          solicitante?: string | null
+          status?: string
+          tipo: string
+          unidade_id?: string | null
+          updated_at?: string
+          urgencia?: string | null
+          valor?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          responsavel?: string | null
+          solicitante?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          urgencia?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_caixa_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_caixa_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pedido_itens: {
         Row: {
