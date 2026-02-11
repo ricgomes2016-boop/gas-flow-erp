@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,214 +6,107 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { User, Package, Wallet, CheckCircle } from "lucide-react";
+import { User, Package, Wallet } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { startOfDay, format } from "date-fns";
 
-const entregadores = [
-  { id: 1, nome: "Carlos Souza" },
-  { id: 2, nome: "Roberto Lima" },
-  { id: 3, nome: "Fernando Alves" },
-];
-
-const entregas = [
-  { id: 1, cliente: "João Silva", produto: "2x P13", valor: 220, pagamento: "Dinheiro" },
-  { id: 2, cliente: "Maria Santos", produto: "1x P20", valor: 180, pagamento: "PIX" },
-  { id: 3, cliente: "Pedro Costa", produto: "1x P13", valor: 110, pagamento: "Dinheiro" },
-  { id: 4, cliente: "Ana Oliveira", produto: "1x P13", valor: 110, pagamento: "Cartão" },
-];
+interface Entregador { id: string; nome: string; }
+interface Entrega {
+  id: string;
+  valor_total: number;
+  forma_pagamento: string | null;
+  status: string | null;
+  cliente: { nome: string } | null;
+}
 
 export default function AcertoEntregador() {
-  const totalVendas = entregas.reduce((acc, e) => acc + e.valor, 0);
-  const totalDinheiro = entregas
-    .filter((e) => e.pagamento === "Dinheiro")
-    .reduce((acc, e) => acc + e.valor, 0);
+  const [entregadores, setEntregadores] = useState<Entregador[]>([]);
+  const [entregas, setEntregas] = useState<Entrega[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [dataAcerto, setDataAcerto] = useState(new Date().toISOString().split("T")[0]);
+  const [loading, setLoading] = useState(false);
+  const { unidadeAtual } = useUnidade();
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome");
+      if (data) setEntregadores(data);
+    };
+    fetch();
+  }, []);
+
+  const carregarEntregas = async () => {
+    if (!selectedId) { toast.error("Selecione um entregador"); return; }
+    setLoading(true);
+    const inicio = startOfDay(new Date(dataAcerto + "T00:00:00")).toISOString();
+    const fim = new Date(new Date(dataAcerto + "T00:00:00").getTime() + 86400000).toISOString();
+    let query = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, cliente:clientes(nome)")
+      .eq("entregador_id", selectedId).gte("created_at", inicio).lt("created_at", fim).eq("status", "entregue");
+    if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+    const { data, error } = await query;
+    if (error) { console.error(error); toast.error("Erro ao carregar"); }
+    else setEntregas((data as any) || []);
+    setLoading(false);
+  };
+
+  const totalVendas = entregas.reduce((a, e) => a + Number(e.valor_total || 0), 0);
+  const totalDinheiro = entregas.filter(e => e.forma_pagamento === "dinheiro").reduce((a, e) => a + Number(e.valor_total || 0), 0);
+  const totalPix = entregas.filter(e => e.forma_pagamento === "pix").reduce((a, e) => a + Number(e.valor_total || 0), 0);
 
   return (
     <MainLayout>
       <Header title="Acerto do Entregador" subtitle="Conferência de entregas e valores" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Acerto Diário do Entregador
-            </h1>
-            <p className="text-muted-foreground">
-              Conferência de entregas e valores
-            </p>
-          </div>
-        </div>
+        <div><h1 className="text-2xl font-bold text-foreground">Acerto Diário do Entregador</h1><p className="text-muted-foreground">Conferência de entregas e valores</p></div>
 
-        {/* Seleção de Entregador */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Selecionar Entregador
-            </CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Selecionar Entregador</CardTitle></CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <Label>Entregador</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o entregador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {entregadores.map((e) => (
-                      <SelectItem key={e.id} value={e.id.toString()}>
-                        {e.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+              <div><Label>Entregador</Label>
+                <Select value={selectedId} onValueChange={setSelectedId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{entregadores.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Data</Label>
-                <Input type="date" defaultValue="2026-02-06" />
-              </div>
-              <div className="flex items-end">
-                <Button className="w-full">Carregar Entregas</Button>
-              </div>
+              <div><Label>Data</Label><Input type="date" value={dataAcerto} onChange={e => setDataAcerto(e.target.value)} /></div>
+              <div className="flex items-end"><Button className="w-full" onClick={carregarEntregas}>Carregar Entregas</Button></div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Resumo */}
         <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <Package className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{entregas.length}</p>
-                  <p className="text-sm text-muted-foreground">Entregas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <Wallet className="h-6 w-6 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">R$ {totalVendas.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">Total Vendas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-blue-500/10">
-                  <Wallet className="h-6 w-6 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">R$ {totalDinheiro.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">Em Dinheiro</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-yellow-500/10">
-                  <Package className="h-6 w-6 text-yellow-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">2</p>
-                  <p className="text-sm text-muted-foreground">Vazios Retornados</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><Package className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">{entregas.length}</p><p className="text-sm text-muted-foreground">Entregas</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-success/10"><Wallet className="h-6 w-6 text-success" /></div><div><p className="text-2xl font-bold">R$ {totalVendas.toFixed(2)}</p><p className="text-sm text-muted-foreground">Total Vendas</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><Wallet className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">R$ {totalDinheiro.toFixed(2)}</p><p className="text-sm text-muted-foreground">Em Dinheiro</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-warning/10"><Wallet className="h-6 w-6 text-warning" /></div><div><p className="text-2xl font-bold">R$ {totalPix.toFixed(2)}</p><p className="text-sm text-muted-foreground">Em PIX</p></div></div></CardContent></Card>
         </div>
 
-        {/* Entregas */}
         <Card>
-          <CardHeader>
-            <CardTitle>Entregas Realizadas</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Entregas Realizadas</CardTitle></CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead>Conferido</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entregas.map((entrega) => (
-                  <TableRow key={entrega.id}>
-                    <TableCell className="font-medium">{entrega.cliente}</TableCell>
-                    <TableCell>{entrega.produto}</TableCell>
-                    <TableCell>R$ {entrega.valor.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{entrega.pagamento}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Acerto Final */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Acerto Final</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <Label>Dinheiro Entregue</Label>
-                <Input type="number" placeholder="0,00" step="0.01" />
-              </div>
-              <div>
-                <Label>Comprovantes PIX</Label>
-                <Input type="number" placeholder="0,00" step="0.01" />
-              </div>
-              <div>
-                <Label>Comprovantes Cartão</Label>
-                <Input type="number" placeholder="0,00" step="0.01" />
-              </div>
-              <div>
-                <Label>Diferença</Label>
-                <Input type="number" value="0,00" disabled className="bg-muted" />
-              </div>
-            </div>
-            <div className="flex justify-end mt-6 gap-4">
-              <Button variant="outline">Cancelar</Button>
-              <Button>Confirmar Acerto</Button>
-            </div>
+            {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : entregas.length === 0 ? <p className="text-center py-8 text-muted-foreground">{selectedId ? "Nenhuma entrega encontrada para este período" : "Selecione um entregador e clique em Carregar"}</p> : (
+              <Table>
+                <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Valor</TableHead><TableHead>Pagamento</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {entregas.map(e => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-medium">{e.cliente?.nome || "—"}</TableCell>
+                      <TableCell>R$ {Number(e.valor_total || 0).toFixed(2)}</TableCell>
+                      <TableCell><Badge variant="outline">{e.forma_pagamento || "—"}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
