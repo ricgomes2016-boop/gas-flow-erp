@@ -14,6 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
+      alertas_jornada: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          funcionario_id: string
+          id: string
+          nivel: string
+          resolvido: boolean
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          descricao: string
+          funcionario_id: string
+          id?: string
+          nivel?: string
+          resolvido?: boolean
+          tipo: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          funcionario_id?: string
+          id?: string
+          nivel?: string
+          resolvido?: boolean
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_jornada_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_jornada_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      banco_horas: {
+        Row: {
+          created_at: string
+          funcionario_id: string
+          id: string
+          observacoes: string | null
+          saldo_negativo: number
+          saldo_positivo: number
+          ultima_atualizacao: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          funcionario_id: string
+          id?: string
+          observacoes?: string | null
+          saldo_negativo?: number
+          saldo_positivo?: number
+          ultima_atualizacao?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          funcionario_id?: string
+          id?: string
+          observacoes?: string | null
+          saldo_negativo?: number
+          saldo_positivo?: number
+          ultima_atualizacao?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banco_horas_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "banco_horas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bonus: {
+        Row: {
+          created_at: string
+          funcionario_id: string
+          id: string
+          mes_referencia: string | null
+          observacoes: string | null
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          funcionario_id: string
+          id?: string
+          mes_referencia?: string | null
+          observacoes?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          funcionario_id?: string
+          id?: string
+          mes_referencia?: string | null
+          observacoes?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonus_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           ativo: boolean | null
@@ -466,6 +625,60 @@ export type Database = {
         }
         Relationships: []
       }
+      horarios_funcionario: {
+        Row: {
+          created_at: string
+          dias_semana: string | null
+          entrada: string
+          funcionario_id: string
+          id: string
+          intervalo: string | null
+          saida: string
+          turno: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dias_semana?: string | null
+          entrada?: string
+          funcionario_id: string
+          id?: string
+          intervalo?: string | null
+          saida?: string
+          turno?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dias_semana?: string | null
+          entrada?: string
+          funcionario_id?: string
+          id?: string
+          intervalo?: string | null
+          saida?: string
+          turno?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "horarios_funcionario_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "horarios_funcionario_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimentacoes_caixa: {
         Row: {
           categoria: string | null
@@ -640,6 +853,60 @@ export type Database = {
           },
           {
             foreignKeyName: "pedidos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      premiacoes: {
+        Row: {
+          created_at: string
+          ganhador_id: string | null
+          id: string
+          mes_referencia: string | null
+          meta_descricao: string | null
+          nome: string
+          premio: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ganhador_id?: string | null
+          id?: string
+          mes_referencia?: string | null
+          meta_descricao?: string | null
+          nome: string
+          premio?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ganhador_id?: string | null
+          id?: string
+          mes_referencia?: string | null
+          meta_descricao?: string | null
+          nome?: string
+          premio?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premiacoes_ganhador_id_fkey"
+            columns: ["ganhador_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premiacoes_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
@@ -900,6 +1167,63 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vales_funcionario: {
+        Row: {
+          created_at: string
+          data: string
+          desconto_referencia: string | null
+          funcionario_id: string
+          id: string
+          observacoes: string | null
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          desconto_referencia?: string | null
+          funcionario_id: string
+          id?: string
+          observacoes?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          desconto_referencia?: string | null
+          funcionario_id?: string
+          id?: string
+          observacoes?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vales_funcionario_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vales_funcionario_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       veiculos: {
         Row: {

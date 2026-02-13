@@ -5,26 +5,59 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { DollarSign, Plus, Search, CheckCircle2, Clock, AlertCircle } from "lucide-react";
-
-const vales = [
-  { id: 1, funcionario: "João Silva", tipo: "Adiantamento", valor: 500, data: "2024-01-15", status: "Pago", desconto: "Folha Jan" },
-  { id: 2, funcionario: "Pedro Santos", tipo: "Vale Alimentação", valor: 200, data: "2024-01-16", status: "Pendente", desconto: "Folha Jan" },
-  { id: 3, funcionario: "Maria Costa", tipo: "Adiantamento", valor: 800, data: "2024-01-14", status: "Pago", desconto: "Folha Jan" },
-  { id: 4, funcionario: "Carlos Oliveira", tipo: "Empréstimo", valor: 1500, data: "2024-01-10", status: "Parcelado", desconto: "3x de R$500" },
-  { id: 5, funcionario: "Ana Souza", tipo: "Vale Transporte", valor: 150, data: "2024-01-16", status: "Pendente", desconto: "Folha Jan" },
-];
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function ValeFuncionario() {
-  const totalPendente = vales.filter(v => v.status === "Pendente").reduce((acc, v) => acc + v.valor, 0);
-  const totalPago = vales.filter(v => v.status === "Pago").reduce((acc, v) => acc + v.valor, 0);
+  const [busca, setBusca] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: vales = [], isLoading } = useQuery({
+    queryKey: ["vales-funcionario"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vales_funcionario")
+        .select("*, funcionarios(nome)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const pagarMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("vales_funcionario")
+        .update({ status: "pago" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vales-funcionario"] });
+      toast.success("Vale marcado como pago");
+    },
+  });
+
+  const filtrados = vales.filter((v: any) =>
+    v.funcionarios?.nome?.toLowerCase().includes(busca.toLowerCase())
+  );
+
+  const totalPendente = filtrados.filter((v: any) => v.status === "pendente").reduce((acc: number, v: any) => acc + Number(v.valor), 0);
+  const totalPago = filtrados.filter((v: any) => v.status === "pago").reduce((acc: number, v: any) => acc + Number(v.valor), 0);
+  const totalMes = totalPendente + totalPago;
+
+  const tipoLabel: Record<string, string> = {
+    adiantamento: "Adiantamento",
+    vale_alimentacao: "Vale Alimentação",
+    vale_transporte: "Vale Transporte",
+    emprestimo: "Empréstimo",
+  };
 
   return (
     <MainLayout>
@@ -35,10 +68,7 @@ export default function ValeFuncionario() {
             <h1 className="text-3xl font-bold text-foreground">Vale Funcionário</h1>
             <p className="text-muted-foreground">Controle de adiantamentos e vales</p>
           </div>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo Vale
-          </Button>
+          <Button className="gap-2"><Plus className="h-4 w-4" />Novo Vale</Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -48,37 +78,37 @@ export default function ValeFuncionario() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">R$ 3.150</div>
+              <div className="text-2xl font-bold">R$ {totalMes.toLocaleString('pt-BR')}</div>
               <p className="text-xs text-muted-foreground">Em vales liberados</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
+              <Clock className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">R$ {totalPendente.toLocaleString('pt-BR')}</div>
+              <div className="text-2xl font-bold text-warning">R$ {totalPendente.toLocaleString('pt-BR')}</div>
               <p className="text-xs text-muted-foreground">Aguardando pagamento</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Pagos</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <CheckCircle2 className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">R$ {totalPago.toLocaleString('pt-BR')}</div>
+              <div className="text-2xl font-bold text-success">R$ {totalPago.toLocaleString('pt-BR')}</div>
               <p className="text-xs text-muted-foreground">Já liberados</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">A Descontar</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertCircle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">R$ 2.650</div>
+              <div className="text-2xl font-bold text-destructive">R$ {totalPendente.toLocaleString('pt-BR')}</div>
               <p className="text-xs text-muted-foreground">Na próxima folha</p>
             </CardContent>
           </Card>
@@ -90,50 +120,59 @@ export default function ValeFuncionario() {
               <CardTitle>Vales e Adiantamentos</CardTitle>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar funcionário..." className="pl-10 w-[250px]" />
+                <Input
+                  placeholder="Buscar funcionário..."
+                  className="pl-10 w-[250px]"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Desconto</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vales.map((vale) => (
-                  <TableRow key={vale.id}>
-                    <TableCell className="font-medium">{vale.funcionario}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{vale.tipo}</Badge>
-                    </TableCell>
-                    <TableCell>{new Date(vale.data).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="font-medium">R$ {vale.valor.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell>{vale.desconto}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        vale.status === "Pago" ? "default" :
-                        vale.status === "Pendente" ? "secondary" : "outline"
-                      }>
-                        {vale.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {vale.status === "Pendente" && (
-                        <Button size="sm">Pagar</Button>
-                      )}
-                    </TableCell>
+            {isLoading ? (
+              <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : filtrados.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum vale encontrado</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Funcionário</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Desconto</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtrados.map((vale: any) => (
+                    <TableRow key={vale.id}>
+                      <TableCell className="font-medium">{vale.funcionarios?.nome || "N/A"}</TableCell>
+                      <TableCell><Badge variant="outline">{tipoLabel[vale.tipo] || vale.tipo}</Badge></TableCell>
+                      <TableCell>{new Date(vale.data).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell className="font-medium">R$ {Number(vale.valor).toLocaleString('pt-BR')}</TableCell>
+                      <TableCell>{vale.desconto_referencia || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          vale.status === "pago" ? "default" :
+                          vale.status === "pendente" ? "secondary" : "outline"
+                        }>
+                          {vale.status === "pago" ? "Pago" : vale.status === "pendente" ? "Pendente" : "Parcelado"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {vale.status === "pendente" && (
+                          <Button size="sm" onClick={() => pagarMutation.mutate(vale.id)}>Pagar</Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
