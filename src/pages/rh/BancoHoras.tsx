@@ -4,26 +4,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Clock, TrendingUp, TrendingDown, Users, Calendar } from "lucide-react";
-
-const bancoHoras = [
-  { id: 1, funcionario: "João Silva", saldoPositivo: 12, saldoNegativo: 0, saldoTotal: 12, ultimaAtualizacao: "2024-01-16" },
-  { id: 2, funcionario: "Pedro Santos", saldoPositivo: 8, saldoNegativo: 2, saldoTotal: 6, ultimaAtualizacao: "2024-01-16" },
-  { id: 3, funcionario: "Maria Costa", saldoPositivo: 0, saldoNegativo: 4, saldoTotal: -4, ultimaAtualizacao: "2024-01-15" },
-  { id: 4, funcionario: "Carlos Oliveira", saldoPositivo: 15, saldoNegativo: 0, saldoTotal: 15, ultimaAtualizacao: "2024-01-16" },
-  { id: 5, funcionario: "Ana Souza", saldoPositivo: 5, saldoNegativo: 3, saldoTotal: 2, ultimaAtualizacao: "2024-01-14" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BancoHoras() {
-  const totalPositivo = bancoHoras.reduce((acc, b) => acc + b.saldoPositivo, 0);
-  const totalNegativo = bancoHoras.reduce((acc, b) => acc + b.saldoNegativo, 0);
+  const { data: bancoHoras = [], isLoading } = useQuery({
+    queryKey: ["banco-horas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("banco_horas")
+        .select("*, funcionarios(nome)")
+        .order("ultima_atualizacao", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const totalPositivo = bancoHoras.reduce((acc: number, b: any) => acc + Number(b.saldo_positivo), 0);
+  const totalNegativo = bancoHoras.reduce((acc: number, b: any) => acc + Number(b.saldo_negativo), 0);
 
   return (
     <MainLayout>
@@ -34,10 +36,7 @@ export default function BancoHoras() {
             <h1 className="text-3xl font-bold text-foreground">Banco de Horas</h1>
             <p className="text-muted-foreground">Controle de horas trabalhadas e compensações</p>
           </div>
-          <Button className="gap-2">
-            <Clock className="h-4 w-4" />
-            Lançar Horas
-          </Button>
+          <Button className="gap-2"><Clock className="h-4 w-4" />Lançar Horas</Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -54,30 +53,30 @@ export default function BancoHoras() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Horas Positivas</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
+              <TrendingUp className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{totalPositivo}h</div>
+              <div className="text-2xl font-bold text-success">{totalPositivo}h</div>
               <p className="text-xs text-muted-foreground">A compensar</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Horas Negativas</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
+              <TrendingDown className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{totalNegativo}h</div>
+              <div className="text-2xl font-bold text-destructive">{totalNegativo}h</div>
               <p className="text-xs text-muted-foreground">A repor</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Funcionários</CardTitle>
-              <Users className="h-4 w-4 text-blue-600" />
+              <Users className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{bancoHoras.length}</div>
+              <div className="text-2xl font-bold text-primary">{bancoHoras.length}</div>
               <p className="text-xs text-muted-foreground">Com banco ativo</p>
             </CardContent>
           </Card>
@@ -91,36 +90,45 @@ export default function BancoHoras() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>Horas Positivas</TableHead>
-                  <TableHead>Horas Negativas</TableHead>
-                  <TableHead>Saldo Total</TableHead>
-                  <TableHead>Última Atualização</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bancoHoras.map((registro) => (
-                  <TableRow key={registro.id}>
-                    <TableCell className="font-medium">{registro.funcionario}</TableCell>
-                    <TableCell className="text-green-600">+{registro.saldoPositivo}h</TableCell>
-                    <TableCell className="text-red-600">-{registro.saldoNegativo}h</TableCell>
-                    <TableCell>
-                      <Badge variant={registro.saldoTotal >= 0 ? "default" : "destructive"}>
-                        {registro.saldoTotal >= 0 ? "+" : ""}{registro.saldoTotal}h
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{new Date(registro.ultimaAtualizacao).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Histórico</Button>
-                    </TableCell>
+            {isLoading ? (
+              <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : bancoHoras.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum registro no banco de horas</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Funcionário</TableHead>
+                    <TableHead>Horas Positivas</TableHead>
+                    <TableHead>Horas Negativas</TableHead>
+                    <TableHead>Saldo Total</TableHead>
+                    <TableHead>Última Atualização</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {bancoHoras.map((registro: any) => {
+                    const saldo = Number(registro.saldo_positivo) - Number(registro.saldo_negativo);
+                    return (
+                      <TableRow key={registro.id}>
+                        <TableCell className="font-medium">{registro.funcionarios?.nome || "N/A"}</TableCell>
+                        <TableCell className="text-success">+{Number(registro.saldo_positivo)}h</TableCell>
+                        <TableCell className="text-destructive">-{Number(registro.saldo_negativo)}h</TableCell>
+                        <TableCell>
+                          <Badge variant={saldo >= 0 ? "default" : "destructive"}>
+                            {saldo >= 0 ? "+" : ""}{saldo}h
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(registro.ultima_atualizacao).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm">Histórico</Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
