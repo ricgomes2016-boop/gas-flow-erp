@@ -55,6 +55,7 @@ function calcularLinha(
   const nomeBase = produto.nome
     .replace(/\s*\(Vazio\)\s*/i, "")
     .replace(/\s*\(Cheio\)\s*/i, "")
+    .replace(/^Gás\s+/i, "")
     .trim();
 
   const estoqueAtual = produto.estoque || 0;
@@ -129,7 +130,7 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
     const grupoMap: Record<string, { cheio?: Produto; vazio?: Produto; unico?: Produto }> = {};
 
     produtos.forEach((p) => {
-      const nomeBase = p.nome.replace(/\s*\(Vazio\)\s*/i, "").replace(/\s*\(Cheio\)\s*/i, "").trim();
+      const nomeBase = p.nome.replace(/\s*\(Vazio\)\s*/i, "").replace(/\s*\(Cheio\)\s*/i, "").replace(/^Gás\s+/i, "").trim();
       if (!grupoMap[nomeBase]) grupoMap[nomeBase] = {};
 
       if (p.tipo_botijao === "cheio") grupoMap[nomeBase].cheio = p;
@@ -235,7 +236,7 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                           const displayName = isCheio
                             ? (isAgua ? linha.nome : `Gás ${linha.nome}`)
                             : isVazio
-                            ? `Vasilhame ${isAgua ? '' : 'Gás '}${linha.nome}`
+                            ? `Vasilhame ${linha.nome}`
                             : linha.nome;
                           return (
                             <span className="flex items-center gap-1.5">
