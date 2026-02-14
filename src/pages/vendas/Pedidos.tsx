@@ -39,7 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles,
   User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
-  Share2, DollarSign, Trash2, Lock,
+  Share2, DollarSign, Trash2, Lock, MessageCircle,
 } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
@@ -202,6 +202,27 @@ export default function Pedidos() {
 
   const editarPedido = (pedidoId: string) => {
     navigate(`/vendas/pedidos/${pedidoId}/editar`);
+  };
+
+  const imprimirPedido = (pedido: PedidoFormatado) => {
+    const idCurto = pedido.id.substring(0, 8).toUpperCase();
+    const itensHtml = pedido.itens
+      .map((item) => `<div>${item.quantidade}x ${item.produto?.nome || 'Produto'} - R$ ${(item.preco_unitario * item.quantidade).toFixed(2)}</div>`)
+      .join("");
+    const printContent = `<html><head><title>Pedido #${idCurto}</title><style>body{font-family:Arial,sans-serif;padding:20px}.header{text-align:center;margin-bottom:20px}.info{margin:8px 0}.label{font-weight:bold}.total{font-size:18px;font-weight:bold;margin-top:20px}.sep{border-top:1px dashed #ccc;margin:15px 0}</style></head><body><div class="header"><h2>PEDIDO #${idCurto}</h2><p>${pedido.data}</p></div><div class="sep"></div><div class="info"><span class="label">Cliente:</span> ${pedido.cliente}</div><div class="info"><span class="label">Endereço:</span> ${pedido.endereco}</div><div class="sep"></div><div class="info"><span class="label">Itens:</span></div>${itensHtml || `<div>${pedido.produtos}</div>`}${pedido.entregador ? `<div class="sep"></div><div class="info"><span class="label">Entregador:</span> ${pedido.entregador}</div>` : ''}${pedido.observacoes ? `<div class="info"><span class="label">Obs:</span> ${pedido.observacoes}</div>` : ''}<div class="sep"></div><div class="total">TOTAL: R$ ${pedido.valor.toFixed(2)}</div></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(printContent); w.document.close(); w.print(); }
+  };
+
+  const enviarWhatsApp = (pedido: PedidoFormatado) => {
+    const idCurto = pedido.id.substring(0, 8).toUpperCase();
+    const itensTexto = pedido.itens
+      .map((item) => `  • ${item.quantidade}x ${item.produto?.nome || 'Produto'}`)
+      .join("\n");
+    const mensagem = encodeURIComponent(
+      `*Pedido #${idCurto}*\n\n📦 *Produtos:*\n${itensTexto || pedido.produtos}\n\n💰 *Valor:* R$ ${pedido.valor.toFixed(2)}\n📍 *Endereço:* ${pedido.endereco}\n📅 *Data:* ${pedido.data}\n${pedido.observacoes ? `📝 *Obs:* ${pedido.observacoes}\n` : ''}\nObrigado pela preferência!`
+    );
+    window.open(`https://wa.me/?text=${mensagem}`, '_blank');
   };
 
   // Filtrar pedidos
@@ -537,8 +558,17 @@ export default function Pedidos() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => imprimirPedido(pedido)}>
+                              <Printer className="h-4 w-4 mr-2" />
+                              Imprimir
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => enviarWhatsApp(pedido)}>
+                              <MessageCircle className="h-4 w-4 mr-2" />
+                              Enviar WhatsApp
+                            </DropdownMenuItem>
                             {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
                               <>
+                                <DropdownMenuSeparator />
                                 {pedido.status !== "em_rota" && (
                                   <DropdownMenuItem onClick={() => alterarStatusPedido(pedido.id, "em_rota")}>
                                     <Truck className="h-4 w-4 mr-2" />
