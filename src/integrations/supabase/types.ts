@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      abastecimentos: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          km: number
+          litros: number
+          motorista: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          veiculo_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          id?: string
+          km: number
+          litros: number
+          motorista: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor: number
+          veiculo_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          km?: number
+          litros?: number
+          motorista?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abastecimentos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abastecimentos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas_jornada: {
         Row: {
           created_at: string
@@ -166,6 +223,53 @@ export type Database = {
           },
           {
             foreignKeyName: "bonus_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanhas: {
+        Row: {
+          alcance: number
+          created_at: string
+          data_criacao: string
+          enviados: number
+          id: string
+          nome: string
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          alcance?: number
+          created_at?: string
+          data_criacao?: string
+          enviados?: number
+          id?: string
+          nome: string
+          status?: string
+          tipo: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alcance?: number
+          created_at?: string
+          data_criacao?: string
+          enviados?: number
+          id?: string
+          nome?: string
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
@@ -612,6 +716,57 @@ export type Database = {
           },
         ]
       }
+      fidelidade_clientes: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          indicacoes_realizadas: number
+          nivel: string
+          pontos: number
+          ultima_atualizacao: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          indicacoes_realizadas?: number
+          nivel?: string
+          pontos?: number
+          ultima_atualizacao?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          indicacoes_realizadas?: number
+          nivel?: string
+          pontos?: number
+          ultima_atualizacao?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fidelidade_clientes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fidelidade_clientes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           ativo: boolean | null
@@ -723,6 +878,60 @@ export type Database = {
         }
         Relationships: []
       }
+      gamificacao_ranking: {
+        Row: {
+          avaliacao_media: number
+          conquistas_desbloqueadas: number
+          created_at: string
+          entregador_id: string
+          entregas_realizadas: number
+          id: string
+          mes_referencia: string
+          pontos: number
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          avaliacao_media?: number
+          conquistas_desbloqueadas?: number
+          created_at?: string
+          entregador_id: string
+          entregas_realizadas?: number
+          id?: string
+          mes_referencia: string
+          pontos?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avaliacao_media?: number
+          conquistas_desbloqueadas?: number
+          created_at?: string
+          entregador_id?: string
+          entregas_realizadas?: number
+          id?: string
+          mes_referencia?: string
+          pontos?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamificacao_ranking_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gamificacao_ranking_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       horarios_funcionario: {
         Row: {
           created_at: string
@@ -770,6 +979,113 @@ export type Database = {
           },
           {
             foreignKeyName: "horarios_funcionario_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manutencoes: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+          oficina: string
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          veiculo_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          descricao: string
+          id?: string
+          oficina: string
+          status?: string
+          tipo: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor: number
+          veiculo_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          oficina?: string
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manutencoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manutencoes_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metas: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          prazo: string
+          status: string
+          tipo: string
+          titulo: string
+          unidade_id: string | null
+          updated_at: string
+          valor_atual: number
+          valor_objetivo: number
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          prazo: string
+          status?: string
+          tipo: string
+          titulo: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_atual?: number
+          valor_objetivo: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          prazo?: string
+          status?: string
+          tipo?: string
+          titulo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_atual?: number
+          valor_objetivo?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
