@@ -85,8 +85,7 @@ const menuItems: MenuItem[] = [
     icon: Users,
     label: "Gestão de Clientes",
     submenu: [
-      { label: "Cadastro de Clientes", path: "/clientes/cadastro" },
-      { label: "Clientes", path: "/cadastros/clientes" },
+      { label: "Clientes", path: "/clientes/cadastro" },
       { label: "Campanhas", path: "/clientes/campanhas" },
       { label: "Fidelidade / Indicações", path: "/clientes/fidelidade" },
       { label: "CRM", path: "/clientes/crm" },
