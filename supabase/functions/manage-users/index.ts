@@ -86,7 +86,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create auth user (auto-confirmed)
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -96,7 +95,6 @@ Deno.serve(async (req) => {
 
       if (createError) throw createError;
 
-      // Update phone on profile if provided
       if (phone && newUser.user) {
         await supabaseAdmin
           .from("profiles")
@@ -104,7 +102,6 @@ Deno.serve(async (req) => {
           .eq("user_id", newUser.user.id);
       }
 
-      // Set role (trigger already creates 'operacional', so update if different)
       if (role !== "operacional" && newUser.user) {
         await supabaseAdmin
           .from("user_roles")
@@ -117,7 +114,52 @@ Deno.serve(async (req) => {
       });
     }
 
-    // UPDATE role
+    // UPDATE user (profile + role)
+    if (action === "update") {
+      const { user_id, full_name, phone, role } = params;
+
+      if (!user_id) {
+        return new Response(JSON.stringify({ error: "user_id obrigatório" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Update profile fields
+      const profileUpdate: Record<string, string> = {};
+      if (full_name !== undefined) profileUpdate.full_name = full_name;
+      if (phone !== undefined) profileUpdate.phone = phone;
+
+      if (Object.keys(profileUpdate).length > 0) {
+        const { error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .update(profileUpdate)
+          .eq("user_id", user_id);
+        if (profileError) throw profileError;
+      }
+
+      // Update auth user metadata if name changed
+      if (full_name !== undefined) {
+        await supabaseAdmin.auth.admin.updateUserById(user_id, {
+          user_metadata: { full_name },
+        });
+      }
+
+      // Update role if provided
+      if (role) {
+        const { error: roleError } = await supabaseAdmin
+          .from("user_roles")
+          .update({ role })
+          .eq("user_id", user_id);
+        if (roleError) throw roleError;
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // UPDATE role (kept for backward compatibility)
     if (action === "update_role") {
       const { user_id, role } = params;
 
@@ -150,7 +192,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Prevent self-deletion
       if (user_id === caller.id) {
         return new Response(JSON.stringify({ error: "Você não pode excluir sua própria conta" }), {
           status: 400,
