@@ -23,11 +23,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ContaPagar {
   id: string;
@@ -202,6 +205,52 @@ export default function ContasPagar() {
   const totalVencido = filtered.filter(c => c.status === "pendente" && c.vencimento < hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalPago = filtered.filter(c => c.status === "paga").reduce((a, c) => a + Number(c.valor), 0);
 
+  const exportToExcel = () => {
+    const data = filtered.map(c => ({
+      Fornecedor: c.fornecedor,
+      Descrição: c.descricao,
+      Categoria: c.categoria || "—",
+      Vencimento: format(new Date(c.vencimento + "T12:00:00"), "dd/MM/yyyy"),
+      Valor: `R$ ${Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      Status: c.status === "paga" ? "Paga" : c.status === "pendente" && c.vencimento < hoje ? "Vencida" : "Pendente",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
+    XLSX.writeFile(wb, `contas_pagar_${format(new Date(), "ddMMyyyy_HHmm")}.xlsx`);
+    toast.success("Arquivo Excel exportado!");
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Contas a Pagar", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 22);
+
+    const tableData = filtered.map(c => [
+      c.fornecedor,
+      c.descricao,
+      c.categoria || "—",
+      format(new Date(c.vencimento + "T12:00:00"), "dd/MM/yyyy"),
+      `R$ ${Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      c.status === "paga" ? "Paga" : c.status === "pendente" && c.vencimento < hoje ? "Vencida" : "Pendente",
+    ]);
+
+    autoTable(doc, {
+      head: [["Fornecedor", "Descrição", "Categoria", "Vencimento", "Valor", "Status"]],
+      body: tableData,
+      startY: 30,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [51, 65, 85], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+    });
+
+    doc.save(`contas_pagar_${format(new Date(), "ddMMyyyy_HHmm")}.pdf`);
+    toast.success("PDF exportado!");
+  };
+
   return (
     <MainLayout>
       <Header title="Contas a Pagar" subtitle="Gerencie todas as contas" />
@@ -284,6 +333,14 @@ export default function ContasPagar() {
                 {(dataInicial || dataFinal || filtroStatus !== "todos") && (
                   <Button variant="ghost" size="sm" onClick={() => { setDataInicial(""); setDataFinal(""); setFiltroStatus("todos"); }}>Limpar filtros</Button>
                 )}
+                <div className="flex gap-2 ml-auto">
+                  <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
+                    <Download className="h-4 w-4" />Excel
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
+                    <Download className="h-4 w-4" />PDF
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>

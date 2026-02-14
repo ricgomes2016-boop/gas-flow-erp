@@ -23,11 +23,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Wallet, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ContaReceber {
   id: string;
@@ -206,6 +209,52 @@ export default function ContasReceber() {
   const totalVencido = filtered.filter(c => c.status === "pendente" && c.vencimento < hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalRecebido = filtered.filter(c => c.status === "recebida").reduce((a, c) => a + Number(c.valor), 0);
 
+  const exportToExcel = () => {
+    const data = filtered.map(c => ({
+      Cliente: c.cliente,
+      Descrição: c.descricao,
+      "Forma Pgto": c.forma_pagamento || "—",
+      Vencimento: format(new Date(c.vencimento + "T12:00:00"), "dd/MM/yyyy"),
+      Valor: `R$ ${Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      Status: c.status === "recebida" ? "Recebida" : c.status === "pendente" && c.vencimento < hoje ? "Vencida" : "Pendente",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Recebíveis");
+    XLSX.writeFile(wb, `contas_receber_${format(new Date(), "ddMMyyyy_HHmm")}.xlsx`);
+    toast.success("Arquivo Excel exportado!");
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Contas a Receber", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 22);
+
+    const tableData = filtered.map(c => [
+      c.cliente,
+      c.descricao,
+      c.forma_pagamento || "—",
+      format(new Date(c.vencimento + "T12:00:00"), "dd/MM/yyyy"),
+      `R$ ${Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      c.status === "recebida" ? "Recebida" : c.status === "pendente" && c.vencimento < hoje ? "Vencida" : "Pendente",
+    ]);
+
+    autoTable(doc, {
+      head: [["Cliente", "Descrição", "Forma Pgto", "Vencimento", "Valor", "Status"]],
+      body: tableData,
+      startY: 30,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [51, 65, 85], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+    });
+
+    doc.save(`contas_receber_${format(new Date(), "ddMMyyyy_HHmm")}.pdf`);
+    toast.success("PDF exportado!");
+  };
+
   return (
     <MainLayout>
       <Header title="Contas a Receber" subtitle="Acompanhe os recebíveis" />
@@ -286,8 +335,16 @@ export default function ContasReceber() {
                   </Select>
                 </div>
                 {(dataInicial || dataFinal || filtroStatus !== "todos") && (
-                  <Button variant="ghost" size="sm" onClick={() => { setDataInicial(""); setDataFinal(""); setFiltroStatus("todos"); }}>Limpar filtros</Button>
+                   <Button variant="ghost" size="sm" onClick={() => { setDataInicial(""); setDataFinal(""); setFiltroStatus("todos"); }}>Limpar filtros</Button>
                 )}
+                <div className="flex gap-2 ml-auto">
+                  <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
+                    <Download className="h-4 w-4" />Excel
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
+                    <Download className="h-4 w-4" />PDF
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
