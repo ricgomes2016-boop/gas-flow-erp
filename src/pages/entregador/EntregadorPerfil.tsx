@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,20 +8,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Phone,
   Mail,
-  MapPin,
-  Truck,
-  Star,
-  Trophy,
   Calendar,
   Clock,
   TrendingUp,
   LogOut,
   Settings,
   ChevronRight,
+  Camera,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface EntregadorData {
   id: string;
@@ -45,23 +43,37 @@ const menuItems = [
 ];
 
 export default function EntregadorPerfil() {
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [entregador, setEntregador] = useState<EntregadorData | null>(null);
   const [stats, setStats] = useState<Stats>({ entregasTotais: 0, entregasMes: 0 });
   const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+        if (!userId) { setLoading(false); return; }
+
         const { data: ent } = await supabase
           .from("entregadores")
           .select("*")
-          .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
+          .eq("user_id", userId)
           .single();
 
         if (!ent) { setLoading(false); return; }
         setEntregador(ent);
+
+        // Load avatar
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("user_id", userId)
+          .single();
+        if (profileData?.avatar_url) setAvatarUrl(profileData.avatar_url);
 
         const now = new Date();
         const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -83,6 +95,44 @@ export default function EntregadorPerfil() {
     };
     fetchData();
   }, []);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading(true);
+    try {
+      // Resize image client-side
+      const resized = await resizeImage(file, 400);
+      const filePath = `${user.id}/avatar.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, resized, { upsert: true, contentType: "image/jpeg" });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const url = `${publicUrl}?t=${Date.now()}`;
+
+      await supabase
+        .from("profiles")
+        .update({ avatar_url: url })
+        .eq("user_id", user.id);
+
+      setAvatarUrl(url);
+      toast.success("Foto atualizada!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao enviar foto.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -114,8 +164,29 @@ export default function EntregadorPerfil() {
         <Card className="border-none shadow-md overflow-hidden">
           <div className="gradient-primary p-6 text-white">
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold">
-                {initials}
+              <div className="relative">
+                <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold overflow-hidden">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-background text-foreground flex items-center justify-center shadow-md border-2 border-white hover:bg-muted transition-colors"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
               </div>
               <div>
                 <h2 className="text-xl font-bold">{entregador?.nome || profile?.full_name}</h2>
@@ -199,4 +270,22 @@ export default function EntregadorPerfil() {
       </div>
     </EntregadorLayout>
   );
+}
+
+function resizeImage(file: File, maxSize: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > maxSize) { h = (h * maxSize) / w; w = maxSize; } }
+      else { if (h > maxSize) { w = (w * maxSize) / h; h = maxSize; } }
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Blob error")), "image/jpeg", 0.8);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
 }
