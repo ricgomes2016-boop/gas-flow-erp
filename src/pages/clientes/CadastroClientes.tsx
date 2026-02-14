@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CpfCnpjInput } from "@/components/ui/cpf-cnpj-input";
 import { formatPhone, formatCEP, validateCpfCnpj } from "@/hooks/useInputMasks";
@@ -81,6 +81,12 @@ export default function CadastroClientesCad() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterTipo, setFilterTipo] = useState("todos");
+  const [filterStatus, setFilterStatus] = useState("todos");
+  const [filterDataInicio, setFilterDataInicio] = useState("");
+  const [filterDataFim, setFilterDataFim] = useState("");
+  const [filterBairro, setFilterBairro] = useState("");
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -523,13 +529,42 @@ export default function CadastroClientesCad() {
   // Filter clients
   const filteredClientes = clientes.filter((cliente) => {
     const term = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = !term || 
       cliente.nome.toLowerCase().includes(term) ||
       cliente.telefone?.toLowerCase().includes(term) ||
       cliente.endereco?.toLowerCase().includes(term) ||
-      cliente.bairro?.toLowerCase().includes(term)
-    );
+      cliente.bairro?.toLowerCase().includes(term) ||
+      cliente.cpf?.includes(term);
+
+    const matchesTipo = filterTipo === "todos" || cliente.tipo === filterTipo;
+    
+    const matchesStatus = filterStatus === "todos" || 
+      (filterStatus === "ativo" && cliente.ativo) ||
+      (filterStatus === "inativo" && !cliente.ativo);
+
+    const clienteDate = new Date(cliente.created_at);
+    const matchesDataInicio = !filterDataInicio || clienteDate >= new Date(filterDataInicio);
+    const matchesDataFim = !filterDataFim || clienteDate <= new Date(filterDataFim + "T23:59:59");
+
+    const matchesBairro = !filterBairro || 
+      cliente.bairro?.toLowerCase().includes(filterBairro.toLowerCase());
+
+    return matchesSearch && matchesTipo && matchesStatus && matchesDataInicio && matchesDataFim && matchesBairro;
   });
+
+  const clearFilters = () => {
+    setFilterTipo("todos");
+    setFilterStatus("todos");
+    setFilterDataInicio("");
+    setFilterDataFim("");
+    setFilterBairro("");
+    setSearchTerm("");
+  };
+
+  const hasActiveFilters = filterTipo !== "todos" || filterStatus !== "todos" || filterDataInicio || filterDataFim || filterBairro;
+
+  // Extrair bairros únicos para o select
+  const bairrosUnicos = Array.from(new Set(clientes.map(c => c.bairro).filter(Boolean) as string[])).sort();
 
   return (
     <MainLayout>
@@ -606,19 +641,106 @@ export default function CadastroClientesCad() {
         {/* Client List */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Lista de Clientes</CardTitle>
-              <div className="flex gap-2">
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <CardTitle>Lista de Clientes</CardTitle>
+                <div className="flex gap-2">
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar cliente..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button 
+                    variant={showFilters ? "default" : "outline"} 
+                    size="icon"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="relative"
+                  >
+                    <Filter className="h-4 w-4" />
+                    {hasActiveFilters && (
+                      <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive" />
+                    )}
+                  </Button>
                 </div>
               </div>
+
+              {/* Filtros avançados */}
+              {showFilters && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 rounded-lg bg-muted/50 border">
+                  <div>
+                    <Label className="text-xs font-medium">Tipo</Label>
+                    <Select value={filterTipo} onValueChange={setFilterTipo}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="residencial">Residencial</SelectItem>
+                        <SelectItem value="comercial">Comercial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Status</Label>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="ativo">Ativo</SelectItem>
+                        <SelectItem value="inativo">Inativo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Cadastro de</Label>
+                    <Input 
+                      type="date" 
+                      value={filterDataInicio} 
+                      onChange={(e) => setFilterDataInicio(e.target.value)} 
+                      className="h-9"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Cadastro até</Label>
+                    <Input 
+                      type="date" 
+                      value={filterDataFim} 
+                      onChange={(e) => setFilterDataFim(e.target.value)} 
+                      className="h-9"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Bairro</Label>
+                    <Select value={filterBairro || "todos"} onValueChange={(v) => setFilterBairro(v === "todos" ? "" : v)}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        {bairrosUnicos.map(b => (
+                          <SelectItem key={b} value={b}>{b}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {hasActiveFilters && (
+                    <div className="col-span-full flex justify-between items-center pt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {filteredClientes.length} de {clientes.length} cliente(s)
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
+                        <X className="h-3 w-3 mr-1" /> Limpar filtros
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
