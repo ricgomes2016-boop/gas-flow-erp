@@ -143,13 +143,14 @@ export default function EntregadorEntregas() {
 
     const { error } = await supabase
       .from("pedidos")
-      .update({ entregador_id: entregadorId })
+      .update({ entregador_id: entregadorId, status: "em_rota" })
       .eq("id", pedidoId);
 
     if (error) {
       toast({ title: "Erro ao aceitar", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Entrega aceita!", description: "A entrega foi adicionada à sua rota." });
+      toast({ title: "Entrega aceita!", description: "A entrega está em andamento." });
+      setTabAtiva("aceitas");
       fetchEntregas();
     }
   };

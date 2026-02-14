@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,22 +23,17 @@ import {
   Package,
   CreditCard,
   Plus,
-  Minus,
   QrCode,
   CheckCircle,
   Trash2,
   AlertCircle,
   Keyboard,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
-
-const produtos = [
-  { id: 1, nome: "Botijão P13", preco: 120.0 },
-  { id: 2, nome: "Botijão P20", preco: 180.0 },
-  { id: 3, nome: "Botijão P45", preco: 450.0 },
-  { id: 4, nome: "Água Mineral 20L", preco: 15.0 },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const formasPagamento = [
   "Dinheiro",
@@ -47,13 +42,6 @@ const formasPagamento = [
   "Cartão Débito",
   "Vale Gás",
 ];
-
-interface ItemVenda {
-  produtoId: number;
-  nome: string;
-  quantidade: number;
-  precoUnitario: number;
-}
 
 interface Pagamento {
   forma: string;
@@ -65,17 +53,30 @@ interface Pagamento {
   };
 }
 
+interface PedidoData {
+  id: string;
+  valor_total: number | null;
+  endereco_entrega: string | null;
+  observacoes: string | null;
+  forma_pagamento: string | null;
+  clientes: { nome: string; telefone: string | null; bairro: string | null } | null;
+  pedido_itens: {
+    id: string;
+    quantidade: number;
+    preco_unitario: number;
+    produtos: { nome: string } | null;
+  }[];
+}
+
 export default function FinalizarEntrega() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [itens, setItens] = useState<ItemVenda[]>([
-    { produtoId: 1, nome: "Botijão P13", quantidade: 2, precoUnitario: 120.0 },
-  ]);
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([
-    { forma: "Dinheiro", valor: 240.0 },
-  ]);
+  const [pedido, setPedido] = useState<PedidoData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [novoPagamentoForma, setNovoPagamentoForma] = useState("");
   const [novoPagamentoValor, setNovoPagamentoValor] = useState("");
   const [dialogPagamentoAberto, setDialogPagamentoAberto] = useState(false);
@@ -90,49 +91,47 @@ export default function FinalizarEntrega() {
     valido: boolean;
   } | null>(null);
 
-  const totalItens = itens.reduce(
-    (acc, item) => acc + item.quantidade * item.precoUnitario,
-    0
-  );
+  // Fetch real pedido data
+  useEffect(() => {
+    const fetchPedido = async () => {
+      if (!id) return;
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select(`
+          id, valor_total, endereco_entrega, observacoes, forma_pagamento,
+          clientes:cliente_id (nome, telefone, bairro),
+          pedido_itens (
+            id, quantidade, preco_unitario,
+            produtos:produto_id (nome)
+          )
+        `)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        toast({ title: "Erro ao carregar pedido", description: error.message, variant: "destructive" });
+      } else if (data) {
+        setPedido(data as unknown as PedidoData);
+        // Pre-fill total as a single payment if there's a value
+        const total = Number(data.valor_total) || 0;
+        if (total > 0) {
+          setPagamentos([{ forma: "Dinheiro", valor: total }]);
+        }
+      }
+      setIsLoading(false);
+    };
+    fetchPedido();
+  }, [id, toast]);
+
+  const totalItens = pedido?.pedido_itens.reduce(
+    (acc, item) => acc + item.quantidade * Number(item.preco_unitario), 0
+  ) || 0;
+
   const totalPagamentos = pagamentos.reduce((acc, p) => acc + p.valor, 0);
   const diferenca = totalItens - totalPagamentos;
 
-  const alterarQuantidade = (index: number, delta: number) => {
-    setItens((prev) =>
-      prev.map((item, i) => {
-        if (i === index) {
-          const novaQtd = Math.max(1, item.quantidade + delta);
-          return { ...item, quantidade: novaQtd };
-        }
-        return item;
-      })
-    );
-  };
-
-  const removerItem = (index: number) => {
-    if (itens.length > 1) {
-      setItens((prev) => prev.filter((_, i) => i !== index));
-    }
-  };
-
-  const adicionarProduto = (produtoId: string) => {
-    const produto = produtos.find((p) => p.id === Number(produtoId));
-    if (produto) {
-      const existente = itens.findIndex((i) => i.produtoId === produto.id);
-      if (existente >= 0) {
-        alterarQuantidade(existente, 1);
-      } else {
-        setItens((prev) => [
-          ...prev,
-          {
-            produtoId: produto.id,
-            nome: produto.nome,
-            quantidade: 1,
-            precoUnitario: produto.preco,
-          },
-        ]);
-      }
-    }
+  const removerPagamento = (index: number) => {
+    setPagamentos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const adicionarPagamento = () => {
@@ -147,19 +146,10 @@ export default function FinalizarEntrega() {
     }
   };
 
-  const removerPagamento = (index: number) => {
-    setPagamentos((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Função para validar o código do Vale Gás (simulação)
   const validarValeGas = (codigo: string) => {
     setValidandoCodigo(true);
-    
-    // Simula validação do código (em produção, chamaria uma API)
     setTimeout(() => {
-      // Verifica se o código segue o padrão esperado (ex: VG-XXXX-XXXXXX)
       const padraoValido = /^VG-\d{4}-\d{6}$/.test(codigo) || codigo.length > 5;
-      
       if (padraoValido) {
         const valeSemulado = {
           parceiro: "Supergás Parceiros",
@@ -173,28 +163,17 @@ export default function FinalizarEntrega() {
           description: `Parceiro: ${valeSemulado.parceiro} - Valor: R$ ${valeSemulado.valor.toFixed(2)}`,
         });
       } else {
-        setValeGasLido({
-          parceiro: "",
-          codigo: codigo,
-          valor: 0,
-          valido: false,
-        });
-        toast({
-          title: "Vale Gás inválido",
-          description: "O código informado não é válido.",
-          variant: "destructive",
-        });
+        setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
+        toast({ title: "Vale Gás inválido", description: "O código informado não é válido.", variant: "destructive" });
       }
       setValidandoCodigo(false);
     }, 1000);
   };
 
-  // Callback quando QR Code é lido pela câmera
   const handleQRCodeScan = (decodedText: string) => {
     validarValeGas(decodedText);
   };
 
-  // Validar código digitado manualmente
   const validarCodigoManual = () => {
     if (codigoManual.trim()) {
       validarValeGas(codigoManual.trim());
@@ -220,7 +199,7 @@ export default function FinalizarEntrega() {
     }
   };
 
-  const finalizarEntrega = () => {
+  const finalizarEntrega = async () => {
     if (diferenca !== 0) {
       toast({
         title: "Atenção",
@@ -230,12 +209,58 @@ export default function FinalizarEntrega() {
       return;
     }
 
+    if (!id) return;
+
+    setIsSaving(true);
+
+    // Build forma_pagamento string from payments
+    const formaStr = pagamentos.map(p => p.forma).join(", ");
+
+    const { error } = await supabase
+      .from("pedidos")
+      .update({ status: "entregue", forma_pagamento: formaStr })
+      .eq("id", id);
+
+    if (error) {
+      toast({ title: "Erro ao finalizar", description: error.message, variant: "destructive" });
+      setIsSaving(false);
+      return;
+    }
+
     toast({
       title: "Entrega finalizada!",
-      description: "Os dados foram enviados ao sistema.",
+      description: "Os dados foram salvos com sucesso.",
     });
     navigate("/entregador/entregas");
   };
+
+  if (isLoading) {
+    return (
+      <EntregadorLayout title="Finalizar Entrega">
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </EntregadorLayout>
+    );
+  }
+
+  if (!pedido) {
+    return (
+      <EntregadorLayout title="Finalizar Entrega">
+        <div className="p-4 text-center text-muted-foreground py-12">
+          <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>Pedido não encontrado</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/entregador/entregas")}>
+            Voltar
+          </Button>
+        </div>
+      </EntregadorLayout>
+    );
+  }
+
+  const clienteNome = pedido.clientes?.nome || "Cliente";
 
   return (
     <EntregadorLayout title="Finalizar Entrega">
@@ -245,78 +270,39 @@ export default function FinalizarEntrega() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/80 text-sm">Pedido #{id}</p>
-                <p className="font-bold text-lg">Carlos Ferreira</p>
-                <p className="text-sm text-white/80">Rua Minas Gerais, 321</p>
+                <p className="text-white/80 text-sm">Pedido #{id?.slice(-6).toUpperCase()}</p>
+                <p className="font-bold text-lg">{clienteNome}</p>
+                {pedido.endereco_entrega && (
+                  <p className="text-sm text-white/80">{pedido.endereco_entrega}</p>
+                )}
               </div>
               <Package className="h-12 w-12 text-white/50" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Produtos */}
+        {/* Produtos (read-only from pedido) */}
         <Card className="border-none shadow-md">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                Produtos
-              </CardTitle>
-              <Select onValueChange={adicionarProduto}>
-                <SelectTrigger className="w-auto h-8 text-xs">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Adicionar
-                </SelectTrigger>
-                <SelectContent>
-                  {produtos.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.nome} - R$ {p.preco.toFixed(2)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Produtos
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {itens.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-              >
+            {pedido.pedido_itens.map((item) => (
+              <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{item.nome}</p>
+                  <p className="font-medium text-sm">{item.produtos?.nome || "Produto"}</p>
                   <p className="text-xs text-muted-foreground">
-                    R$ {item.precoUnitario.toFixed(2)} un.
+                    R$ {Number(item.preco_unitario).toFixed(2)} un.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => alterarQuantidade(index, -1)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-8 text-center font-bold">{item.quantidade}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => alterarQuantidade(index, 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  {itens.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => removerItem(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <span className="font-bold">{item.quantidade}x</span>
+                  <span className="font-bold text-sm">
+                    R$ {(item.quantidade * Number(item.preco_unitario)).toFixed(2)}
+                  </span>
                 </div>
               </div>
             ))}
@@ -350,7 +336,6 @@ export default function FinalizarEntrega() {
                     <div className="space-y-4">
                       {!valeGasLido ? (
                         <>
-                          {/* Tabs para alternar entre câmera e entrada manual */}
                           <div className="flex gap-2 p-1 bg-muted rounded-lg">
                             <Button
                               variant={!modoEntradaManual ? "default" : "ghost"}
@@ -413,9 +398,7 @@ export default function FinalizarEntrega() {
                             <div className="p-4 bg-success/10 rounded-lg border border-success/30">
                               <div className="flex items-center gap-2 mb-3">
                                 <CheckCircle className="h-5 w-5 text-success" />
-                                <span className="font-semibold text-success">
-                                  Vale Gás Válido
-                                </span>
+                                <span className="font-semibold text-success">Vale Gás Válido</span>
                               </div>
                               <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
@@ -428,9 +411,7 @@ export default function FinalizarEntrega() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Valor:</span>
-                                  <span className="font-bold text-lg">
-                                    R$ {valeGasLido.valor.toFixed(2)}
-                                  </span>
+                                  <span className="font-bold text-lg">R$ {valeGasLido.valor.toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>
@@ -438,31 +419,21 @@ export default function FinalizarEntrega() {
                             <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/30">
                               <div className="flex items-center gap-2">
                                 <AlertCircle className="h-5 w-5 text-destructive" />
-                                <span className="font-semibold text-destructive">
-                                  Vale Gás Inválido
-                                </span>
+                                <span className="font-semibold text-destructive">Vale Gás Inválido</span>
                               </div>
-                              <p className="text-sm text-muted-foreground mt-2">
-                                Código: {valeGasLido.codigo}
-                              </p>
+                              <p className="text-sm text-muted-foreground mt-2">Código: {valeGasLido.codigo}</p>
                             </div>
                           )}
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
-                              onClick={() => {
-                                setValeGasLido(null);
-                                setCodigoManual("");
-                              }}
+                              onClick={() => { setValeGasLido(null); setCodigoManual(""); }}
                               className="flex-1"
                             >
                               Tentar outro
                             </Button>
                             {valeGasLido.valido && (
-                              <Button
-                                onClick={confirmarValeGas}
-                                className="flex-1 gradient-primary text-white"
-                              >
+                              <Button onClick={confirmarValeGas} className="flex-1 gradient-primary text-white">
                                 Confirmar
                               </Button>
                             )}
@@ -473,10 +444,7 @@ export default function FinalizarEntrega() {
                   </DialogContent>
                 </Dialog>
 
-                <Dialog
-                  open={dialogPagamentoAberto}
-                  onOpenChange={setDialogPagamentoAberto}
-                >
+                <Dialog open={dialogPagamentoAberto} onOpenChange={setDialogPagamentoAberto}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="h-8 text-xs">
                       <Plus className="h-4 w-4 mr-1" />
@@ -490,21 +458,14 @@ export default function FinalizarEntrega() {
                     <div className="space-y-4">
                       <div>
                         <Label>Forma de Pagamento</Label>
-                        <Select
-                          value={novoPagamentoForma}
-                          onValueChange={setNovoPagamentoForma}
-                        >
+                        <Select value={novoPagamentoForma} onValueChange={setNovoPagamentoForma}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
-                            {formasPagamento
-                              .filter((f) => f !== "Vale Gás")
-                              .map((forma) => (
-                                <SelectItem key={forma} value={forma}>
-                                  {forma}
-                                </SelectItem>
-                              ))}
+                            {formasPagamento.filter((f) => f !== "Vale Gás").map((forma) => (
+                              <SelectItem key={forma} value={forma}>{forma}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -518,10 +479,7 @@ export default function FinalizarEntrega() {
                           placeholder="0,00"
                         />
                       </div>
-                      <Button
-                        onClick={adicionarPagamento}
-                        className="w-full gradient-primary text-white"
-                      >
+                      <Button onClick={adicionarPagamento} className="w-full gradient-primary text-white">
                         Adicionar
                       </Button>
                     </div>
@@ -532,10 +490,7 @@ export default function FinalizarEntrega() {
           </CardHeader>
           <CardContent className="space-y-3">
             {pagamentos.map((pag, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-              >
+              <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div>
                   <p className="font-medium text-sm">{pag.forma}</p>
                   {pag.valeGasInfo && (
@@ -562,19 +517,9 @@ export default function FinalizarEntrega() {
               <span className="font-bold text-lg">R$ {totalPagamentos.toFixed(2)}</span>
             </div>
             {diferenca !== 0 && (
-              <div
-                className={`flex justify-between p-2 rounded-lg ${
-                  diferenca > 0 ? "bg-destructive/10" : "bg-success/10"
-                }`}
-              >
-                <span className="text-sm">
-                  {diferenca > 0 ? "Falta pagar:" : "Troco:"}
-                </span>
-                <span
-                  className={`font-bold ${
-                    diferenca > 0 ? "text-destructive" : "text-success"
-                  }`}
-                >
+              <div className={`flex justify-between p-2 rounded-lg ${diferenca > 0 ? "bg-destructive/10" : "bg-success/10"}`}>
+                <span className="text-sm">{diferenca > 0 ? "Falta pagar:" : "Troco:"}</span>
+                <span className={`font-bold ${diferenca > 0 ? "text-destructive" : "text-success"}`}>
                   R$ {Math.abs(diferenca).toFixed(2)}
                 </span>
               </div>
@@ -586,10 +531,14 @@ export default function FinalizarEntrega() {
         <Button
           onClick={finalizarEntrega}
           className="w-full h-14 text-lg gradient-primary text-white shadow-glow"
-          disabled={diferenca !== 0}
+          disabled={diferenca !== 0 || isSaving}
         >
-          <CheckCircle className="h-5 w-5 mr-2" />
-          Finalizar Entrega
+          {isSaving ? (
+            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+          ) : (
+            <CheckCircle className="h-5 w-5 mr-2" />
+          )}
+          {isSaving ? "Salvando..." : "Finalizar Entrega"}
         </Button>
       </div>
     </EntregadorLayout>
