@@ -27,18 +27,22 @@ export default function Auth() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  const { roles } = useAuth();
+  const { roles, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (user) {
-      // Redirecionar entregadores automaticamente para o app do entregador
+    if (user && !authLoading) {
+      // Aguardar roles serem carregados antes de redirecionar
+      if (roles.length === 0) {
+        // Roles ainda não carregaram, aguardar
+        return;
+      }
       if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
         navigate("/entregador");
       } else {
         navigate("/");
       }
     }
-  }, [user, roles, navigate]);
+  }, [user, roles, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
