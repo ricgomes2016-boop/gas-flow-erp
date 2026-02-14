@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CpfCnpjInput } from "@/components/ui/cpf-cnpj-input";
 import { formatPhone, formatCEP, validateCpfCnpj } from "@/hooks/useInputMasks";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,6 +87,14 @@ export default function CadastroClientesCad() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Photo import state
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+  const [extractedClients, setExtractedClients] = useState<FormData[]>([]);
+  const [selectedClients, setSelectedClients] = useState<Set<number>>(new Set());
+  const [isSavingBulk, setIsSavingBulk] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Stats
   const [stats, setStats] = useState({
@@ -288,6 +297,118 @@ export default function CadastroClientesCad() {
     }
   };
 
+  // Photo import functions
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      toast({ title: "Formato inválido", description: "Use JPG, PNG ou WebP.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Máximo 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessingPhoto(true);
+    setIsPhotoModalOpen(true);
+    setExtractedClients([]);
+    setSelectedClients(new Set());
+
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("extract-clients-from-image", {
+        body: { image_base64: base64, mime_type: file.type },
+      });
+
+      if (error) throw error;
+      if (!data?.clientes || data.clientes.length === 0) {
+        toast({ title: "Nenhum cliente encontrado", description: "A IA não conseguiu extrair dados da imagem.", variant: "destructive" });
+        setIsPhotoModalOpen(false);
+        return;
+      }
+
+      const mapped: FormData[] = data.clientes.map((c: any) => ({
+        nome: c.nome || "",
+        cpf: c.cpf || "",
+        telefone: c.telefone || "",
+        email: c.email || "",
+        endereco: [c.endereco, c.numero ? `Nº ${c.numero}` : ""].filter(Boolean).join(", "),
+        bairro: c.bairro || "",
+        cidade: c.cidade || "",
+        cep: c.cep || "",
+        tipo: c.tipo || "residencial",
+      }));
+
+      setExtractedClients(mapped);
+      setSelectedClients(new Set(mapped.map((_, i) => i)));
+      toast({ title: `${mapped.length} cliente(s) encontrado(s)!`, description: "Revise e confirme o cadastro." });
+    } catch (error: any) {
+      console.error("Erro ao processar foto:", error);
+      toast({ title: "Erro ao processar", description: error.message || "Falha na leitura da imagem.", variant: "destructive" });
+      setIsPhotoModalOpen(false);
+    } finally {
+      setIsProcessingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
+  const handleSaveBulkClients = async () => {
+    const toSave = extractedClients.filter((_, i) => selectedClients.has(i));
+    if (toSave.length === 0) {
+      toast({ title: "Nenhum cliente selecionado", variant: "destructive" });
+      return;
+    }
+
+    setIsSavingBulk(true);
+    try {
+      const inserts = toSave.map(c => ({
+        nome: c.nome.trim(),
+        cpf: c.cpf || null,
+        telefone: c.telefone || null,
+        email: c.email || null,
+        endereco: c.endereco || null,
+        bairro: c.bairro || null,
+        cidade: c.cidade || null,
+        cep: c.cep || null,
+        tipo: c.tipo,
+        ativo: true,
+      }));
+
+      const { error } = await supabase.from("clientes").insert(inserts);
+      if (error) throw error;
+
+      toast({ title: `${inserts.length} cliente(s) cadastrado(s)!`, description: "Importação concluída com sucesso." });
+      setIsPhotoModalOpen(false);
+      setExtractedClients([]);
+      fetchClientes();
+    } catch (error: any) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSavingBulk(false);
+    }
+  };
+
+  const toggleClientSelection = (index: number) => {
+    setSelectedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
   // Filter clients
   const filteredClientes = clientes.filter((cliente) => {
     const term = searchTerm.toLowerCase();
@@ -308,10 +429,24 @@ export default function CadastroClientesCad() {
             <h1 className="text-3xl font-bold text-foreground">Cadastro de Clientes</h1>
             <p className="text-muted-foreground">Gerencie todos os clientes da revenda</p>
           </div>
-          <Button className="gap-2" onClick={openCreateModal}>
-            <Plus className="h-4 w-4" />
-            Novo Cliente
-          </Button>
+          <div className="flex gap-2">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
+            <Button variant="outline" className="gap-2" onClick={() => photoInputRef.current?.click()}>
+              <Camera className="h-4 w-4" />
+              Importar por Foto
+            </Button>
+            <Button className="gap-2" onClick={openCreateModal}>
+              <Plus className="h-4 w-4" />
+              Novo Cliente
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -554,6 +689,93 @@ export default function CadastroClientesCad() {
                 {editingCliente ? "Salvar Alterações" : "Cadastrar Cliente"}
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Photo Import Modal */}
+        <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Importar Clientes por Foto
+              </DialogTitle>
+            </DialogHeader>
+
+            {isProcessingPhoto ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-muted-foreground">Analisando imagem com IA...</p>
+                <p className="text-xs text-muted-foreground">Extraindo dados dos clientes</p>
+              </div>
+            ) : extractedClients.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedClients.size} de {extractedClients.length} selecionado(s)
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedClients.size === extractedClients.length) {
+                        setSelectedClients(new Set());
+                      } else {
+                        setSelectedClients(new Set(extractedClients.map((_, i) => i)));
+                      }
+                    }}
+                  >
+                    {selectedClients.size === extractedClients.length ? "Desmarcar Todos" : "Selecionar Todos"}
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {extractedClients.map((client, index) => (
+                    <Card
+                      key={index}
+                      className={`cursor-pointer transition-colors ${selectedClients.has(index) ? "border-primary bg-primary/5" : "opacity-60"}`}
+                      onClick={() => toggleClientSelection(index)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedClients.has(index)}
+                            onCheckedChange={() => toggleClientSelection(index)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1 grid gap-1">
+                            <p className="font-semibold">{client.nome || "Sem nome"}</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                              {client.telefone && (
+                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{client.telefone}</span>
+                              )}
+                              {client.endereco && (
+                                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{client.endereco}</span>
+                              )}
+                              {client.bairro && <span>Bairro: {client.bairro}</span>}
+                              {client.cidade && <span>Cidade: {client.cidade}</span>}
+                              {client.cep && <span>CEP: {client.cep}</span>}
+                              {client.cpf && <span>CPF: {client.cpf}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)} disabled={isSavingBulk}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleSaveBulkClients} disabled={isSavingBulk || selectedClients.size === 0}>
+                    {isSavingBulk && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <Check className="h-4 w-4 mr-2" />
+                    Cadastrar {selectedClients.size} Cliente(s)
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </DialogContent>
         </Dialog>
       </div>
