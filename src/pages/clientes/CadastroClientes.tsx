@@ -184,6 +184,64 @@ export default function CadastroClientesCad() {
     setIsModalOpen(true);
   };
 
+  const checkDuplicates = async (nome: string, cpf: string, excludeId?: string) => {
+    try {
+      // Check nome duplicado (case-insensitive)
+      const { data: nomeResults, error: nomeError } = await supabase
+        .from("clientes")
+        .select("id")
+        .ilike("nome", `%${nome.trim()}%`);
+      
+      if (nomeError) throw nomeError;
+
+      // Se está editando e o nome é o mesmo, não é duplicado
+      if (nomeResults && nomeResults.length > 0) {
+        if (nomeResults.length > 1 || (nomeResults.length === 1 && nomeResults[0].id !== excludeId)) {
+          toast({
+            title: "Nome duplicado",
+            description: "Já existe um cliente com este nome.",
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      // Check CPF se preenchido
+      if (cpf && cpf.trim()) {
+        const cpfClean = cpf.replace(/\D/g, "");
+        const { data: allClientes, error: fetchError } = await supabase
+          .from("clientes")
+          .select("id, cpf");
+        
+        if (fetchError) throw fetchError;
+        
+        const duplicated = allClientes?.find(c => {
+          const existingCpf = c.cpf?.replace(/\D/g, "");
+          return existingCpf === cpfClean && c.id !== excludeId;
+        });
+        
+        if (duplicated) {
+          toast({
+            title: "CPF duplicado",
+            description: "Já existe um cliente com este CPF.",
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Erro ao verificar duplicatas:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível verificar duplicatas.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.nome.trim()) {
       toast({
@@ -216,6 +274,10 @@ export default function CadastroClientesCad() {
         return;
       }
     }
+
+    // Verificar duplicatas
+    const noDuplicates = await checkDuplicates(formData.nome, formData.cpf, editingCliente?.id);
+    if (!noDuplicates) return;
 
     setIsSaving(true);
 
@@ -373,26 +435,75 @@ export default function CadastroClientesCad() {
 
     setIsSavingBulk(true);
     try {
-      const inserts = toSave.map(c => ({
-        nome: c.nome.trim(),
-        cpf: c.cpf || null,
-        telefone: c.telefone || null,
-        email: c.email || null,
-        endereco: c.endereco || null,
-        bairro: c.bairro || null,
-        cidade: c.cidade || null,
-        cep: c.cep || null,
-        tipo: c.tipo,
-        ativo: true,
-      }));
+      // Buscar todos os clientes existentes para validação
+      const { data: existingClientes, error: fetchError } = await supabase
+        .from("clientes")
+        .select("id, nome, cpf");
+      
+      if (fetchError) throw fetchError;
 
-      const { error } = await supabase.from("clientes").insert(inserts);
-      if (error) throw error;
+      const skipped: string[] = [];
+      const inserts = [];
 
-      toast({ title: `${inserts.length} cliente(s) cadastrado(s)!`, description: "Importação concluída com sucesso." });
-      setIsPhotoModalOpen(false);
-      setExtractedClients([]);
-      fetchClientes();
+      for (const c of toSave) {
+        // Verificar nome duplicado (case-insensitive)
+        const nomeDuplicated = existingClientes?.some(
+          ec => ec.nome.toLowerCase().trim() === c.nome.toLowerCase().trim()
+        );
+        
+        if (nomeDuplicated) {
+          skipped.push(`${c.nome} (nome duplicado)`);
+          continue;
+        }
+
+        // Verificar CPF duplicado
+        if (c.cpf && c.cpf.trim()) {
+          const cpfClean = c.cpf.replace(/\D/g, "");
+          const cpfDuplicated = existingClientes?.some(ec => {
+            const existingCpf = ec.cpf?.replace(/\D/g, "");
+            return existingCpf === cpfClean;
+          });
+          
+          if (cpfDuplicated) {
+            skipped.push(`${c.nome} (CPF duplicado)`);
+            continue;
+          }
+        }
+
+        inserts.push({
+          nome: c.nome.trim(),
+          cpf: c.cpf || null,
+          telefone: c.telefone || null,
+          email: c.email || null,
+          endereco: c.endereco || null,
+          bairro: c.bairro || null,
+          cidade: c.cidade || null,
+          cep: c.cep || null,
+          tipo: c.tipo,
+          ativo: true,
+        });
+      }
+
+      if (inserts.length > 0) {
+        const { error: insertError } = await supabase.from("clientes").insert(inserts);
+        if (insertError) throw insertError;
+      }
+
+      let message = `${inserts.length} cliente(s) cadastrado(s) com sucesso.`;
+      if (skipped.length > 0) {
+        message += `\n\n${skipped.length} cliente(s) ignorado(s):\n${skipped.join("\n")}`;
+      }
+
+      toast({ 
+        title: inserts.length > 0 ? "Importação concluída" : "Nenhum cliente foi importado",
+        description: message
+      });
+      
+      if (inserts.length > 0) {
+        setIsPhotoModalOpen(false);
+        setExtractedClients([]);
+        fetchClientes();
+      }
     } catch (error: any) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } finally {
@@ -498,13 +609,13 @@ export default function CadastroClientesCad() {
             <div className="flex items-center justify-between">
               <CardTitle>Lista de Clientes</CardTitle>
               <div className="flex gap-2">
-                <div className="relative">
+                <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Buscar cliente..."
-                    className="pl-10 w-[300px]"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
                   />
                 </div>
               </div>
@@ -512,21 +623,21 @@ export default function CadastroClientesCad() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : filteredClientes.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {searchTerm ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado."}
+                <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhum cliente encontrado</p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
+                    <TableHead>CPF</TableHead>
                     <TableHead>Telefone</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead>Bairro</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -536,41 +647,36 @@ export default function CadastroClientesCad() {
                   {filteredClientes.map((cliente) => (
                     <TableRow key={cliente.id}>
                       <TableCell className="font-medium">{cliente.nome}</TableCell>
+                      <TableCell className="text-sm">{cliente.cpf || "-"}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
                           {cliente.telefone || "-"}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {cliente.endereco || "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell>{cliente.bairro || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={cliente.tipo === "comercial" ? "default" : "secondary"}>
-                          {cliente.tipo === "comercial" ? "Comercial" : "Residencial"}
-                        </Badge>
+                        <Badge variant="secondary">{cliente.tipo || "Não especificado"}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={cliente.ativo ? "default" : "destructive"}
-                          className="cursor-pointer"
-                          onClick={() => handleToggleStatus(cliente)}
-                        >
+                        <Badge variant={cliente.ativo ? "default" : "destructive"}>
                           {cliente.ativo ? "Ativo" : "Inativo"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => openEditModal(cliente)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => openEditModal(cliente)}
+                            onClick={() => handleToggleStatus(cliente)}
                           >
-                            <Edit className="h-4 w-4" />
+                            {cliente.ativo ? (
+                              <X className="h-4 w-4 text-destructive" />
+                            ) : (
+                              <Check className="h-4 w-4 text-success" />
+                            )}
                           </Button>
                         </div>
                       </TableCell>
@@ -581,204 +687,189 @@ export default function CadastroClientesCad() {
             )}
           </CardContent>
         </Card>
+      </div>
 
-        {/* Create/Edit Modal */}
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingCliente ? "Editar Cliente" : "Cadastrar Novo Cliente"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome Completo *</Label>
-                  <Input
-                    placeholder="Nome do cliente"
-                    value={formData.nome}
-                    onChange={(e) => handleChange("nome", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>CPF/CNPJ</Label>
-                  <CpfCnpjInput
-                    value={formData.cpf}
-                    onChange={(v) => handleChange("cpf", v)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Telefone *</Label>
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    value={formData.telefone}
-                    onChange={(e) => handleChange("telefone", formatPhone(e.target.value))}
-                    maxLength={16}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>E-mail</Label>
-                  <Input
-                    type="email"
-                    placeholder="email@exemplo.com"
-                    value={formData.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo de Cliente</Label>
-                  <Select
-                    value={formData.tipo}
-                    onValueChange={(v) => handleChange("tipo", v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="residencial">Residencial</SelectItem>
-                      <SelectItem value="comercial">Comercial</SelectItem>
-                      <SelectItem value="industrial">Industrial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>CEP</Label>
-                  <Input
-                    placeholder="00000-000"
-                    value={formData.cep}
-                    onChange={(e) => handleChange("cep", formatCEP(e.target.value))}
-                    onBlur={buscarCEP}
-                    maxLength={9}
-                  />
-                </div>
+      {/* Modal para criar/editar cliente */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCliente ? "Editar Cliente" : "Novo Cliente"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nome *</Label>
+              <Input
+                value={formData.nome}
+                onChange={(e) => handleChange("nome", e.target.value)}
+                placeholder="Nome completo"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>CPF/CNPJ</Label>
+                <CpfCnpjInput
+                  value={formData.cpf}
+                  onChange={(value) => handleChange("cpf", value)}
+                />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Endereço</Label>
-                  <Input
-                    placeholder="Rua, número"
-                    value={formData.endereco}
-                    onChange={(e) => handleChange("endereco", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bairro</Label>
-                  <Input
-                    placeholder="Nome do bairro"
-                    value={formData.bairro}
-                    onChange={(e) => handleChange("bairro", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label>Cidade</Label>
-                  <Input
-                    placeholder="Nome da cidade"
-                    value={formData.cidade}
-                    onChange={(e) => handleChange("cidade", e.target.value)}
-                  />
-                </div>
+              <div>
+                <Label>Telefone *</Label>
+                <Input
+                  value={formData.telefone}
+                  onChange={(e) => handleChange("telefone", e.target.value)}
+                  placeholder="(11) 99999-9999"
+                />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
+
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+
+            <div>
+              <Label>CEP</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={formatCEP(formData.cep)}
+                  onChange={(e) => handleChange("cep", e.target.value)}
+                  placeholder="00000-000"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={buscarCEP}
+                  disabled={formData.cep.replace(/\D/g, "").length !== 8}
+                >
+                  Buscar
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label>Endereço</Label>
+              <Input
+                value={formData.endereco}
+                onChange={(e) => handleChange("endereco", e.target.value)}
+                placeholder="Rua/Avenida"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Bairro</Label>
+                <Input
+                  value={formData.bairro}
+                  onChange={(e) => handleChange("bairro", e.target.value)}
+                  placeholder="Bairro"
+                />
+              </div>
+              <div>
+                <Label>Cidade</Label>
+                <Input
+                  value={formData.cidade}
+                  onChange={(e) => handleChange("cidade", e.target.value)}
+                  placeholder="Cidade"
+                />
+              </div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={formData.tipo} onValueChange={(value) => handleChange("tipo", value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="residencial">Residencial</SelectItem>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={handleSubmit} disabled={isSaving}>
-                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingCliente ? "Salvar Alterações" : "Cadastrar Cliente"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar"
+                )}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Photo Import Modal */}
-        <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5" />
-                Importar Clientes por Foto
-              </DialogTitle>
-            </DialogHeader>
-
-            {isProcessingPhoto ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-muted-foreground">Analisando imagem com IA...</p>
-                <p className="text-xs text-muted-foreground">Extraindo dados dos clientes</p>
+      {/* Modal para importar por foto */}
+      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Importar Clientes da Foto</DialogTitle>
+          </DialogHeader>
+          {isProcessingPhoto ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-muted-foreground" />
+                <p>Processando imagem...</p>
               </div>
-            ) : extractedClients.length > 0 ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedClients.size} de {extractedClients.length} selecionado(s)
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (selectedClients.size === extractedClients.length) {
-                        setSelectedClients(new Set());
-                      } else {
-                        setSelectedClients(new Set(extractedClients.map((_, i) => i)));
-                      }
-                    }}
-                  >
-                    {selectedClients.size === extractedClients.length ? "Desmarcar Todos" : "Selecionar Todos"}
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  {extractedClients.map((client, index) => (
-                    <Card
-                      key={index}
-                      className={`cursor-pointer transition-colors ${selectedClients.has(index) ? "border-primary bg-primary/5" : "opacity-60"}`}
-                      onClick={() => toggleClientSelection(index)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={selectedClients.has(index)}
-                            onCheckedChange={() => toggleClientSelection(index)}
-                            className="mt-1"
-                          />
-                          <div className="flex-1 grid gap-1">
-                            <p className="font-semibold">{client.nome || "Sem nome"}</p>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                              {client.telefone && (
-                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{client.telefone}</span>
-                              )}
-                              {client.endereco && (
-                                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{client.endereco}</span>
-                              )}
-                              {client.bairro && <span>Bairro: {client.bairro}</span>}
-                              {client.cidade && <span>Cidade: {client.cidade}</span>}
-                              {client.cep && <span>CEP: {client.cep}</span>}
-                              {client.cpf && <span>CPF: {client.cpf}</span>}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)} disabled={isSavingBulk}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleSaveBulkClients} disabled={isSavingBulk || selectedClients.size === 0}>
-                    {isSavingBulk && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    <Check className="h-4 w-4 mr-2" />
-                    Cadastrar {selectedClients.size} Cliente(s)
-                  </Button>
-                </div>
+            </div>
+          ) : extractedClients.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Nenhum cliente extraído</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="max-h-96 overflow-y-auto space-y-3">
+                {extractedClients.map((client, index) => (
+                  <div key={index} className="flex gap-3 items-start border p-3 rounded-lg">
+                    <Checkbox
+                      checked={selectedClients.has(index)}
+                      onCheckedChange={() => toggleClientSelection(index)}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium">{client.nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {client.cpf && `CPF: ${client.cpf} • `}
+                        {client.telefone}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : null}
-          </DialogContent>
-        </Dialog>
-      </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveBulkClients} disabled={isSavingBulk || selectedClients.size === 0}>
+                  {isSavingBulk ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Importando...
+                    </>
+                  ) : (
+                    `Importar ${selectedClients.size} cliente(s)`
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
