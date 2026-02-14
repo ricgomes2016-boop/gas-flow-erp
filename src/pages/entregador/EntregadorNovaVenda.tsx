@@ -196,18 +196,15 @@ export default function EntregadorNovaVenda() {
 
       // Fill client
       if (data.cliente_id) {
-        const found = clientes.find(c => c.id === data.cliente_id);
-        if (found) {
-          setCliente({
-            id: found.id,
-            nome: found.nome,
-            telefone: found.telefone || "",
-            endereco: data.endereco || found.endereco || "",
-            numero: data.numero || "",
-            bairro: data.bairro || found.bairro || "",
-            complemento: data.complemento || "",
-          });
-        }
+        setCliente({
+          id: data.cliente_id,
+          nome: data.cliente_nome || "",
+          telefone: data.cliente_telefone || "",
+          endereco: data.endereco || "",
+          numero: data.numero || "",
+          bairro: data.bairro || "",
+          complemento: data.complemento || "",
+        });
       } else if (data.cliente_nome) {
         // Auto-register new client
         const novoCliente = {
