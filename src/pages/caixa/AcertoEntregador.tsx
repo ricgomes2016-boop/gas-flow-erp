@@ -31,7 +31,8 @@ export default function AcertoEntregador() {
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [entregas, setEntregas] = useState<Entrega[]>([]);
   const [selectedId, setSelectedId] = useState("");
-  const [dataAcerto, setDataAcerto] = useState(new Date().toISOString().split("T")[0]);
+  const [dataInicio, setDataInicio] = useState(new Date().toISOString().split("T")[0]);
+  const [dataFim, setDataFim] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(false);
   const { unidadeAtual } = useUnidade();
 
@@ -46,8 +47,8 @@ export default function AcertoEntregador() {
   const carregarEntregas = async () => {
     if (!selectedId) { toast.error("Selecione um entregador"); return; }
     setLoading(true);
-    const inicio = startOfDay(new Date(dataAcerto + "T00:00:00")).toISOString();
-    const fim = new Date(new Date(dataAcerto + "T00:00:00").getTime() + 86400000).toISOString();
+    const inicio = startOfDay(new Date(dataInicio + "T00:00:00")).toISOString();
+    const fim = new Date(new Date(dataFim + "T00:00:00").getTime() + 86400000).toISOString();
     let query = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, cliente:clientes(nome)")
       .eq("entregador_id", selectedId).gte("created_at", inicio).lt("created_at", fim).eq("status", "entregue");
     if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
@@ -70,14 +71,15 @@ export default function AcertoEntregador() {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Selecionar Entregador</CardTitle></CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <div><Label>Entregador</Label>
                 <Select value={selectedId} onValueChange={setSelectedId}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>{entregadores.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Data</Label><Input type="date" value={dataAcerto} onChange={e => setDataAcerto(e.target.value)} /></div>
+              <div><Label>Data Início</Label><Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} /></div>
+              <div><Label>Data Fim</Label><Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} /></div>
               <div className="flex items-end"><Button className="w-full" onClick={carregarEntregas}>Carregar Entregas</Button></div>
             </div>
           </CardContent>
