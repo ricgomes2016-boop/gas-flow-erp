@@ -6,7 +6,7 @@ import {
   Settings2,
   Users,
   Package,
-  FolderOpen,
+  
   CreditCard,
   Truck,
   HardHat,
@@ -68,6 +68,7 @@ const menuItems: MenuItem[] = [
     icon: Settings2,
     label: "Gestão Operacional",
     submenu: [
+      { label: "Fornecedores", path: "/cadastros/fornecedores" },
       { label: "Conselhos IA", path: "/operacional/ia" },
       { label: "Dashboard Executivo", path: "/operacional/executivo" },
       { label: "Dashboard Avançado", path: "/operacional/avancado" },
@@ -85,6 +86,7 @@ const menuItems: MenuItem[] = [
     label: "Gestão de Clientes",
     submenu: [
       { label: "Cadastro de Clientes", path: "/clientes/cadastro" },
+      { label: "Clientes", path: "/cadastros/clientes" },
       { label: "Campanhas", path: "/clientes/campanhas" },
       { label: "Fidelidade / Indicações", path: "/clientes/fidelidade" },
       { label: "CRM", path: "/clientes/crm" },
@@ -95,22 +97,11 @@ const menuItems: MenuItem[] = [
     icon: Package,
     label: "Gestão de Estoque",
     submenu: [
+      { label: "Produtos", path: "/cadastros/produtos" },
       { label: "Compras", path: "/estoque/compras" },
       { label: "Comodatos", path: "/estoque/comodatos" },
       { label: "Estoque em Rota", path: "/estoque/rota" },
       { label: "MCMM", path: "/estoque/mcmm" },
-    ],
-  },
-  {
-    icon: FolderOpen,
-    label: "Cadastros",
-    submenu: [
-      { label: "Clientes", path: "/cadastros/clientes" },
-      { label: "Entregadores", path: "/cadastros/entregadores" },
-      { label: "Fornecedores", path: "/cadastros/fornecedores" },
-      { label: "Veículos", path: "/cadastros/veiculos" },
-      { label: "Funcionários", path: "/cadastros/funcionarios" },
-      { label: "Produtos", path: "/cadastros/produtos" },
     ],
   },
   {
@@ -135,6 +126,7 @@ const menuItems: MenuItem[] = [
     icon: Truck,
     label: "Gestão de Frota",
     submenu: [
+      { label: "Veículos", path: "/cadastros/veiculos" },
       { label: "Controle de Combustível", path: "/frota/combustivel" },
       { label: "Manutenção", path: "/frota/manutencao" },
       { label: "Relatórios", path: "/frota/relatorios" },
@@ -145,6 +137,8 @@ const menuItems: MenuItem[] = [
     icon: HardHat,
     label: "Gestão de RH",
     submenu: [
+      { label: "Funcionários", path: "/cadastros/funcionarios" },
+      { label: "Entregadores", path: "/cadastros/entregadores" },
       { label: "Folha de Pagamento", path: "/rh/folha" },
       { label: "Vale Funcionário", path: "/rh/vale" },
       { label: "Comissão do Entregador", path: "/rh/comissao" },
