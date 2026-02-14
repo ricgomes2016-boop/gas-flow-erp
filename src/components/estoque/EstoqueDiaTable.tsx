@@ -244,9 +244,9 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                         {(() => {
                           const isAgua = /[áa]gua/i.test(linha.nome);
                           const displayName = isCheio
-                            ? (isAgua ? linha.nome : `Gás ${linha.nome}`)
+                            ? (isAgua ? `Água Mineral ${linha.nome.replace(/[áa]gua\s*mineral\s*/i, "").trim()}` : `Gás ${linha.nome}`)
                             : isVazio
-                            ? `Vasilhame ${linha.nome}`
+                            ? (isAgua ? `Galão Água ${linha.nome.replace(/[áa]gua\s*mineral\s*/i, "").trim()}` : `Vasilhame ${linha.nome}`)
                             : linha.nome;
                           return (
                             <span className="flex items-center gap-2">
