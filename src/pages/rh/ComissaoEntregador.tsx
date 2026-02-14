@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
-import { DollarSign, TrendingUp, Package, Calculator } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DollarSign, TrendingUp, Package, Calculator, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,54 +15,156 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useState, useMemo } from "react";
 
-const TAXA_COMISSAO = 0.05;
+// Comissão por canal de venda
+const COMISSAO_POR_CANAL: Record<string, number> = {
+  telefone: 1.0,
+  whatsapp: 1.0,
+  balcao: 0.5,
+  portaria: 0.5,
+  app_cliente: 1.5,
+};
+
+const CANAL_LABELS: Record<string, string> = {
+  telefone: "Disk",
+  whatsapp: "WhatsApp",
+  balcao: "Balcão/Comércio",
+  portaria: "Portaria",
+  app_cliente: "Automática",
+};
 
 export default function ComissaoEntregador() {
   const { unidadeAtual } = useUnidade();
   const now = new Date();
 
-  const { data: comissoes = [], isLoading } = useQuery({
-    queryKey: ["comissao-entregador", unidadeAtual?.id],
+  // Filtros
+  const [mesSelecionado, setMesSelecionado] = useState(format(now, "yyyy-MM"));
+  const [entregadorSelecionado, setEntregadorSelecionado] = useState<string>("todos");
+
+  const mesesDisponiveis = useMemo(() => {
+    const meses = [];
+    for (let i = 0; i < 12; i++) {
+      const mes = subMonths(now, i);
+      meses.push({ value: format(mes, "yyyy-MM"), label: format(mes, "MMMM yyyy", { locale: ptBR }) });
+    }
+    return meses;
+  }, []);
+
+  // Buscar entregadores
+  const { data: entregadores = [] } = useQuery({
+    queryKey: ["entregadores-comissao"],
     queryFn: async () => {
-      const mesInicio = startOfMonth(now).toISOString();
-      const mesFim = endOfMonth(now).toISOString();
+      const { data } = await supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome");
+      return data || [];
+    },
+  });
+
+  // Buscar pedidos detalhados do mês
+  const { data: pedidosDetalhados = [], isLoading } = useQuery({
+    queryKey: ["comissao-detalhada", unidadeAtual?.id, mesSelecionado, entregadorSelecionado],
+    queryFn: async () => {
+      const [ano, mes] = mesSelecionado.split("-").map(Number);
+      const dataRef = new Date(ano, mes - 1, 1);
+      const mesInicio = startOfMonth(dataRef).toISOString();
+      const mesFim = endOfMonth(dataRef).toISOString();
 
       let query = supabase
         .from("pedidos")
-        .select("entregador_id, valor_total, entregadores(nome)")
+        .select("id, entregador_id, valor_total, canal_venda, entregadores(nome)")
         .eq("status", "entregue")
         .gte("created_at", mesInicio)
         .lte("created_at", mesFim);
 
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      if (entregadorSelecionado !== "todos") query = query.eq("entregador_id", entregadorSelecionado);
 
-      const { data, error } = await query;
+      const { data: pedidosData, error } = await query;
       if (error) throw error;
 
-      // Agrupar por entregador
-      const map = new Map<string, { nome: string; entregas: number; valorVendido: number }>();
-      (data || []).forEach((p: any) => {
-        if (!p.entregador_id) return;
-        const existing = map.get(p.entregador_id) || { nome: p.entregadores?.nome || "N/A", entregas: 0, valorVendido: 0 };
-        existing.entregas++;
-        existing.valorVendido += Number(p.valor_total) || 0;
-        map.set(p.entregador_id, existing);
-      });
+      // Buscar itens de todos os pedidos
+      const pedidoIds = (pedidosData || []).map((p: any) => p.id);
+      if (pedidoIds.length === 0) return [];
 
-      return Array.from(map.entries()).map(([id, v]) => ({
-        id,
-        entregador: v.nome,
-        entregas: v.entregas,
-        valorVendido: v.valorVendido,
-        comissao: v.valorVendido * TAXA_COMISSAO,
-        bonus: v.entregas >= 200 ? 200 : v.entregas >= 150 ? 100 : 0,
-        get total() { return this.comissao + this.bonus; },
-      })).sort((a, b) => b.entregas - a.entregas);
+      const { data: itensData } = await supabase
+        .from("pedido_itens")
+        .select("pedido_id, produto_id, quantidade, preco_unitario, produtos(nome, categoria, tipo_botijao)")
+        .in("pedido_id", pedidoIds);
+
+      // Mapear pedidos para acesso rápido
+      const pedidoMap = new Map<string, any>();
+      (pedidosData || []).forEach((p: any) => pedidoMap.set(p.id, p));
+
+      return (itensData || []).map((item: any) => {
+        const pedido = pedidoMap.get(item.pedido_id);
+        return {
+          ...item,
+          entregador_id: pedido?.entregador_id,
+          entregador_nome: pedido?.entregadores?.nome || "N/A",
+          canal_venda: pedido?.canal_venda || "balcao",
+        };
+      });
     },
   });
 
-  // Comparativo mensal (últimos 6 meses de pedidos entregues)
+  // Agrupar dados para a tabela detalhada por entregador
+  const dadosAgrupados = useMemo(() => {
+    const porEntregador = new Map<string, {
+      nome: string;
+      produtos: Map<string, { nome: string; canais: Map<string, { qtd: number; comissaoUnit: number }> }>;
+    }>();
+
+    pedidosDetalhados.forEach((item: any) => {
+      if (!item.entregador_id) return;
+      const eId = item.entregador_id;
+      const canal = item.canal_venda || "balcao";
+      const prodNome = item.produtos?.nome || "Produto";
+      const comissaoUnit = COMISSAO_POR_CANAL[canal] ?? 0.5;
+
+      if (!porEntregador.has(eId)) {
+        porEntregador.set(eId, { nome: item.entregador_nome, produtos: new Map() });
+      }
+      const ent = porEntregador.get(eId)!;
+
+      if (!ent.produtos.has(prodNome)) {
+        ent.produtos.set(prodNome, { nome: prodNome, canais: new Map() });
+      }
+      const prod = ent.produtos.get(prodNome)!;
+
+      const canalExistente = prod.canais.get(canal) || { qtd: 0, comissaoUnit };
+      canalExistente.qtd += item.quantidade || 1;
+      prod.canais.set(canal, canalExistente);
+    });
+
+    return Array.from(porEntregador.entries()).map(([id, ent]) => {
+      const linhas: { produto: string; canal: string; quantidade: number; comissaoUnit: number; total: number }[] = [];
+      let totalQtd = 0;
+      let totalComissao = 0;
+
+      ent.produtos.forEach((prod) => {
+        prod.canais.forEach((canalData, canal) => {
+          const total = canalData.qtd * canalData.comissaoUnit;
+          linhas.push({
+            produto: prod.nome,
+            canal: CANAL_LABELS[canal] || canal,
+            quantidade: canalData.qtd,
+            comissaoUnit: canalData.comissaoUnit,
+            total,
+          });
+          totalQtd += canalData.qtd;
+          totalComissao += total;
+        });
+      });
+
+      return { id, nome: ent.nome, linhas, totalQtd, totalComissao };
+    }).sort((a, b) => b.totalComissao - a.totalComissao);
+  }, [pedidosDetalhados]);
+
+  // Resumo por entregador (para cards)
+  const totalComissao = dadosAgrupados.reduce((acc, e) => acc + e.totalComissao, 0);
+  const totalEntregas = dadosAgrupados.reduce((acc, e) => acc + e.totalQtd, 0);
+
+  // Comparativo mensal (últimos 6 meses)
   const { data: comparativo = [] } = useQuery({
     queryKey: ["comissao-comparativo", unidadeAtual?.id],
     queryFn: async () => {
@@ -82,28 +185,48 @@ export default function ComissaoEntregador() {
         if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
 
         const { data } = await query;
-        const total = (data || []).reduce((acc: number, p: any) => acc + (Number(p.valor_total) || 0), 0);
-        meses.push({ mes: format(mes, "MMM", { locale: ptBR }), comissao: Math.round(total * TAXA_COMISSAO) });
+        const totalQtd = (data || []).length;
+        meses.push({ mes: format(mes, "MMM", { locale: ptBR }), comissao: totalQtd });
       }
       return meses;
     },
   });
 
-  const totalComissao = comissoes.reduce((acc, c) => acc + c.total, 0);
-  const totalEntregas = comissoes.reduce((acc, c) => acc + c.entregas, 0);
-
   return (
     <MainLayout>
-      <Header title="Comissão do Entregador" subtitle="Relatório de comissões e bônus" />
+      <Header title="Comissão do Entregador" subtitle="Relatório de comissões por produto e canal" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Comissão do Entregador</h1>
-            <p className="text-muted-foreground">Cálculo de comissões por entrega</p>
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-1 min-w-[180px] max-w-[250px]">
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Mês</label>
+            <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {mesesDisponiveis.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="capitalize">{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Button className="gap-2"><Calculator className="h-4 w-4" />Calcular Comissões</Button>
+          <div className="flex-1 min-w-[180px] max-w-[250px]">
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Entregador</label>
+            <Select value={entregadorSelecionado} onValueChange={setEntregadorSelecionado}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Entregadores</SelectItem>
+                {entregadores.map((e: any) => (
+                  <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end pt-5">
+            <Button variant="outline" className="gap-2"><FileText className="h-4 w-4" />Gerar Recibo</Button>
+          </div>
         </div>
 
+        {/* Cards resumo */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -112,7 +235,7 @@ export default function ComissaoEntregador() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-              <p className="text-xs text-muted-foreground">Este mês</p>
+              <p className="text-xs text-muted-foreground">Mês selecionado</p>
             </CardContent>
           </Card>
           <Card>
@@ -122,83 +245,97 @@ export default function ComissaoEntregador() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{totalEntregas}</div>
-              <p className="text-xs text-muted-foreground">Realizadas no mês</p>
+              <p className="text-xs text-muted-foreground">Unidades entregues</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Média/Entregador</CardTitle>
-              <TrendingUp className="h-4 w-4 text-success" />
+              <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">R$ {comissoes.length > 0 ? (totalComissao / comissoes.length).toFixed(2) : "0.00"}</div>
-              <p className="text-xs text-muted-foreground">Por funcionário</p>
+              <div className="text-2xl font-bold text-primary">R$ {dadosAgrupados.length > 0 ? (totalComissao / dadosAgrupados.length).toFixed(2) : "0.00"}</div>
+              <p className="text-xs text-muted-foreground">Por entregador</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Taxa Comissão</CardTitle>
-              <DollarSign className="h-4 w-4 text-warning" />
+              <CardTitle className="text-sm font-medium">Entregadores</CardTitle>
+              <Calculator className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-warning">{(TAXA_COMISSAO * 100)}%</div>
-              <p className="text-xs text-muted-foreground">Sobre vendas</p>
+              <div className="text-2xl font-bold">{dadosAgrupados.length}</div>
+              <p className="text-xs text-muted-foreground">Com entregas no mês</p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tabelas detalhadas por entregador */}
+        {isLoading ? (
+          <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24 w-full" />)}</div>
+        ) : dadosAgrupados.length === 0 ? (
           <Card>
-            <CardHeader><CardTitle>Comparativo Mensal</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={comparativo}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />
-                  <Bar dataKey="comissao" fill="hsl(var(--primary))" name="Comissão" />
-                </BarChart>
-              </ResponsiveContainer>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Nenhuma entrega encontrada no período selecionado.
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader><CardTitle>Detalhamento por Entregador</CardTitle></CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
-              ) : comissoes.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nenhuma entrega no período</p>
-              ) : (
+        ) : (
+          dadosAgrupados.map((entregador) => (
+            <Card key={entregador.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{entregador.nome}</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Entregador</TableHead>
-                      <TableHead>Entregas</TableHead>
-                      <TableHead>Comissão</TableHead>
-                      <TableHead>Bônus</TableHead>
-                      <TableHead>Total</TableHead>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-bold">Produto</TableHead>
+                      <TableHead className="font-bold">Canal</TableHead>
+                      <TableHead className="font-bold text-center">Quantidade</TableHead>
+                      <TableHead className="font-bold text-right">Comissão</TableHead>
+                      <TableHead className="font-bold text-right">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {comissoes.map((c) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-medium">{c.entregador}</TableCell>
-                        <TableCell>{c.entregas}</TableCell>
-                        <TableCell>R$ {c.comissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell>
-                          {c.bonus > 0 ? <Badge variant="default">+ R$ {c.bonus}</Badge> : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="font-bold">R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    {entregador.linhas.map((linha, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{linha.produto}</TableCell>
+                        <TableCell>{linha.canal}</TableCell>
+                        <TableCell className="text-center">{linha.quantidade}</TableCell>
+                        <TableCell className="text-right">R$ {linha.comissaoUnit.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">R$ {linha.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-primary/10 font-bold">
+                      <TableCell colSpan={2}>Total</TableCell>
+                      <TableCell className="text-center">{entregador.totalQtd}</TableCell>
+                      <TableCell />
+                      <TableCell className="text-right">R$ {entregador.totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+
+        {/* Gráfico comparativo */}
+        <Card>
+          <CardHeader><CardTitle>Comparativo Mensal (Entregas)</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={comparativo}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="mes" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="comissao" fill="hsl(var(--primary))" name="Entregas" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
