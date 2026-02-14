@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,13 +14,12 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingBag, Sparkles, Loader2, Send } from "lucide-react";
+import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
-// Componentes refatorados
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
 import { PaymentSection, Pagamento } from "@/components/vendas/PaymentSection";
@@ -57,7 +56,6 @@ export default function NovaVenda() {
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
 
-  // Estados
   const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split("T")[0]);
   const [canalVenda, setCanalVenda] = useState("telefone");
   const [customer, setCustomer] = useState<CustomerData>(initialCustomerData);
@@ -70,6 +68,67 @@ export default function NovaVenda() {
   const [isLoading, setIsLoading] = useState(false);
   const [aiCommand, setAiCommand] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Voice recognition
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({
+        title: "Não suportado",
+        description: "Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setAiCommand(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech error:", event.error);
+      setIsListening(false);
+      if (event.error === "not-allowed") {
+        toast({
+          title: "Microfone bloqueado",
+          description: "Permita o acesso ao microfone nas configurações do navegador.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      // Auto-send when voice stops
+      setTimeout(() => {
+        const btn = document.getElementById("ai-send-btn");
+        if (btn) btn.click();
+      }, 300);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
+  };
 
   const handleAiCommand = async () => {
     if (!aiCommand.trim()) return;
@@ -81,7 +140,7 @@ export default function NovaVenda() {
 
       if (error) throw error;
 
-      // Set customer
+      // If client found in DB
       if (data.cliente_id) {
         const { data: clienteData } = await supabase
           .from("clientes")
@@ -93,16 +152,63 @@ export default function NovaVenda() {
             id: clienteData.id,
             nome: clienteData.nome,
             telefone: clienteData.telefone || "",
-            endereco: clienteData.endereco || "",
-            numero: "",
-            complemento: "",
-            bairro: clienteData.bairro || "",
-            cep: clienteData.cep || "",
+            endereco: data.endereco || clienteData.endereco || "",
+            numero: data.numero || "",
+            complemento: data.complemento || "",
+            bairro: data.bairro || clienteData.bairro || "",
+            cep: data.cep || clienteData.cep || "",
             observacao: data.observacoes || "",
           });
         }
       } else if (data.cliente_nome) {
-        setCustomer({ ...initialCustomerData, nome: data.cliente_nome, observacao: data.observacoes || "" });
+        // Auto-register new client
+        const novoCliente: any = {
+          nome: data.cliente_nome,
+          endereco: data.endereco || null,
+          bairro: data.bairro || null,
+          cep: data.cep || null,
+          cidade: data.cidade || null,
+          telefone: data.cliente_telefone || null,
+          ativo: true,
+        };
+
+        const { data: clienteCriado, error: createError } = await supabase
+          .from("clientes")
+          .insert(novoCliente)
+          .select("id")
+          .single();
+
+        if (createError) {
+          console.error("Erro ao cadastrar cliente:", createError);
+          // Still fill the form even if DB insert fails
+          setCustomer({
+            ...initialCustomerData,
+            nome: data.cliente_nome,
+            telefone: data.cliente_telefone || "",
+            endereco: data.endereco || "",
+            numero: data.numero || "",
+            complemento: data.complemento || "",
+            bairro: data.bairro || "",
+            cep: data.cep || "",
+            observacao: data.observacoes || "",
+          });
+        } else {
+          setCustomer({
+            id: clienteCriado.id,
+            nome: data.cliente_nome,
+            telefone: data.cliente_telefone || "",
+            endereco: data.endereco || "",
+            numero: data.numero || "",
+            complemento: data.complemento || "",
+            bairro: data.bairro || "",
+            cep: data.cep || "",
+            observacao: data.observacoes || "",
+          });
+          toast({
+            title: "Novo cliente cadastrado!",
+            description: `${data.cliente_nome} foi adicionado automaticamente ao sistema.`,
+          });
+        }
       }
 
       // Set items
@@ -158,36 +264,25 @@ export default function NovaVenda() {
 
   const handleFinalizar = async () => {
     if (itens.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Adicione pelo menos um produto.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Adicione pelo menos um produto.", variant: "destructive" });
       return;
     }
 
     const totalPago = pagamentos.reduce((acc, p) => acc + p.valor, 0);
     if (totalPago < totalVenda) {
-      toast({
-        title: "Pagamento incompleto",
-        description: `Falta pagar R$ ${(totalVenda - totalPago).toFixed(2)}`,
-        variant: "destructive",
-      });
+      toast({ title: "Pagamento incompleto", description: `Falta pagar R$ ${(totalVenda - totalPago).toFixed(2)}`, variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Criar o pedido
       const enderecoCompleto = [
         customer.endereco,
         customer.numero && `Nº ${customer.numero}`,
         customer.complemento,
         customer.bairro,
-      ]
-        .filter(Boolean)
-        .join(", ");
+      ].filter(Boolean).join(", ");
 
       const { data: pedido, error: pedidoError } = await supabase
         .from("pedidos")
@@ -207,7 +302,6 @@ export default function NovaVenda() {
 
       if (pedidoError) throw pedidoError;
 
-      // Criar os itens do pedido
       const itensInsert = itens.map((item) => ({
         pedido_id: pedido.id,
         produto_id: item.produto_id,
@@ -216,12 +310,10 @@ export default function NovaVenda() {
       }));
 
       const { error: itensError } = await supabase.from("pedido_itens").insert(itensInsert);
-
       if (itensError) throw itensError;
 
-      // Atualizar estoque dos produtos
+      // Update stock
       for (const item of itens) {
-        // Buscar dados do produto para verificar se é gás
         const { data: produto } = await supabase
           .from("produtos")
           .select("id, estoque, categoria, tipo_botijao, botijao_par_id")
@@ -229,14 +321,9 @@ export default function NovaVenda() {
           .single();
 
         if (produto) {
-          // Decrementar estoque do produto vendido
           const novoEstoque = Math.max(0, (produto.estoque || 0) - item.quantidade);
-          await supabase
-            .from("produtos")
-            .update({ estoque: novoEstoque })
-            .eq("id", item.produto_id);
+          await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", item.produto_id);
 
-          // Se for botijão de gás cheio, incrementar o estoque do vazio correspondente
           if (produto.categoria === "gas" && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
             const { data: produtoVazio } = await supabase
               .from("produtos")
@@ -245,8 +332,7 @@ export default function NovaVenda() {
               .single();
 
             if (produtoVazio) {
-              await supabase
-                .from("produtos")
+              await supabase.from("produtos")
                 .update({ estoque: (produtoVazio.estoque || 0) + item.quantidade })
                 .eq("id", produtoVazio.id);
             }
@@ -254,7 +340,7 @@ export default function NovaVenda() {
         }
       }
 
-      // Buscar configurações da empresa para o comprovante
+      // Receipt
       let empresaConfig: EmpresaConfig | undefined;
       try {
         const { data: configData } = await supabase
@@ -262,23 +348,15 @@ export default function NovaVenda() {
           .select("nome_empresa, cnpj, telefone, endereco, mensagem_cupom")
           .limit(1)
           .single();
-        
-        if (configData) {
-          empresaConfig = configData;
-        }
+        if (configData) empresaConfig = configData;
       } catch (e) {
-        console.warn("Não foi possível carregar configurações da empresa, usando padrão");
+        console.warn("Não foi possível carregar configurações da empresa");
       }
 
-      // Gerar comprovante PDF
       generateReceiptPdf({
         pedidoId: pedido.id,
         data: new Date(),
-        cliente: {
-          nome: customer.nome,
-          telefone: customer.telefone,
-          endereco: enderecoCompleto,
-        },
+        cliente: { nome: customer.nome, telefone: customer.telefone, endereco: enderecoCompleto },
         itens,
         pagamentos,
         entregadorNome: entregador.nome,
@@ -295,11 +373,7 @@ export default function NovaVenda() {
       navigate("/vendas/pedidos");
     } catch (error: any) {
       console.error("Erro ao salvar venda:", error);
-      toast({
-        title: "Erro ao salvar",
-        description: error.message || "Ocorreu um erro ao finalizar a venda.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao salvar", description: error.message || "Ocorreu um erro ao finalizar a venda.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -307,9 +381,7 @@ export default function NovaVenda() {
 
   const handleCancelar = () => {
     if (itens.length > 0 || pagamentos.length > 0) {
-      if (!confirm("Deseja realmente cancelar esta venda? Os dados serão perdidos.")) {
-        return;
-      }
+      if (!confirm("Deseja realmente cancelar esta venda? Os dados serão perdidos.")) return;
     }
     navigate("/vendas/pedidos");
   };
@@ -334,34 +406,51 @@ export default function NovaVenda() {
           </Badge>
         </div>
 
-        {/* AI Command Bar */}
+        {/* AI Command Bar with Voice */}
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary shrink-0" />
               <Input
-                placeholder='Ex: "Lançar 2 P13 para Maria Silva no pix" ou "venda para João, botijão P45, dinheiro"'
+                placeholder='Ex: "Lançar 2 P13 para Maria, Rua Ceará 30, Centro, no crédito"'
                 value={aiCommand}
                 onChange={(e) => setAiCommand(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAiCommand()}
                 className="bg-background"
-                disabled={aiLoading}
+                disabled={aiLoading || isListening}
               />
-              <Button onClick={handleAiCommand} disabled={aiLoading || !aiCommand.trim()} size="sm" className="shrink-0 gap-1">
+              <Button
+                variant={isListening ? "destructive" : "outline"}
+                size="icon"
+                onClick={isListening ? stopListening : startListening}
+                disabled={aiLoading}
+                className={`shrink-0 ${isListening ? "animate-pulse" : ""}`}
+                title={isListening ? "Parar gravação" : "Comando por voz"}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+              <Button
+                id="ai-send-btn"
+                onClick={handleAiCommand}
+                disabled={aiLoading || !aiCommand.trim()}
+                size="sm"
+                className="shrink-0 gap-1"
+              >
                 {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {aiLoading ? "Interpretando..." : "Enviar"}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2 ml-7">
-              💡 Digite um comando em linguagem natural para pré-preencher a venda automaticamente com IA
+              {isListening 
+                ? "🔴 Ouvindo... Fale o comando de venda. Ex: \"Lance 1 gás para Rogério, Rua Ceará 30, bairro Centro, no crédito\""
+                : "💡 Digite ou clique no 🎤 para ditar um comando. Clientes novos são cadastrados automaticamente!"}
             </p>
           </CardContent>
         </Card>
+
         {/* Layout Principal */}
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Coluna Esquerda - Formulário */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Data e Canal */}
             <Card>
               <CardContent className="pt-6">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -370,19 +459,12 @@ export default function NovaVenda() {
                       <Calendar className="h-3 w-3" />
                       Data de Entrega
                     </Label>
-                    <Input
-                      type="date"
-                      value={dataEntrega}
-                      onChange={(e) => setDataEntrega(e.target.value)}
-                      className="mt-1"
-                    />
+                    <Input type="date" value={dataEntrega} onChange={(e) => setDataEntrega(e.target.value)} className="mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Canal de Venda</Label>
                     <Select value={canalVenda} onValueChange={setCanalVenda}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="telefone">📞 Telefone</SelectItem>
                         <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
@@ -395,28 +477,12 @@ export default function NovaVenda() {
               </CardContent>
             </Card>
 
-            {/* Cliente */}
             <CustomerSearch value={customer} onChange={setCustomer} />
-
-            {/* Entregador */}
-            <DeliveryPersonSelect
-              value={entregador.id}
-              onChange={handleSelecionarEntregador}
-              endereco={customer.endereco}
-            />
-
-            {/* Produtos */}
+            <DeliveryPersonSelect value={entregador.id} onChange={handleSelecionarEntregador} endereco={customer.endereco} />
             <ProductSearch itens={itens} onChange={setItens} />
-
-            {/* Pagamento */}
-            <PaymentSection
-              pagamentos={pagamentos}
-              onChange={setPagamentos}
-              totalVenda={totalVenda}
-            />
+            <PaymentSection pagamentos={pagamentos} onChange={setPagamentos} totalVenda={totalVenda} />
           </div>
 
-          {/* Coluna Direita - Resumo e Histórico */}
           <div className="space-y-6">
             <OrderSummary
               itens={itens}
@@ -427,7 +493,6 @@ export default function NovaVenda() {
               onCancelar={handleCancelar}
               isLoading={isLoading}
             />
-
             <CustomerHistory clienteId={customer.id} />
           </div>
         </div>
