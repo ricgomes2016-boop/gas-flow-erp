@@ -12,7 +12,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Truck, Plus, Search, Edit, Trash2, Phone } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Truck, Plus, Search, Edit, Trash2, Phone, LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -25,6 +28,13 @@ interface Entregador {
   email: string | null;
   status: string | null;
   ativo: boolean | null;
+  user_id: string | null;
+}
+
+interface UserOption {
+  user_id: string;
+  full_name: string;
+  email: string;
 }
 
 export default function Entregadores() {
@@ -33,8 +43,9 @@ export default function Entregadores() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [form, setForm] = useState({
-    nome: "", cpf: "", cnh: "", telefone: "", email: "",
+    nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "",
   });
 
   const fetchEntregadores = async () => {
@@ -47,36 +58,65 @@ export default function Entregadores() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchEntregadores(); }, []);
+  const fetchUsers = async () => {
+    // Buscar usuários com role 'entregador'
+    const { data: roles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "entregador");
+    
+    if (rolesError || !roles?.length) return;
+
+    const userIds = roles.map(r => r.user_id);
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email")
+      .in("user_id", userIds);
+
+    if (profilesError) { console.error(profilesError); return; }
+    setUsers(profiles || []);
+  };
+
+  useEffect(() => { 
+    fetchEntregadores(); 
+    fetchUsers();
+  }, []);
 
   const handleSave = async () => {
     if (!form.nome.trim()) { toast.error("Nome é obrigatório"); return; }
 
+    const payload = {
+      nome: form.nome,
+      cpf: form.cpf || null,
+      cnh: form.cnh || null,
+      telefone: form.telefone || null,
+      email: form.email || null,
+      user_id: form.user_id || null,
+    };
+
     if (editId) {
-      const { error } = await supabase.from("entregadores").update({
-        nome: form.nome, cpf: form.cpf || null, cnh: form.cnh || null,
-        telefone: form.telefone || null, email: form.email || null,
-      }).eq("id", editId);
+      const { error } = await supabase.from("entregadores").update(payload).eq("id", editId);
       if (error) { toast.error("Erro: " + error.message); return; }
       toast.success("Entregador atualizado!");
     } else {
-      const { error } = await supabase.from("entregadores").insert({
-        nome: form.nome, cpf: form.cpf || null, cnh: form.cnh || null,
-        telefone: form.telefone || null, email: form.email || null,
-      });
+      const { error } = await supabase.from("entregadores").insert(payload);
       if (error) { toast.error("Erro: " + error.message); return; }
       toast.success("Entregador cadastrado!");
     }
 
     setOpen(false);
     setEditId(null);
-    setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "" });
+    setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "" });
     fetchEntregadores();
   };
 
   const handleEdit = (e: Entregador) => {
     setEditId(e.id);
-    setForm({ nome: e.nome, cpf: e.cpf || "", cnh: e.cnh || "", telefone: e.telefone || "", email: e.email || "" });
+    setForm({
+      nome: e.nome, cpf: e.cpf || "", cnh: e.cnh || "",
+      telefone: e.telefone || "", email: e.email || "",
+      user_id: e.user_id || "",
+    });
     setOpen(true);
   };
 
@@ -104,6 +144,13 @@ export default function Entregadores() {
     return "default" as const;
   };
 
+  // IDs de usuários já vinculados a outros entregadores
+  const linkedUserIds = entregadores
+    .filter(e => e.user_id && e.id !== editId)
+    .map(e => e.user_id);
+
+  const availableUsers = users.filter(u => !linkedUserIds.includes(u.user_id));
+
   return (
     <MainLayout>
       <Header title="Entregadores" subtitle="Cadastro de entregadores" />
@@ -113,7 +160,7 @@ export default function Entregadores() {
             <h1 className="text-2xl font-bold text-foreground">Entregadores</h1>
             <p className="text-muted-foreground">Gerencie a equipe de entregadores</p>
           </div>
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "" }); } }}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "" }); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Entregador</Button>
             </DialogTrigger>
@@ -147,6 +194,30 @@ export default function Entregadores() {
                     <Input value={form.email} onChange={e => setForm({...form, email: e.target.value})} type="email" />
                   </div>
                 </div>
+
+                <div>
+                  <Label className="flex items-center gap-1">
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    Vincular ao Usuário do Sistema
+                  </Label>
+                  <Select value={form.user_id} onValueChange={(v) => setForm({...form, user_id: v === "none" ? "" : v})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um usuário (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {availableUsers.map(u => (
+                        <SelectItem key={u.user_id} value={u.user_id}>
+                          {u.full_name} ({u.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Vincule a um usuário com perfil "entregador" para acesso ao app.
+                  </p>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-4">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
                   <Button onClick={handleSave}>{editId ? "Salvar" : "Cadastrar"}</Button>
@@ -199,28 +270,42 @@ export default function Entregadores() {
                     <TableHead>CPF</TableHead>
                     <TableHead>CNH</TableHead>
                     <TableHead>Telefone</TableHead>
+                    <TableHead>Vinculado</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(e => (
-                    <TableRow key={e.id}>
-                      <TableCell className="font-medium">{e.nome}</TableCell>
-                      <TableCell>{e.cpf || "-"}</TableCell>
-                      <TableCell>{e.cnh || "-"}</TableCell>
-                      <TableCell>{e.telefone ? <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{e.telefone}</span> : "-"}</TableCell>
-                      <TableCell><Badge variant={statusVariant(e.status)}>{statusLabel(e.status)}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(e)}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filtered.map(e => {
+                    const linkedUser = users.find(u => u.user_id === e.user_id);
+                    return (
+                      <TableRow key={e.id}>
+                        <TableCell className="font-medium">{e.nome}</TableCell>
+                        <TableCell>{e.cpf || "-"}</TableCell>
+                        <TableCell>{e.cnh || "-"}</TableCell>
+                        <TableCell>{e.telefone ? <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{e.telefone}</span> : "-"}</TableCell>
+                        <TableCell>
+                          {linkedUser ? (
+                            <Badge variant="outline" className="gap-1">
+                              <LinkIcon className="h-3 w-3" />
+                              {linkedUser.email}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Não vinculado</span>
+                          )}
+                        </TableCell>
+                        <TableCell><Badge variant={statusVariant(e.status)}>{statusLabel(e.status)}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(e)}><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {filtered.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum entregador encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum entregador encontrado</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
