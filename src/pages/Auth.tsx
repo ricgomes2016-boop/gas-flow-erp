@@ -27,11 +27,18 @@ export default function Auth() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
+  const { roles } = useAuth();
+
   useEffect(() => {
     if (user) {
-      navigate("/");
+      // Redirecionar entregadores automaticamente para o app do entregador
+      if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
+        navigate("/entregador");
+      } else {
+        navigate("/");
+      }
     }
-  }, [user, navigate]);
+  }, [user, roles, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
