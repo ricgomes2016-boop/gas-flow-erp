@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useCliente } from "@/contexts/ClienteContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   CreditCard, 
   Banknote, 
@@ -31,7 +33,8 @@ const paymentMethods = [
 export default function ClienteCheckout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, cartTotal, addPurchase, useWalletBalance, clearCart } = useCliente();
+  const { cart, cartTotal, clearCart } = useCliente();
+  const { user } = useAuth();
   
   const { 
     couponDiscount = 0, 
@@ -60,26 +63,60 @@ export default function ClienteCheckout() {
 
     setIsSubmitting(true);
 
-    // Simulate order processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const enderecoCompleto = `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ""} - ${address.neighborhood}${address.reference ? ` (Ref: ${address.reference})` : ""}`;
 
-    // Use wallet balance if applicable
-    if (useWallet && walletDiscount > 0) {
-      useWalletBalance(walletDiscount);
+      // Find cliente_id linked to this user (if any)
+      let clienteId: string | null = null;
+      if (user) {
+        const { data: clienteData } = await supabase
+          .from("clientes")
+          .select("id")
+          .eq("email", user.email || "")
+          .maybeSingle();
+        clienteId = clienteData?.id || null;
+      }
+
+      // Create pedido
+      const { data: pedido, error: pedidoError } = await supabase
+        .from("pedidos")
+        .insert({
+          cliente_id: clienteId,
+          endereco_entrega: enderecoCompleto,
+          forma_pagamento: paymentMethods.find(p => p.id === paymentMethod)?.label || paymentMethod,
+          valor_total: finalTotal,
+          status: "pendente",
+          canal_venda: "app_cliente",
+          observacoes: changeFor ? `Troco para R$ ${changeFor}` : null,
+        })
+        .select("id")
+        .single();
+
+      if (pedidoError) throw pedidoError;
+
+      // Insert pedido_itens
+      const itens = cart.map(item => ({
+        pedido_id: pedido.id,
+        produto_id: item.id,
+        quantidade: item.quantity,
+        preco_unitario: item.price,
+      }));
+
+      const { error: itensError } = await supabase
+        .from("pedido_itens")
+        .insert(itens);
+
+      if (itensError) throw itensError;
+
+      clearCart();
+      toast.success("Pedido realizado com sucesso!");
+      navigate("/cliente/historico");
+    } catch (error) {
+      console.error("Erro ao criar pedido:", error);
+      toast.error("Erro ao processar pedido. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Add purchase to history
-    addPurchase({
-      date: new Date(),
-      items: cart,
-      total: finalTotal,
-      paymentMethod: paymentMethods.find(p => p.id === paymentMethod)?.label || paymentMethod,
-      status: "pending",
-      discountApplied: couponDiscount + walletDiscount
-    });
-
-    toast.success("Pedido realizado com sucesso!");
-    navigate("/cliente/historico");
   };
 
   return (
