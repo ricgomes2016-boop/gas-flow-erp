@@ -15,7 +15,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Clock, Users, Edit, Calendar, Sun, Moon } from "lucide-react";
+import { Clock, Users, Edit, Calendar, Sun, Moon, Truck } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,7 +28,8 @@ export default function Horarios() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
-  const [funcionarioId, setFuncionarioId] = useState("");
+  const [tipoPessoa, setTipoPessoa] = useState<"funcionario" | "entregador">("funcionario");
+  const [pessoaId, setPessoaId] = useState("");
   const [turno, setTurno] = useState("comercial");
   const [entrada, setEntrada] = useState("08:00");
   const [saida, setSaida] = useState("18:00");
@@ -40,7 +41,7 @@ export default function Horarios() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("horarios_funcionario")
-        .select("*, funcionarios(nome, cargo)")
+        .select("*, funcionarios(nome, cargo), entregadores(nome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -60,12 +61,26 @@ export default function Horarios() {
     },
   });
 
+  const { data: entregadores = [] } = useQuery({
+    queryKey: ["entregadores-ativos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("entregadores")
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const turnoManha = horarios.filter((h: any) => h.turno === "manha").length;
   const turnoTarde = horarios.filter((h: any) => h.turno === "tarde").length;
 
   const resetForm = () => {
     setEditingId(null);
-    setFuncionarioId("");
+    setTipoPessoa("funcionario");
+    setPessoaId("");
     setTurno("comercial");
     setEntrada("08:00");
     setSaida("18:00");
@@ -80,7 +95,13 @@ export default function Horarios() {
 
   const openEdit = (h: any) => {
     setEditingId(h.id);
-    setFuncionarioId(h.funcionario_id);
+    if (h.entregador_id) {
+      setTipoPessoa("entregador");
+      setPessoaId(h.entregador_id);
+    } else {
+      setTipoPessoa("funcionario");
+      setPessoaId(h.funcionario_id || "");
+    }
     setTurno(h.turno);
     setEntrada(h.entrada?.substring(0, 5) || "08:00");
     setSaida(h.saida?.substring(0, 5) || "18:00");
@@ -90,18 +111,19 @@ export default function Horarios() {
   };
 
   const handleSave = async () => {
-    if (!funcionarioId) {
-      toast({ title: "Selecione um funcionário", variant: "destructive" });
+    if (!pessoaId) {
+      toast({ title: "Selecione um funcionário ou entregador", variant: "destructive" });
       return;
     }
 
-    const payload = {
-      funcionario_id: funcionarioId,
+    const payload: any = {
       turno,
       entrada,
       saida,
       intervalo,
       dias_semana: diasSemana,
+      funcionario_id: tipoPessoa === "funcionario" ? pessoaId : null,
+      entregador_id: tipoPessoa === "entregador" ? pessoaId : null,
     };
 
     if (editingId) {
@@ -213,8 +235,16 @@ export default function Horarios() {
                     const turnoLabel: Record<string, string> = { manha: "Manhã", tarde: "Tarde", comercial: "Comercial", noturno: "Noturno" };
                     return (
                       <TableRow key={h.id}>
-                        <TableCell className="font-medium">{h.funcionarios?.nome || "N/A"}</TableCell>
-                        <TableCell>{h.funcionarios?.cargo || "-"}</TableCell>
+                        <TableCell className="font-medium">
+                          {h.funcionarios?.nome || h.entregadores?.nome || "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          {h.entregador_id ? (
+                            <Badge variant="outline" className="gap-1"><Truck className="h-3 w-3" />Entregador</Badge>
+                          ) : (
+                            h.funcionarios?.cargo || "-"
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={h.turno === "manha" ? "default" : h.turno === "tarde" ? "secondary" : "outline"}>
                             {turnoLabel[h.turno] || h.turno}
@@ -252,17 +282,35 @@ export default function Horarios() {
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label>Funcionário *</Label>
-              <Select value={funcionarioId} onValueChange={setFuncionarioId}>
+              <Label>Tipo</Label>
+              <Select value={tipoPessoa} onValueChange={(v: "funcionario" | "entregador") => { setTipoPessoa(v); setPessoaId(""); }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o funcionário" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {funcionarios.map((f: any) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.nome} {f.cargo ? `- ${f.cargo}` : ""}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="funcionario">Funcionário</SelectItem>
+                  <SelectItem value="entregador">Entregador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{tipoPessoa === "funcionario" ? "Funcionário" : "Entregador"} *</Label>
+              <Select value={pessoaId} onValueChange={setPessoaId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={`Selecione o ${tipoPessoa === "funcionario" ? "funcionário" : "entregador"}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tipoPessoa === "funcionario"
+                    ? funcionarios.map((f: any) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.nome} {f.cargo ? `- ${f.cargo}` : ""}
+                        </SelectItem>
+                      ))
+                    : entregadores.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.nome}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
             </div>
