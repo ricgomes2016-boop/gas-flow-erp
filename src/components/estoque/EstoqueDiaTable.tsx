@@ -17,77 +17,160 @@ interface Produto {
   botijao_par_id: string | null;
 }
 
-interface VendaDia {
-  produto_id: string | null;
-  quantidade: number;
+interface MovimentacaoPorProduto {
+  vendas: number;
+  compras: number;
+  entradas_manuais: number;
+  saidas_manuais: number;
+  avarias: number;
 }
 
 interface EstoqueDiaTableProps {
   produtos: Produto[];
-  vendasDia: VendaDia[];
+  movimentacoes: Record<string, MovimentacaoPorProduto>;
+  dataInicio: Date;
+  dataFim: Date;
   isLoading: boolean;
 }
 
-interface ProdutoAgrupado {
+interface LinhaEstoque {
   nome: string;
-  cheio: { estoque: number; id: string } | null;
-  vazio: { estoque: number; id: string } | null;
-  unico: { estoque: number; id: string } | null;
-  vendasCheio: number;
-  vendasVazio: number;
-  vendasUnico: number;
+  tipoEstoque: string;
+  estoqueAtual: number;
+  vendas: number;
+  compras: number;
+  entradasManuais: number;
+  saidasManuais: number;
+  avarias: number;
+  inicial: number;
+  total: number;
 }
 
-export function EstoqueDiaTable({ produtos, vendasDia, isLoading }: EstoqueDiaTableProps) {
-  const hoje = new Date();
+function calcularLinha(
+  produto: Produto,
+  mov: MovimentacaoPorProduto,
+  tipoBotijao: string | null
+): LinhaEstoque {
+  const nomeBase = produto.nome
+    .replace(/\s*\(Vazio\)\s*/i, "")
+    .replace(/\s*\(Cheio\)\s*/i, "")
+    .trim();
 
-  const vendasMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    vendasDia.forEach((v) => {
-      if (v.produto_id) {
-        map[v.produto_id] = (map[v.produto_id] || 0) + v.quantidade;
-      }
-    });
-    return map;
-  }, [vendasDia]);
+  const estoqueAtual = produto.estoque || 0;
+  const { vendas, compras, entradas_manuais, saidas_manuais, avarias } = mov;
 
-  const produtosAgrupados = useMemo(() => {
-    const grupoMap: Record<string, ProdutoAgrupado> = {};
+  let entradas = 0;
+  let saidas = 0;
+
+  if (tipoBotijao === "cheio") {
+    // Cheio: compras/entradas manuais somam, vendas/saídas manuais subtraem
+    entradas = compras + entradas_manuais;
+    saidas = saidas_manuais;
+    // Inicial = atual - entradas + saídas + vendas + avarias
+    const inicial = estoqueAtual - entradas + saidas + vendas + avarias;
+    const total = inicial + entradas - saidas - vendas - avarias;
+    return {
+      nome: nomeBase,
+      tipoEstoque: "Cheio",
+      estoqueAtual,
+      vendas,
+      compras,
+      entradasManuais: entradas_manuais,
+      saidasManuais: saidas_manuais,
+      avarias,
+      inicial,
+      total,
+    };
+  } else if (tipoBotijao === "vazio") {
+    // Vazio: inverso - compras diminuem vazio, vendas/saídas aumentam vazio
+    entradas = saidas_manuais + vendas; // o que entra no vazio
+    saidas = compras + entradas_manuais; // o que sai do vazio (troca por cheio)
+    const inicial = estoqueAtual - entradas + saidas;
+    const total = inicial + entradas - saidas;
+    return {
+      nome: nomeBase,
+      tipoEstoque: "Vazio",
+      estoqueAtual,
+      vendas: 0,
+      compras: 0,
+      entradasManuais: entradas, // entradas no vazio
+      saidasManuais: saidas, // saídas do vazio
+      avarias,
+      inicial,
+      total,
+    };
+  } else {
+    // Produto único (não botijão)
+    entradas = compras + entradas_manuais;
+    saidas = saidas_manuais;
+    const inicial = estoqueAtual - entradas + saidas + vendas + avarias;
+    const total = inicial + entradas - saidas - vendas - avarias;
+    return {
+      nome: nomeBase,
+      tipoEstoque: "Único",
+      estoqueAtual,
+      vendas,
+      compras,
+      entradasManuais: entradas_manuais,
+      saidasManuais: saidas_manuais,
+      avarias,
+      inicial,
+      total,
+    };
+  }
+}
+
+export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, isLoading }: EstoqueDiaTableProps) {
+  const linhas = useMemo(() => {
+    const resultado: LinhaEstoque[] = [];
+
+    // Agrupar por nome base para manter cheio/vazio juntos
+    const grupoMap: Record<string, { cheio?: Produto; vazio?: Produto; unico?: Produto }> = {};
 
     produtos.forEach((p) => {
-      // Normalize name: remove " (Vazio)" or " (Cheio)" suffixes
       const nomeBase = p.nome.replace(/\s*\(Vazio\)\s*/i, "").replace(/\s*\(Cheio\)\s*/i, "").trim();
+      if (!grupoMap[nomeBase]) grupoMap[nomeBase] = {};
 
-      if (!grupoMap[nomeBase]) {
-        grupoMap[nomeBase] = {
-          nome: nomeBase,
-          cheio: null,
-          vazio: null,
-          unico: null,
-          vendasCheio: 0,
-          vendasVazio: 0,
-          vendasUnico: 0,
-        };
-      }
-
-      const vendas = vendasMap[p.id] || 0;
-
-      if (p.tipo_botijao === "cheio") {
-        grupoMap[nomeBase].cheio = { estoque: p.estoque || 0, id: p.id };
-        grupoMap[nomeBase].vendasCheio = vendas;
-      } else if (p.tipo_botijao === "vazio") {
-        grupoMap[nomeBase].vazio = { estoque: p.estoque || 0, id: p.id };
-        grupoMap[nomeBase].vendasVazio = vendas;
-      } else {
-        grupoMap[nomeBase].unico = { estoque: p.estoque || 0, id: p.id };
-        grupoMap[nomeBase].vendasUnico = vendas;
-      }
+      if (p.tipo_botijao === "cheio") grupoMap[nomeBase].cheio = p;
+      else if (p.tipo_botijao === "vazio") grupoMap[nomeBase].vazio = p;
+      else grupoMap[nomeBase].unico = p;
     });
 
-    return Object.values(grupoMap).sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [produtos, vendasMap]);
+    const emptyMov: MovimentacaoPorProduto = { vendas: 0, compras: 0, entradas_manuais: 0, saidas_manuais: 0, avarias: 0 };
 
-  const dataFormatada = format(hoje, "dd/MM/yyyy", { locale: ptBR });
+    Object.entries(grupoMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([, grupo]) => {
+        if (grupo.cheio) {
+          const mov = movimentacoes[grupo.cheio.id] || emptyMov;
+          resultado.push(calcularLinha(grupo.cheio, mov, "cheio"));
+        }
+        if (grupo.vazio) {
+          // Para vazio, usamos movimentações do PAR cheio (pois vendas/compras são no cheio)
+          const parCheioId = grupo.cheio?.id;
+          const movCheio = parCheioId ? (movimentacoes[parCheioId] || emptyMov) : emptyMov;
+          const movVazio = movimentacoes[grupo.vazio.id] || emptyMov;
+          // Combinar: vendas do cheio viram entradas no vazio
+          const movCombinado: MovimentacaoPorProduto = {
+            vendas: movCheio.vendas,
+            compras: movCheio.compras,
+            entradas_manuais: movCheio.entradas_manuais,
+            saidas_manuais: movCheio.saidas_manuais,
+            avarias: movVazio.avarias,
+          };
+          resultado.push(calcularLinha(grupo.vazio, movCombinado, "vazio"));
+        }
+        if (grupo.unico && !grupo.cheio && !grupo.vazio) {
+          const mov = movimentacoes[grupo.unico.id] || emptyMov;
+          resultado.push(calcularLinha(grupo.unico, mov, null));
+        }
+      });
+
+    return resultado;
+  }, [produtos, movimentacoes]);
+
+  const dataInicioFmt = format(dataInicio, "dd/MM/yyyy", { locale: ptBR });
+  const dataFimFmt = format(dataFim, "dd/MM/yyyy", { locale: ptBR });
 
   if (isLoading) {
     return (
@@ -103,13 +186,13 @@ export function EstoqueDiaTable({ produtos, vendasDia, isLoading }: EstoqueDiaTa
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">📦 Estoques do dia {dataFormatada}</CardTitle>
+          <CardTitle className="text-lg">📦 Estoque do Período</CardTitle>
           <Badge variant="outline" className="text-xs">
-            {format(hoje, "HH:mm")}
+            {dataInicioFmt} — {dataFimFmt}
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Informações referentes à data de {dataFormatada} 00:00 a {dataFormatada} 23:59
+          Total = Inicial + Entradas − Saídas − Vendas − Avarias
         </p>
       </CardHeader>
       <CardContent className="p-0">
@@ -117,125 +200,57 @@ export function EstoqueDiaTable({ produtos, vendasDia, isLoading }: EstoqueDiaTa
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold min-w-[180px]">Produto</TableHead>
-                <TableHead className="font-semibold min-w-[120px]">Tipo de Estoque</TableHead>
+                <TableHead className="font-semibold min-w-[160px]">Produto</TableHead>
+                <TableHead className="font-semibold min-w-[100px]">Tipo</TableHead>
                 <TableHead className="font-semibold text-center">Inicial</TableHead>
                 <TableHead className="font-semibold text-center">Entradas</TableHead>
                 <TableHead className="font-semibold text-center">Saídas</TableHead>
                 <TableHead className="font-semibold text-center">Vendas</TableHead>
-                <TableHead className="font-semibold text-center">Avarias (S)</TableHead>
-                <TableHead className="font-semibold text-center">Avarias (E)</TableHead>
+                <TableHead className="font-semibold text-center">Avarias</TableHead>
                 <TableHead className="font-semibold text-center">Total</TableHead>
-                <TableHead className="font-semibold text-center">Final</TableHead>
-                <TableHead className="font-semibold text-right min-w-[140px]">Data Movimentação</TableHead>
+                <TableHead className="font-semibold text-center">Estoque Atual</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {produtosAgrupados.length === 0 ? (
+              {linhas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Nenhum produto cadastrado
                   </TableCell>
                 </TableRow>
               ) : (
-                produtosAgrupados.map((grupo) => {
-                  const rows: React.ReactNode[] = [];
+                linhas.map((linha, idx) => {
+                  const isCheio = linha.tipoEstoque === "Cheio";
+                  const isVazio = linha.tipoEstoque === "Vazio";
 
-                  // Row for Cheio
-                  if (grupo.cheio) {
-                    const estoqueAtual = grupo.cheio.estoque;
-                    const vendas = grupo.vendasCheio;
-                    // Estoque inicial = atual + vendas (approximation)
-                    const inicial = estoqueAtual + vendas;
-                    const total = -vendas;
-
-                    rows.push(
-                      <TableRow key={`${grupo.nome}-cheio`} className="border-b-0">
-                        <TableCell rowSpan={grupo.vazio ? 2 : 1} className="font-medium align-middle border-r">
-                          {grupo.nome}
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold text-foreground">Estoque Cheio</span>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">{inicial}</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">{vendas}</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">{total}</TableCell>
-                        <TableCell rowSpan={grupo.vazio ? 2 : 1} className="text-center font-bold text-lg align-middle border-l">
-                          {estoqueAtual + (grupo.vazio?.estoque || 0)}
-                        </TableCell>
-                        <TableCell rowSpan={grupo.vazio ? 2 : 1} className="text-right text-xs text-muted-foreground align-middle border-l">
-                          {dataFormatada}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
-
-                  // Row for Vazio
-                  if (grupo.vazio) {
-                    const estoqueVazio = grupo.vazio.estoque;
-                    const vendasVazio = grupo.vendasVazio;
-
-                    rows.push(
-                      <TableRow key={`${grupo.nome}-vazio`} className="bg-muted/20">
-                        {!grupo.cheio && (
-                          <TableCell rowSpan={1} className="font-medium align-middle border-r">
-                            {grupo.nome}
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <span className="text-muted-foreground">Estoque Vazio</span>
-                        </TableCell>
-                        <TableCell className="text-center text-muted-foreground">{estoqueVazio}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">0</TableCell>
-                        <TableCell className="text-center text-muted-foreground">0</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{vendasVazio}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">0</TableCell>
-                        <TableCell className="text-center text-muted-foreground">0</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{estoqueVazio}</TableCell>
-                        {!grupo.cheio && (
-                          <>
-                            <TableCell className="text-center font-bold text-lg align-middle border-l">
-                              {estoqueVazio}
-                            </TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground align-middle border-l">
-                              {dataFormatada}
-                            </TableCell>
-                          </>
-                        )}
-                      </TableRow>
-                    );
-                  }
-
-                  // Row for Único (sem cheio/vazio)
-                  if (grupo.unico && !grupo.cheio && !grupo.vazio) {
-                    const estoqueAtual = grupo.unico.estoque;
-                    const vendas = grupo.vendasUnico;
-                    const inicial = estoqueAtual + vendas;
-
-                    rows.push(
-                      <TableRow key={`${grupo.nome}-unico`}>
-                        <TableCell className="font-medium border-r">{grupo.nome}</TableCell>
-                        <TableCell>
-                          <span className="text-foreground">Estoque Único</span>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">{inicial}</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">{vendas}</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">0</TableCell>
-                        <TableCell className="text-center font-bold">{-vendas}</TableCell>
-                        <TableCell className="text-center font-bold text-lg border-l">{estoqueAtual}</TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground border-l">{dataFormatada}</TableCell>
-                      </TableRow>
-                    );
-                  }
-
-                  return rows;
+                  return (
+                    <TableRow
+                      key={`${linha.nome}-${linha.tipoEstoque}-${idx}`}
+                      className={isVazio ? "bg-muted/20" : ""}
+                    >
+                      <TableCell className="font-medium">{linha.nome}</TableCell>
+                      <TableCell>
+                        <Badge variant={isCheio ? "default" : isVazio ? "secondary" : "outline"} className="text-xs">
+                          {linha.tipoEstoque}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-bold">{linha.inicial}</TableCell>
+                      <TableCell className="text-center font-bold text-green-600">
+                        {linha.entradasManuais > 0 ? `+${linha.entradasManuais}` : "0"}
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-orange-600">
+                        {linha.saidasManuais > 0 ? `-${linha.saidasManuais}` : "0"}
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-blue-600">
+                        {isVazio ? "—" : (linha.vendas > 0 ? `-${linha.vendas}` : "0")}
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-destructive">
+                        {linha.avarias > 0 ? `-${linha.avarias}` : "0"}
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-lg">{linha.total}</TableCell>
+                      <TableCell className="text-center font-bold text-lg border-l">{linha.estoqueAtual}</TableCell>
+                    </TableRow>
+                  );
                 })
               )}
             </TableBody>
