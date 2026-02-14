@@ -1,11 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import {
   Package,
   CheckCircle,
@@ -15,6 +16,8 @@ import {
   Search,
   TrendingUp,
   DollarSign,
+  ShoppingCart,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,6 +105,30 @@ export default function EntregadorHistorico() {
 
   const totalValor = entregas.reduce((sum, e) => sum + (e.valor_total || 0), 0);
   const totalEntregas = entregas.length;
+
+  // Resumo de produtos vendidos
+  const resumoProdutos = useMemo(() => {
+    const map: Record<string, number> = {};
+    entregas.forEach((e) => {
+      e.pedido_itens.forEach((item) => {
+        const nome = item.produtos?.nome || "Produto";
+        map[nome] = (map[nome] || 0) + item.quantidade;
+      });
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [entregas]);
+
+  // Resumo por forma de pagamento
+  const resumoPagamento = useMemo(() => {
+    const map: Record<string, { qtd: number; valor: number }> = {};
+    entregas.forEach((e) => {
+      const fp = e.forma_pagamento || "Não informado";
+      if (!map[fp]) map[fp] = { qtd: 0, valor: 0 };
+      map[fp].qtd += 1;
+      map[fp].valor += e.valor_total || 0;
+    });
+    return Object.entries(map).sort((a, b) => b[1].valor - a[1].valor);
+  }, [entregas]);
 
   const getProductsSummary = (itens: EntregaHistorico["pedido_itens"]) => {
     return itens.map(i => `${i.quantidade}x ${i.produtos?.nome || "Produto"}`).join(", ");
@@ -200,7 +227,64 @@ export default function EntregadorHistorico() {
           </Card>
         </div>
 
-        {/* Delivery List */}
+        {/* Resumo para Acerto Financeiro */}
+        {!isLoading && entregas.length > 0 && (
+          <>
+            {/* Produtos Vendidos */}
+            <Card className="border-none shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  Produtos Vendidos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1.5">
+                  {resumoProdutos.map(([nome, qtd]) => (
+                    <div key={nome} className="flex items-center justify-between text-sm">
+                      <span className="truncate flex-1">{nome}</span>
+                      <Badge variant="secondary" className="ml-2 font-bold">{qtd}</Badge>
+                    </div>
+                  ))}
+                </div>
+                <Separator className="my-2" />
+                <div className="flex items-center justify-between text-sm font-bold">
+                  <span>Total de itens</span>
+                  <span>{resumoProdutos.reduce((s, [, q]) => s + q, 0)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Forma de Pagamento */}
+            <Card className="border-none shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  Resumo por Pagamento
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  {resumoPagamento.map(([forma, { qtd, valor }]) => (
+                    <div key={forma} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>{forma}</span>
+                        <Badge variant="outline" className="text-xs">{qtd}x</Badge>
+                      </div>
+                      <span className="font-bold">R$ {valor.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <Separator className="my-2" />
+                <div className="flex items-center justify-between text-sm font-bold">
+                  <span>Total Geral</span>
+                  <span className="text-primary">R$ {totalValor.toFixed(2)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
