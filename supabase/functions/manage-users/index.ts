@@ -41,9 +41,9 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .single();
+      .eq("role", "admin");
 
-    if (!roleData || roleData.role !== "admin") {
+    if (!roleData || roleData.length === 0) {
       return new Response(JSON.stringify({ error: "Acesso restrito a administradores" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
