@@ -28,6 +28,11 @@ export interface ValeGas {
   parceiroId: string;
   loteId: string;
   status: StatusVale;
+  descricao?: string;
+  clienteId?: string;
+  clienteNome?: string;
+  produtoId?: string;
+  produtoNome?: string;
   // Dados do consumidor (quando vendido)
   consumidorNome?: string;
   consumidorEndereco?: string;
@@ -56,6 +61,13 @@ export interface LoteVales {
   statusPagamento: "pendente" | "pago" | "parcial";
   valorPago: number;
   observacao?: string;
+  descricao?: string;
+  clienteId?: string;
+  clienteNome?: string;
+  produtoId?: string;
+  produtoNome?: string;
+  gerarContaReceber?: boolean;
+  cancelado?: boolean;
 }
 
 // Acerto de conta com parceiro consignado
@@ -88,7 +100,8 @@ interface ValeGasContextType {
   
   // Lotes
   lotes: LoteVales[];
-  emitirLote: (data: { parceiroId: string; quantidade: number; valorUnitario: number; dataVencimento?: Date; observacao?: string }) => LoteVales;
+  emitirLote: (data: { parceiroId: string; quantidade: number; valorUnitario: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }) => LoteVales;
+  cancelarLote: (loteId: string) => void;
   registrarPagamentoLote: (loteId: string, valor: number) => void;
   
   // Acertos
@@ -354,7 +367,7 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
   };
 
   // Funções de lotes
-  const emitirLote = (data: { parceiroId: string; quantidade: number; valorUnitario: number; dataVencimento?: Date; observacao?: string }) => {
+  const emitirLote = (data: { parceiroId: string; quantidade: number; valorUnitario: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }) => {
     const parceiro = parceiros.find(p => p.id === data.parceiroId);
     if (!parceiro) throw new Error("Parceiro não encontrado");
 
@@ -376,6 +389,12 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
       statusPagamento: "pendente",
       valorPago: 0,
       observacao: data.observacao,
+      descricao: data.descricao,
+      clienteId: data.clienteId,
+      clienteNome: data.clienteNome,
+      produtoId: data.produtoId,
+      produtoNome: data.produtoNome,
+      gerarContaReceber: data.gerarContaReceber,
     };
 
     // Criar vales do lote
@@ -389,6 +408,11 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
         parceiroId: data.parceiroId,
         loteId: novoLote.id,
         status: "disponivel",
+        descricao: data.descricao,
+        clienteId: data.clienteId,
+        clienteNome: data.clienteNome,
+        produtoId: data.produtoId,
+        produtoNome: data.produtoNome,
         createdAt: new Date(),
       });
     }
@@ -398,6 +422,11 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
     setProximoNumeroVale(numeroFinal + 1);
 
     return novoLote;
+  };
+
+  const cancelarLote = (loteId: string) => {
+    setLotes(prev => prev.map(l => l.id === loteId ? { ...l, cancelado: true } : l));
+    setVales(prev => prev.map(v => v.loteId === loteId && v.status === "disponivel" ? { ...v, status: "cancelado" as StatusVale } : v));
   };
 
   const registrarPagamentoLote = (loteId: string, valor: number) => {
@@ -500,6 +529,7 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
       utilizarVale,
       lotes,
       emitirLote,
+      cancelarLote,
       registrarPagamentoLote,
       acertos,
       gerarAcerto,
