@@ -813,124 +813,199 @@ export default function CadastroClientesCad() {
 
       {/* Modal para criar/editar cliente */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center">
+                <Users className="h-4 w-4 text-primary-foreground" />
+              </div>
               {editingCliente ? "Editar Cliente" : "Novo Cliente"}
             </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {editingCliente
+                ? "Atualize os dados do cliente abaixo"
+                : "Preencha os dados para cadastrar um novo cliente"}
+            </p>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Nome *</Label>
-              <Input
-                value={formData.nome}
-                onChange={(e) => handleChange("nome", e.target.value)}
-                placeholder="Nome completo"
-              />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>CPF/CNPJ</Label>
-                <CpfCnpjInput
-                  value={formData.cpf}
-                  onChange={(value) => handleChange("cpf", value)}
-                />
+          <div className="space-y-6 pt-2">
+            {/* Seção: Dados Pessoais */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-1 border-b border-border">
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Dados Pessoais
+                </h3>
               </div>
               <div>
-                <Label>Telefone *</Label>
+                <Label className="text-sm font-medium">
+                  Nome completo <span className="text-destructive">*</span>
+                </Label>
                 <Input
-                  value={formData.telefone}
-                  onChange={(e) => handleChange("telefone", e.target.value)}
-                  placeholder="(11) 99999-9999"
+                  value={formData.nome}
+                  onChange={(e) => handleChange("nome", e.target.value)}
+                  placeholder="Ex: Maria da Silva Santos"
+                  className="mt-1"
                 />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">CPF/CNPJ</Label>
+                  <div className="mt-1">
+                    <CpfCnpjInput
+                      value={formData.cpf}
+                      onChange={(value) => handleChange("cpf", value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">
+                    Tipo de Cliente
+                  </Label>
+                  <Select value={formData.tipo} onValueChange={(value) => handleChange("tipo", value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="residencial">
+                        <span className="flex items-center gap-2">🏠 Residencial</span>
+                      </SelectItem>
+                      <SelectItem value="comercial">
+                        <span className="flex items-center gap-2">🏢 Comercial</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange("email", e.target.value)}
-                placeholder="email@example.com"
-              />
+            {/* Seção: Contato */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-1 border-b border-border">
+                <div className="h-5 w-1 rounded-full bg-accent" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Contato
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">
+                    Telefone <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative mt-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={formData.telefone}
+                      onChange={(e) => handleChange("telefone", formatPhone(e.target.value))}
+                      placeholder="(11) 99999-9999"
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Email</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                    placeholder="email@example.com"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div>
-              <Label>CEP</Label>
-              <div className="flex gap-2">
+            {/* Seção: Endereço */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-1 border-b border-border">
+                <div className="h-5 w-1 rounded-full bg-success" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Endereço
+                </h3>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">CEP</Label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={formatCEP(formData.cep)}
+                      onChange={(e) => handleChange("cep", e.target.value)}
+                      placeholder="00000-000"
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={buscarCEP}
+                    disabled={formData.cep.replace(/\D/g, "").length !== 8}
+                    className="shrink-0"
+                  >
+                    <Search className="h-4 w-4 mr-1" />
+                    Buscar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Digite o CEP para preencher o endereço automaticamente
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Endereço</Label>
                 <Input
-                  value={formatCEP(formData.cep)}
-                  onChange={(e) => handleChange("cep", e.target.value)}
-                  placeholder="00000-000"
-                  className="flex-1"
+                  value={formData.endereco}
+                  onChange={(e) => handleChange("endereco", e.target.value)}
+                  placeholder="Rua, Avenida, Travessa..."
+                  className="mt-1"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={buscarCEP}
-                  disabled={formData.cep.replace(/\D/g, "").length !== 8}
-                >
-                  Buscar
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Bairro</Label>
+                  <Input
+                    value={formData.bairro}
+                    onChange={(e) => handleChange("bairro", e.target.value)}
+                    placeholder="Bairro"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Cidade</Label>
+                  <Input
+                    value={formData.cidade}
+                    onChange={(e) => handleChange("cidade", e.target.value)}
+                    placeholder="Cidade"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer com ações */}
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                <span className="text-destructive">*</span> Campos obrigatórios
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSubmit} disabled={isSaving} className="min-w-[120px]">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : editingCliente ? (
+                    "Atualizar"
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Cadastrar
+                    </>
+                  )}
                 </Button>
               </div>
-            </div>
-
-            <div>
-              <Label>Endereço</Label>
-              <Input
-                value={formData.endereco}
-                onChange={(e) => handleChange("endereco", e.target.value)}
-                placeholder="Rua/Avenida"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Bairro</Label>
-                <Input
-                  value={formData.bairro}
-                  onChange={(e) => handleChange("bairro", e.target.value)}
-                  placeholder="Bairro"
-                />
-              </div>
-              <div>
-                <Label>Cidade</Label>
-                <Input
-                  value={formData.cidade}
-                  onChange={(e) => handleChange("cidade", e.target.value)}
-                  placeholder="Cidade"
-                />
-              </div>
-              <div>
-                <Label>Tipo</Label>
-                <Select value={formData.tipo} onValueChange={(value) => handleChange("tipo", value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="residencial">Residencial</SelectItem>
-                    <SelectItem value="comercial">Comercial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  "Salvar"
-                )}
-              </Button>
             </div>
           </div>
         </DialogContent>
