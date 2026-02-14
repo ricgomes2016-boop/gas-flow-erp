@@ -23,6 +23,15 @@ interface ValeGasQRCodeProps {
 export function ValeGasQRCode({ open, onClose, vale }: ValeGasQRCodeProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
+  const escapeHtml = (str: string | number): string => {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
@@ -71,10 +80,10 @@ export function ValeGasQRCode({ open, onClose, vale }: ValeGasQRCodeProps) {
             <div class="qr-container">
               ${printContent.querySelector("svg")?.outerHTML || ""}
             </div>
-            <div class="numero">Vale Nº ${vale.numero}</div>
-            <div class="codigo">${vale.codigo}</div>
-            <div class="valor">R$ ${vale.valor.toFixed(2)}</div>
-            ${vale.parceiroNome ? `<div class="parceiro">${vale.parceiroNome}</div>` : ""}
+            <div class="numero">Vale Nº ${escapeHtml(vale.numero)}</div>
+            <div class="codigo">${escapeHtml(vale.codigo)}</div>
+            <div class="valor">R$ ${escapeHtml(vale.valor.toFixed(2))}</div>
+            ${vale.parceiroNome ? `<div class="parceiro">${escapeHtml(vale.parceiroNome)}</div>` : ""}
             <div class="instrucao">
               Apresente este QR Code ao entregador para validar seu vale gás.
             </div>
