@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -61,6 +61,16 @@ export default function ContasPagar() {
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const { unidadeAtual } = useUnidade();
 
+  // Photo AI states
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [extractedExpenses, setExtractedExpenses] = useState<Array<{
+    fornecedor: string; descricao: string; valor: number; vencimento: string; categoria: string; observacoes: string | null;
+  }>>([]);
+  const [reviewMode, setReviewMode] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState({
     fornecedor: "", descricao: "", valor: "", vencimento: "", categoria: "", observacoes: "",
   });
@@ -70,6 +80,89 @@ export default function ContasPagar() {
   });
 
   const resetForm = () => setForm({ fornecedor: "", descricao: "", valor: "", vencimento: "", categoria: "", observacoes: "" });
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Preview
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = ev.target?.result as string;
+      setPhotoPreview(base64);
+      setPhotoDialogOpen(true);
+      setPhotoProcessing(true);
+      setReviewMode(false);
+      setExtractedExpenses([]);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("parse-expense-photo", {
+          body: { imageBase64: base64 },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const despesas = data?.despesas || [data];
+        setExtractedExpenses(despesas.map((d: any) => ({
+          fornecedor: d.fornecedor || "",
+          descricao: d.descricao || "",
+          valor: d.valor || 0,
+          vencimento: d.vencimento || "",
+          categoria: d.categoria || "Outros",
+          observacoes: d.observacoes || null,
+        })));
+        setReviewMode(true);
+        toast.success(`${despesas.length} despesa(s) identificada(s)!`);
+      } catch (err: any) {
+        console.error("Erro ao processar foto:", err);
+        toast.error("Erro ao processar a imagem. Tente novamente.");
+      } finally {
+        setPhotoProcessing(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSaveExtracted = async () => {
+    const valid = extractedExpenses.filter(d => d.fornecedor && d.valor > 0);
+    if (valid.length === 0) {
+      toast.error("Nenhuma despesa válida para salvar");
+      return;
+    }
+
+    const payloads = valid.map(d => ({
+      fornecedor: d.fornecedor,
+      descricao: d.descricao,
+      valor: d.valor,
+      vencimento: d.vencimento || new Date().toISOString().split("T")[0],
+      categoria: d.categoria || null,
+      observacoes: d.observacoes || null,
+      unidade_id: unidadeAtual?.id || null,
+    }));
+
+    const { error } = await supabase.from("contas_pagar").insert(payloads);
+    if (error) {
+      toast.error("Erro ao salvar despesas");
+      console.error(error);
+    } else {
+      toast.success(`${valid.length} despesa(s) salva(s) com sucesso!`);
+      setPhotoDialogOpen(false);
+      setExtractedExpenses([]);
+      setPhotoPreview(null);
+      fetchContas();
+    }
+  };
+
+  const updateExtractedField = (idx: number, field: string, value: any) => {
+    setExtractedExpenses(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
+  };
+
+  const removeExtracted = (idx: number) => {
+    setExtractedExpenses(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const fetchContas = async () => {
     setLoading(true);
@@ -260,10 +353,23 @@ export default function ContasPagar() {
             <h1 className="text-3xl font-bold text-foreground">Contas a Pagar</h1>
             <p className="text-muted-foreground">Gerencie todas as contas e despesas</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" />Nova Conta</Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handlePhotoCapture}
+            />
+            <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+              <Camera className="h-4 w-4" />
+              Foto com IA
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
+              <DialogTrigger asChild>
+                <Button className="gap-2"><Plus className="h-4 w-4" />Nova Conta</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>{editId ? "Editar Conta" : "Nova Conta a Pagar"}</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
@@ -290,6 +396,7 @@ export default function ContasPagar() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -462,6 +569,126 @@ export default function ContasPagar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Photo AI Dialog */}
+      <Dialog open={photoDialogOpen} onOpenChange={(open) => { if (!photoProcessing) { setPhotoDialogOpen(open); if (!open) { setPhotoPreview(null); setExtractedExpenses([]); setReviewMode(false); } } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              Importar Despesas por Foto (IA)
+            </DialogTitle>
+          </DialogHeader>
+
+          {photoProcessing && (
+            <div className="flex flex-col items-center gap-4 py-12">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-muted-foreground">Analisando imagem com IA...</p>
+              {photoPreview && (
+                <img src={photoPreview} alt="Foto enviada" className="max-h-40 rounded-lg opacity-50" />
+              )}
+            </div>
+          )}
+
+          {reviewMode && extractedExpenses.length > 0 && (
+            <div className="space-y-4">
+              {photoPreview && (
+                <div className="flex justify-center">
+                  <img src={photoPreview} alt="Foto enviada" className="max-h-32 rounded-lg border" />
+                </div>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                {extractedExpenses.length} despesa(s) identificada(s). Revise e edite antes de salvar:
+              </p>
+
+              {extractedExpenses.map((expense, idx) => (
+                <Card key={idx} className="relative">
+                  <Button
+                    variant="ghost" size="icon"
+                    className="absolute top-2 right-2 h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => removeExtracted(idx)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Fornecedor</Label>
+                        <Input
+                          value={expense.fornecedor}
+                          onChange={e => updateExtractedField(idx, "fornecedor", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Categoria</Label>
+                        <Select value={expense.categoria} onValueChange={v => updateExtractedField(idx, "categoria", v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Descrição</Label>
+                      <Input
+                        value={expense.descricao}
+                        onChange={e => updateExtractedField(idx, "descricao", e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Valor (R$)</Label>
+                        <Input
+                          type="number" step="0.01"
+                          value={expense.valor}
+                          onChange={e => updateExtractedField(idx, "valor", parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Vencimento</Label>
+                        <Input
+                          type="date"
+                          value={expense.vencimento}
+                          onChange={e => updateExtractedField(idx, "vencimento", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {expense.observacoes && (
+                      <div>
+                        <Label className="text-xs">Observações</Label>
+                        <Input
+                          value={expense.observacoes || ""}
+                          onChange={e => updateExtractedField(idx, "observacoes", e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setPhotoDialogOpen(false); setExtractedExpenses([]); setPhotoPreview(null); }}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveExtracted} className="gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Salvar {extractedExpenses.length} despesa(s)
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {reviewMode && extractedExpenses.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p>Nenhuma despesa identificada na imagem.</p>
+              <p className="text-sm mt-1">Tente com uma foto mais nítida do boleto ou conta.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
