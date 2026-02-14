@@ -277,96 +277,129 @@ export default function Compras() {
       // Resize image to avoid API limits
       const resizeImage = (file: File, maxWidth = 1600): Promise<string> => {
         return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            let width = img.width;
-            let height = img.height;
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return reject(new Error("Canvas not supported"));
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL("image/jpeg", 0.8));
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = document.createElement("img");
+            img.onload = () => {
+              try {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return reject(new Error("Canvas not supported"));
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL("image/jpeg", 0.8));
+              } catch (err) {
+                reject(err);
+              }
+            };
+            img.onerror = () => reject(new Error("Erro ao carregar imagem"));
+            img.src = reader.result as string;
           };
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
+          reader.onerror = () => reject(new Error("Erro ao ler arquivo"));
+          reader.readAsDataURL(file);
         });
       };
 
-      const base64 = await resizeImage(file);
+      let base64: string;
+      try {
+        base64 = await resizeImage(file);
+      } catch (resizeErr) {
+        console.error("Resize error, using original:", resizeErr);
+        // Fallback: use original file as base64
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
 
       const { data, error } = await supabase.functions.invoke("parse-invoice-photo", {
         body: { imageBase64: base64 },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (!data || data?.error) throw new Error(data?.error || "Resposta vazia da IA");
+
+      // Safely access nested data
+      const fornecedorData = data.fornecedor || {};
+      const notaData = data.nota || {};
+      const itensData = Array.isArray(data.itens) ? data.itens : [];
 
       // Process supplier
       let fornecedorId = "";
       let fornecedorNovo = null;
 
-      if (data.fornecedor?.cnpj) {
-        const cnpjLimpo = data.fornecedor.cnpj.replace(/\D/g, "");
-        const cnpjFormatado = formatCNPJ(cnpjLimpo);
-        const existing = fornecedores.find(f => f.cnpj?.replace(/\D/g, "") === cnpjLimpo);
-        if (existing) {
-          fornecedorId = existing.id;
-          toast.info(`Fornecedor encontrado: ${existing.razao_social}`);
-        } else {
-          fornecedorNovo = {
-            razao_social: data.fornecedor.razao_social || "Fornecedor não identificado",
-            nome_fantasia: data.fornecedor.nome_fantasia || undefined,
-            cnpj: cnpjFormatado,
-            endereco: data.fornecedor.endereco || undefined,
-            cidade: data.fornecedor.cidade || undefined,
-            estado: data.fornecedor.estado || undefined,
-            telefone: data.fornecedor.telefone || undefined,
-          };
-          toast.info(`Novo fornecedor será cadastrado: ${fornecedorNovo.razao_social}`);
+      if (fornecedorData.cnpj) {
+        const cnpjLimpo = String(fornecedorData.cnpj).replace(/\D/g, "");
+        if (cnpjLimpo.length >= 11) {
+          const cnpjFormatado = formatCNPJ(cnpjLimpo);
+          const existing = fornecedores.find(f => f.cnpj?.replace(/\D/g, "") === cnpjLimpo);
+          if (existing) {
+            fornecedorId = existing.id;
+            toast.info(`Fornecedor encontrado: ${existing.razao_social}`);
+          } else {
+            fornecedorNovo = {
+              razao_social: fornecedorData.razao_social || "Fornecedor não identificado",
+              nome_fantasia: fornecedorData.nome_fantasia || undefined,
+              cnpj: cnpjFormatado,
+              endereco: fornecedorData.endereco || undefined,
+              cidade: fornecedorData.cidade || undefined,
+              estado: fornecedorData.estado || undefined,
+              telefone: fornecedorData.telefone || undefined,
+            };
+            toast.info(`Novo fornecedor será cadastrado: ${fornecedorNovo.razao_social}`);
+          }
         }
       }
 
       // Process items
       const itensProcessados: ItemCompra[] = [];
-      if (data.itens && Array.isArray(data.itens)) {
-        for (const item of data.itens) {
-          const descLower = (item.descricao || "").toLowerCase();
-          const produtoExistente = produtos.find(p =>
-            p.nome.toLowerCase().includes(descLower) || descLower.includes(p.nome.toLowerCase())
-          );
+      for (const item of itensData) {
+        if (!item) continue;
+        const descLower = String(item.descricao || "").toLowerCase();
+        const produtoExistente = produtos.find(p =>
+          p.nome.toLowerCase().includes(descLower) || descLower.includes(p.nome.toLowerCase())
+        );
 
-          if (produtoExistente) {
-            itensProcessados.push({
-              produto_id: produtoExistente.id,
-              quantidade: Math.round(item.quantidade || 1),
-              preco_unitario: item.preco_unitario || 0,
-            });
-          } else {
-            itensProcessados.push({
-              produto_id: `new_${Date.now()}_${Math.random()}`,
-              produto_nome: item.descricao || "Produto não identificado",
-              quantidade: Math.round(item.quantidade || 1),
-              preco_unitario: item.preco_unitario || 0,
-              is_new: true,
-            });
-          }
+        const quantidade = Math.round(Number(item.quantidade) || 1);
+        const precoUnit = Number(item.preco_unitario) || 0;
+
+        if (produtoExistente) {
+          itensProcessados.push({
+            produto_id: produtoExistente.id,
+            quantidade,
+            preco_unitario: precoUnit,
+          });
+        } else {
+          itensProcessados.push({
+            produto_id: `new_${Date.now()}_${Math.random()}`,
+            produto_nome: item.descricao || "Produto não identificado",
+            quantidade,
+            preco_unitario: precoUnit,
+            is_new: true,
+          });
         }
       }
+
+      // Safe value for frete
+      const freteValue = Number(notaData.valor_frete) || 0;
 
       setForm(prev => ({
         ...prev,
         fornecedor_id: fornecedorId,
         fornecedor_novo: fornecedorNovo,
-        numero_nota_fiscal: data.nota?.numero || prev.numero_nota_fiscal,
-        chave_nfe: data.nota?.chave_nfe || prev.chave_nfe,
-        data_compra: data.nota?.data_emissao || prev.data_compra,
-        valor_frete: data.nota?.valor_frete ? formatCurrency((data.nota.valor_frete * 100).toFixed(0)) : prev.valor_frete,
+        numero_nota_fiscal: notaData.numero ? String(notaData.numero) : prev.numero_nota_fiscal,
+        chave_nfe: notaData.chave_nfe ? String(notaData.chave_nfe) : prev.chave_nfe,
+        data_compra: notaData.data_emissao ? String(notaData.data_emissao) : prev.data_compra,
+        valor_frete: freteValue > 0 ? formatCurrency((freteValue * 100).toFixed(0)) : prev.valor_frete,
       }));
 
       if (itensProcessados.length > 0) {
