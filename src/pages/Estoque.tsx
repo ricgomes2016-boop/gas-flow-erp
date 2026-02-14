@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -38,6 +43,8 @@ export default function Estoque() {
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [vendasDia, setVendasDia] = useState<VendaDia[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataInicio, setDataInicio] = useState<Date>(new Date());
+  const [dataFim, setDataFim] = useState<Date>(new Date());
   const [movimentacaoDialogOpen, setMovimentacaoDialogOpen] = useState(false);
   const [movimentacao, setMovimentacao] = useState({
     produtoId: "",
@@ -59,9 +66,8 @@ export default function Estoque() {
       }
 
       // Fetch today's sales
-      const hoje = new Date();
-      const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).toISOString();
-      const fimHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59).toISOString();
+      const inicioHoje = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()).toISOString();
+      const fimHoje = new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59).toISOString();
 
       let vendasQuery = supabase
         .from("pedido_itens")
@@ -99,7 +105,7 @@ export default function Estoque() {
 
   useEffect(() => {
     fetchData();
-  }, [unidadeAtual?.id]);
+  }, [unidadeAtual?.id, dataInicio, dataFim]);
 
   const handleMovimentacao = async () => {
     const quantidade = parseInt(movimentacao.quantidade);
@@ -196,8 +202,37 @@ export default function Estoque() {
           </Card>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 justify-end">
+        {/* Date filters */}
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="grid gap-1.5">
+            <Label className="text-sm font-medium">Data Inicial</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(dataInicio, "dd/MM/yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dataInicio} onSelect={(d) => d && setDataInicio(d)} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-sm font-medium">Data Final</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dataFim && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(dataFim, "dd/MM/yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dataFim} onSelect={(d) => d && setDataFim(d)} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex gap-2 ml-auto">
           <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
@@ -247,6 +282,7 @@ export default function Estoque() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Daily stock table */}
