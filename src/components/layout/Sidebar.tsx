@@ -99,6 +99,7 @@ const menuItems: MenuItem[] = [
     icon: Package,
     label: "Gestão de Estoque",
     submenu: [
+      { label: "Estoque do Dia", path: "/estoque" },
       { label: "Produtos", path: "/cadastros/produtos" },
       { label: "Compras", path: "/estoque/compras" },
       { label: "Comodatos", path: "/estoque/comodatos" },
