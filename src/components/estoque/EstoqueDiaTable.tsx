@@ -224,13 +224,23 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                 linhas.map((linha, idx) => {
                   const isCheio = linha.tipoEstoque === "Cheio";
                   const isVazio = linha.tipoEstoque === "Vazio";
+                  const isUnico = linha.tipoEstoque === "Único";
+
+                  // Determine group index for alternating backgrounds
+                  const groupBg = isCheio
+                    ? "bg-orange-50/60 dark:bg-orange-950/10"
+                    : isVazio
+                    ? "bg-slate-50/80 dark:bg-slate-900/20"
+                    : idx % 2 === 0
+                    ? "bg-background"
+                    : "bg-muted/30";
 
                   return (
                     <TableRow
                       key={`${linha.nome}-${linha.tipoEstoque}-${idx}`}
-                      className={isVazio ? "bg-muted/20" : ""}
+                      className={`${groupBg} border-b border-border/50 hover:bg-accent/40 transition-colors`}
                     >
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium py-3">
                         {(() => {
                           const isAgua = /[áa]gua/i.test(linha.nome);
                           const displayName = isCheio
@@ -239,21 +249,32 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                             ? `Vasilhame ${linha.nome}`
                             : linha.nome;
                           return (
-                            <span className="flex items-center gap-1.5">
-                              {isCheio ? (
-                                isAgua ? <Package className="h-4 w-4 text-blue-500" /> : <Flame className="h-4 w-4 text-orange-500" />
-                              ) : isVazio ? (
-                                <Cylinder className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <Package className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              {displayName}
+                            <span className="flex items-center gap-2">
+                              <span className={`flex items-center justify-center w-7 h-7 rounded-full ${
+                                isCheio
+                                  ? (isAgua ? "bg-blue-100 dark:bg-blue-900/30" : "bg-orange-100 dark:bg-orange-900/30")
+                                  : isVazio
+                                  ? "bg-slate-100 dark:bg-slate-800/50"
+                                  : "bg-muted"
+                              }`}>
+                                {isCheio ? (
+                                  isAgua ? <Package className="h-3.5 w-3.5 text-blue-600" /> : <Flame className="h-3.5 w-3.5 text-orange-500" />
+                                ) : isVazio ? (
+                                  <Cylinder className="h-3.5 w-3.5 text-muted-foreground" />
+                                ) : (
+                                  <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                                )}
+                              </span>
+                              <span className={isCheio ? "font-semibold" : ""}>{displayName}</span>
                             </span>
                           );
                         })()}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={isCheio ? "default" : isVazio ? "secondary" : "outline"} className="text-xs">
+                        <Badge
+                          variant={isCheio ? "default" : isVazio ? "secondary" : "outline"}
+                          className={`text-xs ${isCheio ? "bg-primary" : ""}`}
+                        >
                           {linha.tipoEstoque}
                         </Badge>
                       </TableCell>
