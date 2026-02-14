@@ -11,16 +11,23 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Plus, Package, DollarSign, Truck, FileText, Upload } from "lucide-react";
+import {
+  ShoppingCart, Plus, DollarSign, Truck, FileText, Upload, Trash2,
+  Camera, Loader2, TrendingUp, TrendingDown, BarChart3, CalendarDays,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
-import { formatCurrency, parseCurrency } from "@/hooks/useInputMasks";
+import { formatCurrency, parseCurrency, formatCNPJ } from "@/hooks/useInputMasks";
 
 interface Compra {
   id: string;
@@ -40,6 +47,7 @@ interface Compra {
 interface Fornecedor {
   id: string;
   razao_social: string;
+  cnpj: string | null;
 }
 
 interface Produto {
@@ -50,8 +58,10 @@ interface Produto {
 
 interface ItemCompra {
   produto_id: string;
+  produto_nome?: string;
   quantidade: number;
   preco_unitario: number;
+  is_new?: boolean;
 }
 
 export default function Compras() {
@@ -61,10 +71,14 @@ export default function Compras() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const xmlInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     fornecedor_id: "",
+    fornecedor_novo: null as { razao_social: string; cnpj: string; nome_fantasia?: string; endereco?: string; cidade?: string; estado?: string; telefone?: string } | null,
     numero_nota_fiscal: "",
     chave_nfe: "",
     data_compra: new Date().toISOString().split("T")[0],
@@ -94,7 +108,7 @@ export default function Compras() {
   };
 
   const fetchFornecedores = async () => {
-    const { data } = await supabase.from("fornecedores").select("id, razao_social").eq("ativo", true).order("razao_social");
+    const { data } = await supabase.from("fornecedores").select("id, razao_social, cnpj").eq("ativo", true).order("razao_social");
     setFornecedores(data || []);
   };
 
@@ -132,7 +146,7 @@ export default function Compras() {
 
   const resetForm = () => {
     setForm({
-      fornecedor_id: "", numero_nota_fiscal: "", chave_nfe: "",
+      fornecedor_id: "", fornecedor_novo: null, numero_nota_fiscal: "", chave_nfe: "",
       data_compra: new Date().toISOString().split("T")[0],
       data_prevista: "", data_pagamento: "", valor_frete: "", observacoes: "",
     });
@@ -141,11 +155,50 @@ export default function Compras() {
   };
 
   const handleSave = async () => {
-    if (!form.fornecedor_id) { toast.error("Selecione um fornecedor"); return; }
+    if (!form.fornecedor_id && !form.fornecedor_novo) { toast.error("Selecione um fornecedor"); return; }
     if (itens.length === 0) { toast.error("Adicione pelo menos um item"); return; }
 
+    let fornecedorId = form.fornecedor_id;
+
+    // Create new supplier if needed
+    if (form.fornecedor_novo && !fornecedorId) {
+      const { data: newForn, error: fornError } = await supabase.from("fornecedores").insert({
+        razao_social: form.fornecedor_novo.razao_social,
+        nome_fantasia: form.fornecedor_novo.nome_fantasia || null,
+        cnpj: form.fornecedor_novo.cnpj || null,
+        endereco: form.fornecedor_novo.endereco || null,
+        cidade: form.fornecedor_novo.cidade || null,
+        estado: form.fornecedor_novo.estado || null,
+        telefone: form.fornecedor_novo.telefone || null,
+        ativo: true,
+      }).select("id").single();
+
+      if (fornError) { toast.error("Erro ao cadastrar fornecedor: " + fornError.message); return; }
+      fornecedorId = newForn.id;
+      toast.success(`Fornecedor "${form.fornecedor_novo.razao_social}" cadastrado!`);
+    }
+
+    // Create new products if needed
+    const resolvedItens: { produto_id: string; quantidade: number; preco_unitario: number }[] = [];
+    for (const item of itens) {
+      let prodId = item.produto_id;
+      if (item.is_new && item.produto_nome) {
+        const { data: newProd, error: prodError } = await supabase.from("produtos").insert({
+          nome: item.produto_nome,
+          preco: item.preco_unitario,
+          ativo: true,
+          unidade_id: unidadeAtual?.id || null,
+        }).select("id").single();
+
+        if (prodError) { toast.error("Erro ao cadastrar produto: " + prodError.message); return; }
+        prodId = newProd.id;
+        toast.success(`Produto "${item.produto_nome}" cadastrado!`);
+      }
+      resolvedItens.push({ produto_id: prodId, quantidade: item.quantidade, preco_unitario: item.preco_unitario });
+    }
+
     const { data: compra, error } = await supabase.from("compras").insert({
-      fornecedor_id: form.fornecedor_id,
+      fornecedor_id: fornecedorId,
       unidade_id: unidadeAtual?.id || null,
       valor_total: totalCompra,
       valor_frete: valorFrete || 0,
@@ -161,7 +214,7 @@ export default function Compras() {
     if (error) { toast.error("Erro: " + error.message); return; }
 
     if (compra) {
-      const itensData = itens.map(i => ({
+      const itensData = resolvedItens.map(i => ({
         compra_id: compra.id,
         produto_id: i.produto_id,
         quantidade: i.quantidade,
@@ -173,10 +226,10 @@ export default function Compras() {
 
     // Criar conta a pagar se tem data de pagamento
     if (form.data_pagamento && compra) {
-      const fornecedor = fornecedores.find(f => f.id === form.fornecedor_id);
+      const fornecedor = fornecedores.find(f => f.id === fornecedorId);
       await supabase.from("contas_pagar").insert({
-        descricao: `Compra NF ${form.numero_nota_fiscal || "S/N"} - ${fornecedor?.razao_social || ""}`,
-        fornecedor: fornecedor?.razao_social || "",
+        descricao: `Compra NF ${form.numero_nota_fiscal || "S/N"} - ${fornecedor?.razao_social || form.fornecedor_novo?.razao_social || ""}`,
+        fornecedor: fornecedor?.razao_social || form.fornecedor_novo?.razao_social || "",
         valor: totalCompra,
         vencimento: form.data_pagamento,
         categoria: "compras",
@@ -189,6 +242,130 @@ export default function Compras() {
     setOpen(false);
     resetForm();
     fetchCompras();
+    fetchFornecedores();
+    fetchProdutos();
+  };
+
+  const handleDeleteCompra = async () => {
+    if (!deleteId) return;
+
+    // Delete items first then the purchase
+    const { error: itensErr } = await supabase.from("compra_itens").delete().eq("compra_id", deleteId);
+    if (itensErr) { toast.error("Erro ao excluir itens: " + itensErr.message); return; }
+
+    const { error } = await supabase.from("compras").delete().eq("id", deleteId);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+
+    toast.success("Compra excluída!");
+    setDeleteId(null);
+    fetchCompras();
+  };
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Imagem muito grande (máx 10MB)");
+      return;
+    }
+
+    setIsProcessingPhoto(true);
+    toast.info("Processando nota fiscal com IA...");
+
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("parse-invoice-photo", {
+        body: { imageBase64: base64 },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Process supplier
+      let fornecedorId = "";
+      let fornecedorNovo = null;
+
+      if (data.fornecedor?.cnpj) {
+        const cnpjLimpo = data.fornecedor.cnpj.replace(/\D/g, "");
+        const cnpjFormatado = formatCNPJ(cnpjLimpo);
+        const existing = fornecedores.find(f => f.cnpj?.replace(/\D/g, "") === cnpjLimpo);
+        if (existing) {
+          fornecedorId = existing.id;
+          toast.info(`Fornecedor encontrado: ${existing.razao_social}`);
+        } else {
+          fornecedorNovo = {
+            razao_social: data.fornecedor.razao_social || "Fornecedor não identificado",
+            nome_fantasia: data.fornecedor.nome_fantasia || undefined,
+            cnpj: cnpjFormatado,
+            endereco: data.fornecedor.endereco || undefined,
+            cidade: data.fornecedor.cidade || undefined,
+            estado: data.fornecedor.estado || undefined,
+            telefone: data.fornecedor.telefone || undefined,
+          };
+          toast.info(`Novo fornecedor será cadastrado: ${fornecedorNovo.razao_social}`);
+        }
+      }
+
+      // Process items
+      const itensProcessados: ItemCompra[] = [];
+      if (data.itens && Array.isArray(data.itens)) {
+        for (const item of data.itens) {
+          const descLower = (item.descricao || "").toLowerCase();
+          const produtoExistente = produtos.find(p =>
+            p.nome.toLowerCase().includes(descLower) || descLower.includes(p.nome.toLowerCase())
+          );
+
+          if (produtoExistente) {
+            itensProcessados.push({
+              produto_id: produtoExistente.id,
+              quantidade: Math.round(item.quantidade || 1),
+              preco_unitario: item.preco_unitario || 0,
+            });
+          } else {
+            itensProcessados.push({
+              produto_id: `new_${Date.now()}_${Math.random()}`,
+              produto_nome: item.descricao || "Produto não identificado",
+              quantidade: Math.round(item.quantidade || 1),
+              preco_unitario: item.preco_unitario || 0,
+              is_new: true,
+            });
+          }
+        }
+      }
+
+      setForm(prev => ({
+        ...prev,
+        fornecedor_id: fornecedorId,
+        fornecedor_novo: fornecedorNovo,
+        numero_nota_fiscal: data.nota?.numero || prev.numero_nota_fiscal,
+        chave_nfe: data.nota?.chave_nfe || prev.chave_nfe,
+        data_compra: data.nota?.data_emissao || prev.data_compra,
+        valor_frete: data.nota?.valor_frete ? formatCurrency((data.nota.valor_frete * 100).toFixed(0)) : prev.valor_frete,
+      }));
+
+      if (itensProcessados.length > 0) {
+        setItens(itensProcessados);
+      }
+
+      const newCount = itensProcessados.filter(i => i.is_new).length;
+      toast.success(
+        `NF lida! ${itensProcessados.length} item(ns)${newCount > 0 ? `, ${newCount} novo(s) serão cadastrados` : ""}.`
+      );
+    } catch (err: any) {
+      console.error("Photo parse error:", err);
+      toast.error("Erro ao processar foto: " + (err.message || "tente novamente"));
+    } finally {
+      setIsProcessingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
   };
 
   const handleImportXML = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,42 +380,25 @@ export default function Compras() {
       const nfe = xml.querySelector("infNFe, NFe infNFe");
       if (!nfe) { toast.error("XML inválido ou não é uma NFe"); return; }
 
-      // Extrair chave
       const chaveNfe = nfe.getAttribute("Id")?.replace("NFe", "") || "";
-
-      // Extrair número da nota
       const nNF = nfe.querySelector("ide nNF")?.textContent || "";
-
-      // Extrair data de emissão
       const dhEmi = nfe.querySelector("ide dhEmi")?.textContent || "";
       const dataCompra = dhEmi ? dhEmi.split("T")[0] : "";
-
-      // Extrair valor total e frete
       const vNF = nfe.querySelector("total ICMSTot vNF")?.textContent || "0";
       const vFrete = nfe.querySelector("total ICMSTot vFrete")?.textContent || "0";
-
-      // Extrair fornecedor (CNPJ)
       const cnpjEmit = nfe.querySelector("emit CNPJ")?.textContent || "";
 
-      // Tentar encontrar fornecedor pelo CNPJ
       let fornecedorId = "";
       if (cnpjEmit) {
-        const found = fornecedores.find(f => {
-          // Comparar só números
-          const search = cnpjEmit.replace(/\D/g, "");
-          return search.length > 0 && f.razao_social?.toLowerCase().includes(search);
-        });
-        // Buscar por CNPJ no banco
+        const cnpjLimpo = cnpjEmit.replace(/\D/g, "");
         const { data: fornecedorData } = await supabase
           .from("fornecedores")
           .select("id")
-          .eq("cnpj", cnpjEmit.replace(/\D/g, "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"))
+          .ilike("cnpj", `%${cnpjLimpo.slice(0, 8)}%`)
           .maybeSingle();
         if (fornecedorData) fornecedorId = fornecedorData.id;
-        else if (found) fornecedorId = found.id;
       }
 
-      // Extrair itens
       const dets = nfe.querySelectorAll("det");
       const itensXml: ItemCompra[] = [];
       dets.forEach(det => {
@@ -246,7 +406,6 @@ export default function Compras() {
         const qCom = parseFloat(det.querySelector("prod qCom")?.textContent || "1");
         const vUnCom = parseFloat(det.querySelector("prod vUnCom")?.textContent || "0");
 
-        // Tentar encontrar produto pelo nome
         const produtoEncontrado = produtos.find(p =>
           p.nome.toLowerCase().includes(xProd.toLowerCase()) ||
           xProd.toLowerCase().includes(p.nome.toLowerCase())
@@ -257,6 +416,14 @@ export default function Compras() {
             produto_id: produtoEncontrado.id,
             quantidade: Math.round(qCom),
             preco_unitario: vUnCom,
+          });
+        } else {
+          itensXml.push({
+            produto_id: `new_${Date.now()}_${Math.random()}`,
+            produto_nome: xProd,
+            quantidade: Math.round(qCom),
+            preco_unitario: vUnCom,
+            is_new: true,
           });
         }
       });
@@ -272,15 +439,15 @@ export default function Compras() {
 
       if (itensXml.length > 0) {
         setItens(itensXml);
-        toast.success(`${itensXml.length} item(ns) importado(s) do XML`);
+        const newCount = itensXml.filter(i => i.is_new).length;
+        toast.success(`${itensXml.length} item(ns) importado(s)${newCount > 0 ? `, ${newCount} novo(s) serão cadastrados` : ""}`);
       } else {
-        toast.info("XML importado. Nenhum produto correspondente encontrado - adicione os itens manualmente.");
+        toast.info("XML importado. Adicione os itens manualmente.");
       }
     } catch {
       toast.error("Erro ao processar o arquivo XML");
     }
 
-    // Limpar input
     if (xmlInputRef.current) xmlInputRef.current.value = "";
   };
 
@@ -295,9 +462,44 @@ export default function Compras() {
     fetchCompras();
   };
 
-  const totalMes = compras.reduce((a, c) => a + (Number(c.valor_total) || 0), 0);
-  const emTransito = compras.filter(c => c.status === "em_transito").length;
-  const pendentes = compras.filter(c => c.status === "pendente").length;
+  // Dashboard calculations
+  const now = new Date();
+  const mesAtual = now.getMonth();
+  const anoAtual = now.getFullYear();
+
+  const comprasMesAtual = compras.filter(c => {
+    const d = new Date(c.data_compra || c.created_at);
+    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+  });
+
+  const comprasMesAnterior = compras.filter(c => {
+    const d = new Date(c.data_compra || c.created_at);
+    const mesAnt = mesAtual === 0 ? 11 : mesAtual - 1;
+    const anoAnt = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+    return d.getMonth() === mesAnt && d.getFullYear() === anoAnt;
+  });
+
+  const totalMesAtual = comprasMesAtual.reduce((a, c) => a + (Number(c.valor_total) || 0), 0);
+  const totalMesAnterior = comprasMesAnterior.reduce((a, c) => a + (Number(c.valor_total) || 0), 0);
+  const variacaoMes = totalMesAnterior > 0 ? ((totalMesAtual - totalMesAnterior) / totalMesAnterior * 100) : 0;
+
+  const totalFreteMes = comprasMesAtual.reduce((a, c) => a + (Number(c.valor_frete) || 0), 0);
+  const percentualFrete = totalMesAtual > 0 ? (totalFreteMes / totalMesAtual * 100) : 0;
+
+  const comprasPendentes = compras.filter(c => c.status === "pendente" || c.status === "em_transito");
+  const valorPendente = comprasPendentes.reduce((a, c) => a + (Number(c.valor_total) || 0), 0);
+
+  const ticketMedio = comprasMesAtual.length > 0 ? totalMesAtual / comprasMesAtual.length : 0;
+
+  // Top suppliers
+  const fornecedorTotals: Record<string, { nome: string; total: number; count: number }> = {};
+  compras.forEach(c => {
+    const nome = c.fornecedores?.razao_social || "Desconhecido";
+    if (!fornecedorTotals[nome]) fornecedorTotals[nome] = { nome, total: 0, count: 0 };
+    fornecedorTotals[nome].total += Number(c.valor_total) || 0;
+    fornecedorTotals[nome].count += 1;
+  });
+  const topFornecedores = Object.values(fornecedorTotals).sort((a, b) => b.total - a.total).slice(0, 5);
 
   const statusLabel = (s: string) => {
     if (s === "recebido") return "Recebido";
@@ -322,7 +524,7 @@ export default function Compras() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Compras</h1>
-            <p className="text-muted-foreground">Gestão de compras e pedidos</p>
+            <p className="text-muted-foreground">Gestão de compras e pedidos a fornecedores</p>
           </div>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild>
@@ -331,36 +533,70 @@ export default function Compras() {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Registrar Nova Compra</DialogTitle>
-                <DialogDescription>Preencha os dados ou importe um XML da NFe</DialogDescription>
+                <DialogDescription>Preencha os dados, importe XML ou tire foto da nota fiscal</DialogDescription>
               </DialogHeader>
 
-              {/* Importar XML */}
+              {/* Import buttons */}
               <div className="flex gap-2 pt-2">
                 <input ref={xmlInputRef} type="file" accept=".xml" className="hidden" onChange={handleImportXML} />
-                <Button variant="outline" className="w-full" onClick={() => xmlInputRef.current?.click()}>
-                  <Upload className="h-4 w-4 mr-2" />Importar XML da NFe
+                <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+                <Button variant="outline" className="flex-1" onClick={() => xmlInputRef.current?.click()} disabled={isProcessingPhoto}>
+                  <Upload className="h-4 w-4 mr-2" />Importar XML
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={() => photoInputRef.current?.click()} disabled={isProcessingPhoto}>
+                  {isProcessingPhoto ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4 mr-2" />
+                  )}
+                  {isProcessingPhoto ? "Lendo NF..." : "Foto da NF"}
                 </Button>
               </div>
 
+              {/* Supplier info */}
+              {form.fornecedor_novo && !form.fornecedor_id && (
+                <div className="bg-accent/50 border border-accent rounded-lg p-3 space-y-1">
+                  <p className="text-sm font-semibold flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Novo fornecedor será cadastrado:
+                  </p>
+                  <p className="text-sm">{form.fornecedor_novo.razao_social}</p>
+                  {form.fornecedor_novo.cnpj && <p className="text-xs text-muted-foreground">CNPJ: {form.fornecedor_novo.cnpj}</p>}
+                  <Button variant="ghost" size="sm" className="text-xs h-6 mt-1" onClick={() => setForm(prev => ({ ...prev, fornecedor_novo: null }))}>
+                    Cancelar (selecionar existente)
+                  </Button>
+                </div>
+              )}
+
               <div className="space-y-4 pt-2">
                 {/* Fornecedor e NF */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Fornecedor *</Label>
-                    <Select value={form.fornecedor_id} onValueChange={v => setForm({ ...form, fornecedor_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {fornecedores.map(f => (
-                          <SelectItem key={f.id} value={f.id}>{f.razao_social}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {!form.fornecedor_novo && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Fornecedor *</Label>
+                      <Select value={form.fornecedor_id} onValueChange={v => setForm({ ...form, fornecedor_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {fornecedores.map(f => (
+                            <SelectItem key={f.id} value={f.id}>{f.razao_social}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Nº Nota Fiscal</Label>
+                      <Input value={form.numero_nota_fiscal} onChange={e => setForm({ ...form, numero_nota_fiscal: e.target.value })} placeholder="000000" />
+                    </div>
                   </div>
-                  <div>
-                    <Label>Nº Nota Fiscal</Label>
-                    <Input value={form.numero_nota_fiscal} onChange={e => setForm({ ...form, numero_nota_fiscal: e.target.value })} placeholder="000000" />
+                )}
+
+                {form.fornecedor_novo && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Label>Nº Nota Fiscal</Label>
+                      <Input value={form.numero_nota_fiscal} onChange={e => setForm({ ...form, numero_nota_fiscal: e.target.value })} placeholder="000000" />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Chave NFe */}
                 <div>
@@ -407,7 +643,16 @@ export default function Compras() {
                       <TableBody>
                         {itens.map((item, idx) => (
                           <TableRow key={idx}>
-                            <TableCell className="text-sm">{getProdutoNome(item.produto_id)}</TableCell>
+                            <TableCell className="text-sm">
+                              {item.is_new ? (
+                                <span className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-xs mr-1">Novo</Badge>
+                                  {item.produto_nome}
+                                </span>
+                              ) : (
+                                getProdutoNome(item.produto_id)
+                              )}
+                            </TableCell>
                             <TableCell>{item.quantidade}</TableCell>
                             <TableCell>R$ {item.preco_unitario.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                             <TableCell className="text-right">R$ {(item.preco_unitario * item.quantidade).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
@@ -492,41 +737,99 @@ export default function Compras() {
           </Dialog>
         </div>
 
+        {/* Dashboard Cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10"><ShoppingCart className="h-6 w-6 text-primary" /></div>
-                <div><p className="text-2xl font-bold">{compras.length}</p><p className="text-sm text-muted-foreground">Pedidos</p></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-secondary"><Truck className="h-6 w-6 text-secondary-foreground" /></div>
-                <div><p className="text-2xl font-bold">{emTransito}</p><p className="text-sm text-muted-foreground">Em Trânsito</p></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-accent"><Package className="h-6 w-6 text-accent-foreground" /></div>
-                <div><p className="text-2xl font-bold">{pendentes}</p><p className="text-sm text-muted-foreground">Pendentes</p></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Compras no Mês</p>
+                  <p className="text-2xl font-bold">R$ {(totalMesAtual / 1000).toFixed(1)}k</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {variacaoMes >= 0 ? (
+                      <TrendingUp className="h-3 w-3 text-destructive" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-primary" />
+                    )}
+                    <span className={`text-xs ${variacaoMes >= 0 ? "text-destructive" : "text-primary"}`}>
+                      {variacaoMes >= 0 ? "+" : ""}{variacaoMes.toFixed(1)}% vs mês anterior
+                    </span>
+                  </div>
+                </div>
                 <div className="p-3 rounded-lg bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div>
-                <div><p className="text-2xl font-bold">R$ {(totalMes / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Total</p></div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Ticket Médio</p>
+                  <p className="text-2xl font-bold">R$ {ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{comprasMesAtual.length} compras no mês</p>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary"><BarChart3 className="h-6 w-6 text-secondary-foreground" /></div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Frete no Mês</p>
+                  <p className="text-2xl font-bold">R$ {totalFreteMes.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{percentualFrete.toFixed(1)}% do total</p>
+                </div>
+                <div className="p-3 rounded-lg bg-accent"><Truck className="h-6 w-6 text-accent-foreground" /></div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pendentes/Trânsito</p>
+                  <p className="text-2xl font-bold">{comprasPendentes.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">R$ {valorPendente.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10"><CalendarDays className="h-6 w-6 text-primary" /></div>
               </div>
             </CardContent>
           </Card>
         </div>
 
+        {/* Top Suppliers */}
+        {topFornecedores.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Top Fornecedores</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {topFornecedores.map((f, idx) => {
+                  const percent = totalMesAtual > 0 ? (f.total / compras.reduce((a, c) => a + (Number(c.valor_total) || 0), 0)) * 100 : 0;
+                  return (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="font-mono text-xs text-muted-foreground w-5">{idx + 1}.</span>
+                        <span className="truncate">{f.nome}</span>
+                        <span className="text-xs text-muted-foreground">({f.count}x)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(percent, 100)}%` }} />
+                        </div>
+                        <span className="font-medium w-24 text-right">R$ {f.total.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Purchases table */}
         <Card>
           <CardHeader><CardTitle>Pedidos de Compra</CardTitle></CardHeader>
           <CardContent>
@@ -567,6 +870,9 @@ export default function Compras() {
                           {c.status === "em_transito" && (
                             <Button size="sm" variant="outline" onClick={() => updateStatus(c.id, "recebido")}>Receber</Button>
                           )}
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(c.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -580,6 +886,24 @@ export default function Compras() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Compra</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta compra? Todos os itens vinculados serão removidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCompra} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
