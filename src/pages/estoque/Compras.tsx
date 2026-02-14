@@ -274,13 +274,31 @@ export default function Compras() {
     toast.info("Processando nota fiscal com IA...");
 
     try {
-      // Convert to base64
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      // Resize image to avoid API limits
+      const resizeImage = (file: File, maxWidth = 1600): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return reject(new Error("Canvas not supported"));
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.8));
+          };
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+      };
+
+      const base64 = await resizeImage(file);
 
       const { data, error } = await supabase.functions.invoke("parse-invoice-photo", {
         body: { imageBase64: base64 },

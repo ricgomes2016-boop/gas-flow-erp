@@ -51,6 +51,25 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    // Ensure proper data URL format
+    let imageUrl = imageBase64;
+    if (imageUrl.startsWith("data:")) {
+      // Already a data URL, validate it
+      const match = imageUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (!match) {
+        console.error("Invalid data URL format");
+        return new Response(JSON.stringify({ error: "Formato de imagem inválido" }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      // Raw base64, add data URL prefix
+      imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+    }
+
+    console.log("Sending image to AI, data URL length:", imageUrl.length);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -98,7 +117,7 @@ Se não conseguir ler algum campo, use null. Valores monetários em número deci
               {
                 type: "image_url",
                 image_url: {
-                  url: imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`
+                  url: imageUrl
                 }
               },
               {
