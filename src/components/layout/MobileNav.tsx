@@ -147,6 +147,7 @@ const menuItems: MenuItem[] = [
     icon: Settings,
     label: "Configurações",
     submenu: [
+      { label: "Unidades / Lojas", path: "/config/unidades" },
       { label: "Auditoria", path: "/config/auditoria" },
       { label: "Permissões", path: "/config/permissoes" },
     ],
