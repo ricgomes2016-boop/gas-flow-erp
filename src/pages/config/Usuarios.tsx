@@ -13,6 +13,7 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -40,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { UserPlus, Loader2, Trash2, Shield } from "lucide-react";
+import { UserPlus, Loader2, Trash2, Shield, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AppRole } from "@/contexts/AuthContext";
@@ -64,25 +65,24 @@ const roleLabels: Record<AppRole, string> = {
   cliente: "Cliente",
 };
 
-const roleBadgeColors: Record<AppRole, string> = {
-  admin: "bg-destructive/10 text-destructive",
-  gestor: "bg-primary/10 text-primary",
-  financeiro: "bg-chart-2/20 text-chart-2",
-  operacional: "bg-chart-3/20 text-chart-3",
-  entregador: "bg-chart-4/20 text-chart-4",
-  cliente: "bg-muted text-muted-foreground",
-};
-
 export default function Usuarios() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
 
   const [newUser, setNewUser] = useState({
     full_name: "",
     email: "",
     password: "",
+    phone: "",
+    role: "operacional" as AppRole,
+  });
+
+  const [editForm, setEditForm] = useState({
+    full_name: "",
     phone: "",
     role: "operacional" as AppRole,
   });
@@ -116,7 +116,7 @@ export default function Usuarios() {
       return;
     }
 
-    setCreating(true);
+    setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke("manage-users", {
         body: {
@@ -132,28 +132,55 @@ export default function Usuarios() {
       if (data.error) throw new Error(data.error);
 
       toast.success("Usuário criado com sucesso!");
-      setDialogOpen(false);
+      setCreateDialogOpen(false);
       setNewUser({ full_name: "", email: "", password: "", phone: "", role: "operacional" });
       fetchUsers();
     } catch (err: any) {
       toast.error("Erro ao criar usuário: " + err.message);
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
-  const handleUpdateRole = async (userId: string, role: AppRole) => {
+  const openEditDialog = (user: UserWithRoles) => {
+    setEditingUser(user);
+    setEditForm({
+      full_name: user.full_name,
+      phone: user.phone || "",
+      role: user.roles[0] || "operacional",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingUser) return;
+    if (!editForm.full_name) {
+      toast.error("Nome é obrigatório.");
+      return;
+    }
+
+    setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke("manage-users", {
-        body: { action: "update_role", user_id: userId, role },
+        body: {
+          action: "update",
+          user_id: editingUser.user_id,
+          full_name: editForm.full_name,
+          phone: editForm.phone || null,
+          role: editForm.role,
+        },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      toast.success("Cargo atualizado!");
+      toast.success("Usuário atualizado com sucesso!");
+      setEditDialogOpen(false);
+      setEditingUser(null);
       fetchUsers();
     } catch (err: any) {
-      toast.error("Erro ao atualizar cargo: " + err.message);
+      toast.error("Erro ao atualizar: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -182,7 +209,7 @@ export default function Usuarios() {
               <Shield className="h-5 w-5 text-primary" />
               Usuários do Sistema
             </CardTitle>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="mr-2 h-4 w-4" />
@@ -192,6 +219,7 @@ export default function Usuarios() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
+                  <DialogDescription>Preencha os dados para criar um novo acesso ao sistema.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -251,8 +279,8 @@ export default function Usuarios() {
                   <DialogClose asChild>
                     <Button variant="outline">Cancelar</Button>
                   </DialogClose>
-                  <Button onClick={handleCreate} disabled={creating}>
-                    {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button onClick={handleCreate} disabled={saving}>
+                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Cadastrar
                   </Button>
                 </DialogFooter>
@@ -275,7 +303,7 @@ export default function Usuarios() {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Cargo</TableHead>
-                      <TableHead className="w-[80px]">Ações</TableHead>
+                      <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -285,47 +313,45 @@ export default function Usuarios() {
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{user.phone || "—"}</TableCell>
                         <TableCell>
-                          <Select
-                            value={user.roles[0] || "operacional"}
-                            onValueChange={(v) => handleUpdateRole(user.user_id, v as AppRole)}
-                          >
-                            <SelectTrigger className="w-[160px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(roleLabels).map(([key, label]) => (
-                                <SelectItem key={key} value={key}>
-                                  {label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <span className="text-sm">
+                            {roleLabels[user.roles[0]] || user.roles[0] || "—"}
+                          </span>
                         </TableCell>
                         <TableCell>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir <strong>{user.full_name}</strong>? Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(user.user_id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(user)}
+                              title="Editar"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Excluir">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir <strong>{user.full_name}</strong>? Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(user.user_id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -336,6 +362,61 @@ export default function Usuarios() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>Altere os dados do usuário {editingUser?.email}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome Completo *</Label>
+              <Input
+                value={editForm.full_name}
+                onChange={(e) => setEditForm((p) => ({ ...p, full_name: e.target.value }))}
+                placeholder="Nome do usuário"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Telefone</Label>
+              <Input
+                value={editForm.phone}
+                onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Cargo / Perfil *</Label>
+              <Select
+                value={editForm.role}
+                onValueChange={(v) => setEditForm((p) => ({ ...p, role: v as AppRole }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(roleLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button onClick={handleUpdate} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
