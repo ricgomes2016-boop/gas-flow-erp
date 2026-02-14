@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -39,8 +39,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles,
   User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
-  Share2, DollarSign,
+  Share2, DollarSign, Trash2, Lock,
 } from "lucide-react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
 import { useToast } from "@/hooks/use-toast";
 import { PedidoViewDialog } from "@/components/pedidos/PedidoViewDialog";
@@ -60,7 +61,7 @@ export default function Pedidos() {
   const hoje = new Date().toISOString().split("T")[0];
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
-  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, isUpdating } = usePedidos({ dataInicio, dataFim });
+  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, excluirPedido, isUpdating, isDeleting } = usePedidos({ dataInicio, dataFim });
   const [pedidoSelecionado, setPedidoSelecionado] = useState<PedidoFormatado | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [viewDialogAberto, setViewDialogAberto] = useState(false);
@@ -74,6 +75,12 @@ export default function Pedidos() {
   const [pedidoTransferir, setPedidoTransferir] = useState<PedidoFormatado | null>(null);
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [loadingEntregadores, setLoadingEntregadores] = useState(false);
+
+  // Delete with password
+  const [deleteDialogAberto, setDeleteDialogAberto] = useState(false);
+  const [pedidoExcluir, setPedidoExcluir] = useState<PedidoFormatado | null>(null);
+  const [senhaExclusao, setSenhaExclusao] = useState("");
+  const [senhaErro, setSenhaErro] = useState("");
 
   useEffect(() => {
     const fetchEntregadores = async () => {
@@ -147,6 +154,45 @@ export default function Pedidos() {
   const abrirVisualizacao = (pedido: PedidoFormatado) => {
     setPedidoView(pedido);
     setViewDialogAberto(true);
+  };
+
+  const abrirExclusao = (pedido: PedidoFormatado) => {
+    setPedidoExcluir(pedido);
+    setSenhaExclusao("");
+    setSenhaErro("");
+    setDeleteDialogAberto(true);
+  };
+
+  const confirmarExclusao = async () => {
+    if (!pedidoExcluir) return;
+    
+    // Validate password via Supabase auth
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) return;
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: senhaExclusao,
+    });
+
+    if (authError) {
+      setSenhaErro("Senha incorreta. Tente novamente.");
+      return;
+    }
+
+    excluirPedido(
+      { pedidoId: pedidoExcluir.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Pedido excluído", description: `Pedido #${getIdCurto(pedidoExcluir.id)} foi excluído permanentemente.` });
+          setDeleteDialogAberto(false);
+          setPedidoExcluir(null);
+        },
+        onError: (error: any) => {
+          toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+        },
+      }
+    );
   };
 
   const abrirTransferencia = (pedido: PedidoFormatado) => {
@@ -519,6 +565,14 @@ export default function Pedidos() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => abrirExclusao(pedido)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir Pedido
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -606,6 +660,54 @@ export default function Pedidos() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Dialog de Exclusão com Senha */}
+        <AlertDialog open={deleteDialogAberto} onOpenChange={setDeleteDialogAberto}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-destructive" />
+                Excluir Pedido
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação é irreversível. O pedido{" "}
+                <span className="font-bold">#{pedidoExcluir ? getIdCurto(pedidoExcluir.id) : ""}</span>{" "}
+                será excluído permanentemente. Digite sua senha para confirmar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 py-2">
+              {pedidoExcluir && (
+                <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
+                  <p><span className="font-medium">Cliente:</span> {pedidoExcluir.cliente}</p>
+                  <p><span className="font-medium">Valor:</span> R$ {pedidoExcluir.valor.toFixed(2)}</p>
+                  <p><span className="font-medium">Data:</span> {pedidoExcluir.data}</p>
+                </div>
+              )}
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Digite sua senha"
+                  value={senhaExclusao}
+                  onChange={(e) => { setSenhaExclusao(e.target.value); setSenhaErro(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && confirmarExclusao()}
+                />
+                {senhaErro && (
+                  <p className="text-sm text-destructive mt-1">{senhaErro}</p>
+                )}
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <Button
+                variant="destructive"
+                onClick={confirmarExclusao}
+                disabled={!senhaExclusao || isDeleting}
+              >
+                {isDeleting ? "Excluindo..." : "Excluir Permanentemente"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MainLayout>
   );
