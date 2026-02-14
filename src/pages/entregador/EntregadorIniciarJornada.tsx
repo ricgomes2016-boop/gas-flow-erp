@@ -217,6 +217,24 @@ export default function EntregadorIniciarJornada() {
     );
   }
 
+  if (!entregadorId) {
+    return (
+      <EntregadorLayout title="Iniciar Jornada">
+        <div className="p-4 space-y-4">
+          <Card className="border-none shadow-md bg-destructive/5 border-l-4 border-l-destructive">
+            <CardContent className="p-6 text-center space-y-3">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+              <h2 className="text-xl font-bold">Cadastro não encontrado</h2>
+              <p className="text-muted-foreground">
+                Sua conta não está vinculada a um cadastro de entregador. Contate o administrador.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </EntregadorLayout>
+    );
+  }
+
   if (rotaAtiva) {
     return (
       <EntregadorLayout title="Iniciar Jornada">

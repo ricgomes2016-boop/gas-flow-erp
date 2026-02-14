@@ -1231,6 +1231,7 @@ export type Database = {
           categoria: string | null
           created_at: string
           descricao: string
+          entregador_id: string | null
           id: string
           observacoes: string | null
           pedido_id: string | null
@@ -1247,6 +1248,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string
           descricao: string
+          entregador_id?: string | null
           id?: string
           observacoes?: string | null
           pedido_id?: string | null
@@ -1263,6 +1265,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string
           descricao?: string
+          entregador_id?: string | null
           id?: string
           observacoes?: string | null
           pedido_id?: string | null
@@ -1276,6 +1279,13 @@ export type Database = {
           valor?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "movimentacoes_caixa_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "movimentacoes_caixa_pedido_id_fkey"
             columns: ["pedido_id"]
