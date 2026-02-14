@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Package, AlertTriangle, ArrowUpDown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -32,29 +33,34 @@ interface ProdutoEstoque {
   botijao_par_id: string | null;
 }
 
-interface VendaDia {
-  produto_id: string | null;
-  quantidade: number;
+interface MovimentacaoPorProduto {
+  vendas: number;
+  compras: number;
+  entradas_manuais: number;
+  saidas_manuais: number;
+  avarias: number;
 }
 
 export default function Estoque() {
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
-  const [vendasDia, setVendasDia] = useState<VendaDia[]>([]);
+  const [movimentacoes, setMovimentacoes] = useState<Record<string, MovimentacaoPorProduto>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [dataInicio, setDataInicio] = useState<Date>(new Date());
   const [dataFim, setDataFim] = useState<Date>(new Date());
-  const [movimentacaoDialogOpen, setMovimentacaoDialogOpen] = useState(false);
-  const [movimentacao, setMovimentacao] = useState({
+  const [movDialogOpen, setMovDialogOpen] = useState(false);
+  const [movForm, setMovForm] = useState({
     produtoId: "",
-    tipo: "entrada" as "entrada" | "saida",
+    tipo: "entrada" as "entrada" | "saida" | "avaria",
     quantidade: "",
+    observacoes: "",
   });
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      // 1. Produtos
       let prodQuery = supabase
         .from("produtos")
         .select("id, nome, tipo_botijao, estoque, preco, categoria, botijao_par_id")
@@ -65,36 +71,82 @@ export default function Estoque() {
         prodQuery = prodQuery.eq("unidade_id", unidadeAtual.id);
       }
 
-      // Fetch today's sales
-      const inicioHoje = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()).toISOString();
-      const fimHoje = new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59).toISOString();
+      const inicioStr = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()).toISOString();
+      const fimStr = new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59).toISOString();
 
+      // 2. Vendas (pedido_itens)
       let vendasQuery = supabase
         .from("pedido_itens")
         .select("produto_id, quantidade, pedidos!inner(created_at, status, unidade_id)")
-        .gte("pedidos.created_at", inicioHoje)
-        .lte("pedidos.created_at", fimHoje)
+        .gte("pedidos.created_at", inicioStr)
+        .lte("pedidos.created_at", fimStr)
         .neq("pedidos.status", "cancelado");
 
       if (unidadeAtual?.id) {
         vendasQuery = vendasQuery.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`, { referencedTable: "pedidos" });
       }
 
-      const [{ data: prodData, error: prodError }, { data: vendasData, error: vendasError }] = await Promise.all([
-        prodQuery,
-        vendasQuery,
-      ]);
+      // 3. Compras (compra_itens)
+      let comprasQuery = supabase
+        .from("compra_itens")
+        .select("produto_id, quantidade, compras!inner(created_at, status, unidade_id)")
+        .gte("compras.created_at", inicioStr)
+        .lte("compras.created_at", fimStr)
+        .neq("compras.status", "cancelada");
+
+      if (unidadeAtual?.id) {
+        comprasQuery = comprasQuery.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`, { referencedTable: "compras" });
+      }
+
+      // 4. Movimentações manuais
+      let movQuery = supabase
+        .from("movimentacoes_estoque")
+        .select("produto_id, tipo, quantidade")
+        .gte("created_at", inicioStr)
+        .lte("created_at", fimStr);
+
+      if (unidadeAtual?.id) {
+        movQuery = movQuery.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const [
+        { data: prodData, error: prodError },
+        { data: vendasData, error: vendasError },
+        { data: comprasData, error: comprasError },
+        { data: movData, error: movError },
+      ] = await Promise.all([prodQuery, vendasQuery, comprasQuery, movQuery]);
 
       if (prodError) throw prodError;
       if (vendasError) console.error("Erro vendas:", vendasError);
+      if (comprasError) console.error("Erro compras:", comprasError);
+      if (movError) console.error("Erro movimentações:", movError);
 
       setProdutos(prodData || []);
-      setVendasDia(
-        (vendasData || []).map((v: any) => ({
-          produto_id: v.produto_id,
-          quantidade: v.quantidade,
-        }))
-      );
+
+      // Consolidar movimentações por produto
+      const map: Record<string, MovimentacaoPorProduto> = {};
+      const getOrCreate = (id: string) => {
+        if (!map[id]) map[id] = { vendas: 0, compras: 0, entradas_manuais: 0, saidas_manuais: 0, avarias: 0 };
+        return map[id];
+      };
+
+      (vendasData || []).forEach((v: any) => {
+        if (v.produto_id) getOrCreate(v.produto_id).vendas += v.quantidade;
+      });
+
+      (comprasData || []).forEach((c: any) => {
+        if (c.produto_id) getOrCreate(c.produto_id).compras += c.quantidade;
+      });
+
+      (movData || []).forEach((m: any) => {
+        if (!m.produto_id) return;
+        const entry = getOrCreate(m.produto_id);
+        if (m.tipo === "entrada") entry.entradas_manuais += m.quantidade;
+        else if (m.tipo === "saida") entry.saidas_manuais += m.quantidade;
+        else if (m.tipo === "avaria") entry.avarias += m.quantidade;
+      });
+
+      setMovimentacoes(map);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       toast({ title: "Erro", description: "Não foi possível carregar o estoque.", variant: "destructive" });
@@ -108,38 +160,68 @@ export default function Estoque() {
   }, [unidadeAtual?.id, dataInicio, dataFim]);
 
   const handleMovimentacao = async () => {
-    const quantidade = parseInt(movimentacao.quantidade);
-    if (!movimentacao.produtoId || isNaN(quantidade) || quantidade <= 0) {
+    const quantidade = parseInt(movForm.quantidade);
+    if (!movForm.produtoId || isNaN(quantidade) || quantidade <= 0) {
       toast({ title: "Erro", description: "Preencha todos os campos corretamente.", variant: "destructive" });
       return;
     }
 
-    const produto = produtos.find((p) => p.id === movimentacao.produtoId);
+    const produto = produtos.find((p) => p.id === movForm.produtoId);
     if (!produto) return;
 
-    const novaQuantidade =
-      movimentacao.tipo === "entrada"
-        ? produto.estoque + quantidade
-        : Math.max(0, produto.estoque - quantidade);
-
     try {
-      const { error } = await supabase
+      // Registrar na tabela de movimentações
+      const { error: movError } = await supabase
+        .from("movimentacoes_estoque")
+        .insert({
+          produto_id: movForm.produtoId,
+          tipo: movForm.tipo,
+          quantidade,
+          observacoes: movForm.observacoes || null,
+          unidade_id: unidadeAtual?.id || null,
+        });
+
+      if (movError) throw movError;
+
+      // Atualizar estoque do produto
+      let novaQuantidade = produto.estoque;
+      if (movForm.tipo === "entrada") {
+        novaQuantidade += quantidade;
+      } else {
+        novaQuantidade = Math.max(0, novaQuantidade - quantidade);
+      }
+
+      const { error: updateError } = await supabase
         .from("produtos")
         .update({ estoque: novaQuantidade })
-        .eq("id", movimentacao.produtoId);
+        .eq("id", movForm.produtoId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Se é botijão, atualizar o par (cheio/vazio)
+      if (produto.botijao_par_id && movForm.tipo !== "avaria") {
+        const par = produtos.find((p) => p.id === produto.botijao_par_id);
+        if (par) {
+          let novaQtdPar = par.estoque;
+          if (movForm.tipo === "entrada") {
+            novaQtdPar = Math.max(0, novaQtdPar - quantidade);
+          } else {
+            novaQtdPar += quantidade;
+          }
+          await supabase.from("produtos").update({ estoque: novaQtdPar }).eq("id", par.id);
+        }
+      }
 
       toast({
         title: "Movimentação registrada!",
-        description: `${movimentacao.tipo === "entrada" ? "Entrada" : "Saída"} de ${quantidade} unidades.`,
+        description: `${movForm.tipo === "entrada" ? "Entrada" : movForm.tipo === "saida" ? "Saída" : "Avaria"} de ${quantidade} un.`,
       });
 
-      setMovimentacao({ produtoId: "", tipo: "entrada", quantidade: "" });
-      setMovimentacaoDialogOpen(false);
+      setMovForm({ produtoId: "", tipo: "entrada", quantidade: "", observacoes: "" });
+      setMovDialogOpen(false);
       fetchData();
     } catch (error) {
-      console.error("Erro ao atualizar estoque:", error);
+      console.error("Erro ao registrar movimentação:", error);
       toast({ title: "Erro", description: "Não foi possível registrar a movimentação.", variant: "destructive" });
     }
   };
@@ -148,7 +230,7 @@ export default function Estoque() {
   const getTotalCheios = () => produtosGas.filter((p) => p.tipo_botijao === "cheio").reduce((acc, p) => acc + (p.estoque || 0), 0);
   const getTotalVazios = () => produtosGas.filter((p) => p.tipo_botijao === "vazio").reduce((acc, p) => acc + (p.estoque || 0), 0);
   const getValorEstoque = () => produtos.filter((p) => p.tipo_botijao !== "vazio").reduce((acc, p) => acc + (p.estoque || 0) * (p.preco || 0), 0);
-  const totalVendasDia = vendasDia.reduce((acc, v) => acc + v.quantidade, 0);
+  const totalVendas = Object.values(movimentacoes).reduce((acc, m) => acc + m.vendas, 0);
 
   return (
     <MainLayout>
@@ -184,8 +266,8 @@ export default function Estoque() {
                 <ArrowUpDown className="h-6 w-6 text-accent-foreground" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Vendas Hoje</p>
-                <p className="text-2xl font-bold">{totalVendasDia}</p>
+                <p className="text-sm text-muted-foreground">Vendas Período</p>
+                <p className="text-2xl font-bold">{totalVendas}</p>
               </div>
             </CardContent>
           </Card>
@@ -202,13 +284,13 @@ export default function Estoque() {
           </Card>
         </div>
 
-        {/* Date filters */}
+        {/* Date filters + actions */}
         <div className="flex flex-wrap items-end gap-4">
           <div className="grid gap-1.5">
             <Label className="text-sm font-medium">Data Inicial</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}>
+                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(dataInicio, "dd/MM/yyyy")}
                 </Button>
@@ -222,7 +304,7 @@ export default function Estoque() {
             <Label className="text-sm font-medium">Data Final</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dataFim && "text-muted-foreground")}>
+                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(dataFim, "dd/MM/yyyy")}
                 </Button>
@@ -233,60 +315,71 @@ export default function Estoque() {
             </Popover>
           </div>
           <div className="flex gap-2 ml-auto">
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
-          <Dialog open={movimentacaoDialogOpen} onOpenChange={setMovimentacaoDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <ArrowUpDown className="mr-2 h-4 w-4" />
-                Movimentação
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Movimentação de Estoque</DialogTitle>
-                <DialogDescription>Registre entrada ou saída de produtos</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Produto</Label>
-                  <Select value={movimentacao.produtoId} onValueChange={(v) => setMovimentacao({ ...movimentacao, produtoId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
-                    <SelectContent>
-                      {produtos.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.nome} (Estoque: {p.estoque})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+              Atualizar
+            </Button>
+            <Dialog open={movDialogOpen} onOpenChange={setMovDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <ArrowUpDown className="mr-2 h-4 w-4" />
+                  Movimentação
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Movimentação de Estoque</DialogTitle>
+                  <DialogDescription>Registre entrada, saída ou avaria de produtos</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label>Produto</Label>
+                    <Select value={movForm.produtoId} onValueChange={(v) => setMovForm({ ...movForm, produtoId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
+                      <SelectContent>
+                        {produtos.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.nome} (Est: {p.estoque})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Tipo</Label>
+                    <Select value={movForm.tipo} onValueChange={(v: "entrada" | "saida" | "avaria") => setMovForm({ ...movForm, tipo: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="entrada">➕ Entrada</SelectItem>
+                        <SelectItem value="saida">➖ Saída</SelectItem>
+                        <SelectItem value="avaria">⚠️ Avaria</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="quantidade">Quantidade</Label>
+                    <Input id="quantidade" type="number" min="1" value={movForm.quantidade} onChange={(e) => setMovForm({ ...movForm, quantidade: e.target.value })} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="observacoes">Observações</Label>
+                    <Textarea id="observacoes" value={movForm.observacoes} onChange={(e) => setMovForm({ ...movForm, observacoes: e.target.value })} placeholder="Motivo da movimentação..." />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Tipo</Label>
-                  <Select value={movimentacao.tipo} onValueChange={(v: "entrada" | "saida") => setMovimentacao({ ...movimentacao, tipo: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="entrada">➕ Entrada</SelectItem>
-                      <SelectItem value="saida">➖ Saída</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="quantidade">Quantidade</Label>
-                  <Input id="quantidade" type="number" min="1" value={movimentacao.quantidade} onChange={(e) => setMovimentacao({ ...movimentacao, quantidade: e.target.value })} />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setMovimentacaoDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={handleMovimentacao}>Confirmar</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setMovDialogOpen(false)}>Cancelar</Button>
+                  <Button onClick={handleMovimentacao}>Confirmar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
         {/* Daily stock table */}
-        <EstoqueDiaTable produtos={produtos} vendasDia={vendasDia} isLoading={isLoading} />
+        <EstoqueDiaTable
+          produtos={produtos}
+          movimentacoes={movimentacoes}
+          dataInicio={dataInicio}
+          dataFim={dataFim}
+          isLoading={isLoading}
+        />
       </div>
     </MainLayout>
   );
