@@ -54,6 +54,7 @@ interface ProdutoForm {
   categoria: string;
   preco: string;
   estoque: string;
+  estoque_vazio: string;
   codigo_barras: string;
   descricao: string;
   tipo_botijao: string;
@@ -65,6 +66,7 @@ const initialForm: ProdutoForm = {
   categoria: "",
   preco: "",
   estoque: "",
+  estoque_vazio: "0",
   codigo_barras: "",
   descricao: "",
   tipo_botijao: "",
@@ -93,19 +95,24 @@ export default function Produtos() {
     },
   });
 
-  // Mutation para criar produto
+  // Mutation para criar produto (com auto-criação do par vazio)
   const criarProduto = useMutation({
     mutationFn: async (dados: ProdutoForm) => {
-      const { data, error } = await supabase
+      const tipoBotijao = dados.tipo_botijao || null;
+      const categoria = dados.categoria || null;
+      const isBotijaoOuAgua = (categoria === "gas" || categoria === "agua") && tipoBotijao === "cheio";
+
+      // Criar produto cheio
+      const { data: produtoCheio, error } = await supabase
         .from("produtos")
         .insert({
           nome: dados.nome,
-          categoria: dados.categoria || null,
+          categoria,
           preco: parseFloat(dados.preco.replace(",", ".")) || 0,
           estoque: parseInt(dados.estoque) || 0,
           codigo_barras: dados.codigo_barras || null,
           descricao: dados.descricao || null,
-          tipo_botijao: dados.tipo_botijao || null,
+          tipo_botijao: isBotijaoOuAgua ? "cheio" : tipoBotijao,
           image_url: dados.image_url || null,
           ativo: true,
         })
@@ -113,11 +120,40 @@ export default function Produtos() {
         .single();
 
       if (error) throw error;
-      return data;
+
+      // Auto-criar par vazio se for botijão/água cheio
+      if (isBotijaoOuAgua && produtoCheio) {
+        const nomeVazio = `${dados.nome} (Vazio)`;
+        const { data: produtoVazio, error: errVazio } = await supabase
+          .from("produtos")
+          .insert({
+            nome: nomeVazio,
+            categoria,
+            preco: 0,
+            estoque: parseInt(dados.estoque_vazio) || 0,
+            tipo_botijao: "vazio",
+            botijao_par_id: produtoCheio.id,
+            ativo: true,
+          })
+          .select()
+          .single();
+
+        if (errVazio) throw errVazio;
+
+        // Vincular cheio ao vazio
+        if (produtoVazio) {
+          await supabase
+            .from("produtos")
+            .update({ botijao_par_id: produtoVazio.id })
+            .eq("id", produtoCheio.id);
+        }
+      }
+
+      return produtoCheio;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["produtos"] });
-      toast({ title: "Produto cadastrado com sucesso!" });
+      toast({ title: "Produto cadastrado com sucesso!", description: form.tipo_botijao === "cheio" && (form.categoria === "gas" || form.categoria === "agua") ? "O par vazio foi criado automaticamente." : undefined });
       setDialogAberto(false);
       setForm(initialForm);
     },
@@ -211,6 +247,7 @@ export default function Produtos() {
       categoria: produto.categoria || "",
       preco: produto.preco.toString().replace(".", ","),
       estoque: (produto.estoque || 0).toString(),
+      estoque_vazio: "0",
       codigo_barras: produto.codigo_barras || "",
       descricao: produto.descricao || "",
       tipo_botijao: produto.tipo_botijao || "",
@@ -288,7 +325,14 @@ export default function Produtos() {
                   <Label>Categoria</Label>
                   <Select
                     value={form.categoria}
-                    onValueChange={(value) => setForm({ ...form, categoria: value })}
+                    onValueChange={(value) => {
+                      const isBotijaoCategoria = value === "gas" || value === "agua";
+                      setForm({
+                        ...form,
+                        categoria: value,
+                        tipo_botijao: isBotijaoCategoria ? "cheio" : form.tipo_botijao,
+                      });
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a categoria" />
@@ -301,21 +345,54 @@ export default function Produtos() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Tipo de Botijão</Label>
-                  <Select
-                    value={form.tipo_botijao}
-                    onValueChange={(value) => setForm({ ...form, tipo_botijao: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cheio">Cheio</SelectItem>
-                      <SelectItem value="vazio">Vazio</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {(form.categoria === "gas" || form.categoria === "agua") ? (
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input bg-muted/50 text-sm">
+                      <Flame className="h-4 w-4 text-orange-500" />
+                      <span>Cheio</span>
+                      <span className="text-muted-foreground text-xs ml-auto">Par vazio criado automaticamente</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Tipo de Botijão</Label>
+                    <Select
+                      value={form.tipo_botijao}
+                      onValueChange={(value) => setForm({ ...form, tipo_botijao: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cheio">Cheio</SelectItem>
+                        <SelectItem value="vazio">Vazio</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {(form.categoria === "gas" || form.categoria === "agua") && (
+                  <div className="space-y-2">
+                    <Label>Estoque Cheio</Label>
+                    <Input
+                      placeholder="0"
+                      type="number"
+                      value={form.estoque}
+                      onChange={(e) => setForm({ ...form, estoque: e.target.value })}
+                    />
+                  </div>
+                )}
+                {(form.categoria === "gas" || form.categoria === "agua") && !editandoProduto && (
+                  <div className="space-y-2">
+                    <Label>Estoque Vazio (Vasilhames)</Label>
+                    <Input
+                      placeholder="0"
+                      type="number"
+                      value={form.estoque_vazio}
+                      onChange={(e) => setForm({ ...form, estoque_vazio: e.target.value })}
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Preço de Venda (R$) *</Label>
                   <Input
@@ -324,15 +401,17 @@ export default function Produtos() {
                     onChange={(e) => setForm({ ...form, preco: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Estoque Atual</Label>
-                  <Input
-                    placeholder="0"
-                    type="number"
-                    value={form.estoque}
-                    onChange={(e) => setForm({ ...form, estoque: e.target.value })}
-                  />
-                </div>
+                {!(form.categoria === "gas" || form.categoria === "agua") && (
+                  <div className="space-y-2">
+                    <Label>Estoque Atual</Label>
+                    <Input
+                      placeholder="0"
+                      type="number"
+                      value={form.estoque}
+                      onChange={(e) => setForm({ ...form, estoque: e.target.value })}
+                    />
+                  </div>
+                )}
                 <div className="space-y-2 md:col-span-2">
                   <Label>Código de Barras</Label>
                   <Input
