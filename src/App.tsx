@@ -27,6 +27,11 @@ import Despesas from "./pages/caixa/Despesas";
 
 // Operacional
 import ConselhosIA from "./pages/operacional/ConselhosIA";
+import CentralIndicadores from "./pages/operacional/CentralIndicadores";
+import CentroOperacoes from "./pages/operacional/CentroOperacoes";
+import CockpitGestor from "./pages/operacional/CockpitGestor";
+import AlertasInteligentes from "./pages/operacional/AlertasInteligentes";
+import AnaliseConcorrencia from "./pages/operacional/AnaliseConcorrencia";
 import DashboardExecutivo from "./pages/operacional/DashboardExecutivo";
 import DashboardAvancado from "./pages/operacional/DashboardAvancado";
 import DashboardTrabalhista from "./pages/operacional/DashboardTrabalhista";
@@ -187,6 +192,31 @@ const App = () => (
                   } />
                   
                   {/* Operacional - Gestor+ */}
+                  <Route path="/operacional/cockpit" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <CockpitGestor />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/indicadores" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <CentralIndicadores />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/centro" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <CentroOperacoes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/alertas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AlertasInteligentes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/concorrencia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AnaliseConcorrencia />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/operacional/ia" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <ConselhosIA />
