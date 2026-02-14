@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import {
   Home,
   Package,
-  MapPin,
   Receipt,
   PlusCircle,
   User,
@@ -24,7 +23,6 @@ const menuItems = [
   { path: "/entregador", icon: Home, label: "Início" },
   { path: "/entregador/jornada", icon: Flame, label: "Jornada" },
   { path: "/entregador/entregas", icon: Package, label: "Entregas" },
-  { path: "/entregador/rotas", icon: MapPin, label: "Rotas" },
   { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
   { path: "/entregador/despesas", icon: Receipt, label: "Despesas" },
   { path: "/entregador/perfil", icon: User, label: "Perfil" },

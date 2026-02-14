@@ -104,7 +104,7 @@ import Permissoes from "./pages/config/Permissoes";
 import EntregadorDashboard from "./pages/entregador/EntregadorDashboard";
 import EntregadorEntregas from "./pages/entregador/EntregadorEntregas";
 import FinalizarEntrega from "./pages/entregador/FinalizarEntrega";
-import EntregadorRotas from "./pages/entregador/EntregadorRotas";
+
 import EntregadorNovaVenda from "./pages/entregador/EntregadorNovaVenda";
 import EntregadorDespesas from "./pages/entregador/EntregadorDespesas";
 import EntregadorPerfil from "./pages/entregador/EntregadorPerfil";
@@ -538,11 +538,6 @@ const App = () => (
                   <Route path="/entregador/entregas/:id/finalizar" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <FinalizarEntrega />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/entregador/rotas" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
-                      <EntregadorRotas />
                     </ProtectedRoute>
                   } />
                   <Route path="/entregador/nova-venda" element={
