@@ -57,6 +57,8 @@ interface FormData {
   telefone: string;
   email: string;
   endereco: string;
+  numero: string;
+  complemento: string;
   bairro: string;
   cidade: string;
   cep: string;
@@ -69,6 +71,8 @@ const initialFormData: FormData = {
   telefone: "",
   email: "",
   endereco: "",
+  numero: "",
+  complemento: "",
   bairro: "",
   cidade: "",
   cep: "",
@@ -176,12 +180,24 @@ export default function CadastroClientesCad() {
 
   const openEditModal = (cliente: Cliente) => {
     setEditingCliente(cliente);
+    // Tentar separar número do endereço existente (formato "Rua X, Nº 123" ou "Rua X, 123")
+    let rua = cliente.endereco || "";
+    let num = "";
+    let comp = "";
+    const match = rua.match(/^(.+?),\s*(?:Nº\s*)?(\d+\w*)(?:\s*[-,]\s*(.+))?$/);
+    if (match) {
+      rua = match[1].trim();
+      num = match[2].trim();
+      comp = match[3]?.trim() || "";
+    }
     setFormData({
       nome: cliente.nome,
       cpf: cliente.cpf || "",
       telefone: cliente.telefone || "",
       email: cliente.email || "",
-      endereco: cliente.endereco || "",
+      endereco: rua,
+      numero: num,
+      complemento: comp,
       bairro: cliente.bairro || "",
       cidade: cliente.cidade || "",
       cep: cliente.cep || "",
@@ -288,12 +304,19 @@ export default function CadastroClientesCad() {
     setIsSaving(true);
 
     try {
+      // Montar endereço completo para salvar
+      const enderecoCompleto = [
+        formData.endereco,
+        formData.numero ? `Nº ${formData.numero}` : "",
+        formData.complemento,
+      ].filter(Boolean).join(", ") || null;
+
       const clienteData = {
         nome: formData.nome.trim(),
         cpf: formData.cpf || null,
         telefone: formData.telefone || null,
         email: formData.email || null,
-        endereco: formData.endereco || null,
+        endereco: enderecoCompleto,
         bairro: formData.bairro || null,
         cidade: formData.cidade || null,
         cep: formData.cep || null,
@@ -877,16 +900,34 @@ export default function CadastroClientesCad() {
               </div>
             </div>
 
-            <div>
-              <Label>Endereço</Label>
-              <Input
-                value={formData.endereco}
-                onChange={(e) => handleChange("endereco", e.target.value)}
-                placeholder="Rua/Avenida"
-              />
+            <div className="grid grid-cols-4 gap-4">
+              <div className="col-span-3">
+                <Label>Endereço</Label>
+                <Input
+                  value={formData.endereco}
+                  onChange={(e) => handleChange("endereco", e.target.value)}
+                  placeholder="Rua/Avenida"
+                />
+              </div>
+              <div>
+                <Label>Número</Label>
+                <Input
+                  value={formData.numero}
+                  onChange={(e) => handleChange("numero", e.target.value)}
+                  placeholder="Nº"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Complemento</Label>
+                <Input
+                  value={formData.complemento}
+                  onChange={(e) => handleChange("complemento", e.target.value)}
+                  placeholder="Apto, bloco, sala..."
+                />
+              </div>
               <div>
                 <Label>Bairro</Label>
                 <Input
@@ -895,6 +936,9 @@ export default function CadastroClientesCad() {
                   placeholder="Bairro"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Cidade</Label>
                 <Input
