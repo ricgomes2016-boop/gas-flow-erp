@@ -1,17 +1,40 @@
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Clock, Users, Edit, Calendar, Sun, Moon } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Horarios() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Form state
+  const [funcionarioId, setFuncionarioId] = useState("");
+  const [turno, setTurno] = useState("comercial");
+  const [entrada, setEntrada] = useState("08:00");
+  const [saida, setSaida] = useState("18:00");
+  const [intervalo, setIntervalo] = useState("1h");
+  const [diasSemana, setDiasSemana] = useState("Seg-Sex");
+
   const { data: horarios = [], isLoading } = useQuery({
     queryKey: ["horarios-funcionario"],
     queryFn: async () => {
@@ -24,8 +47,88 @@ export default function Horarios() {
     },
   });
 
+  const { data: funcionarios = [] } = useQuery({
+    queryKey: ["funcionarios-ativos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funcionarios")
+        .select("id, nome, cargo")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const turnoManha = horarios.filter((h: any) => h.turno === "manha").length;
   const turnoTarde = horarios.filter((h: any) => h.turno === "tarde").length;
+
+  const resetForm = () => {
+    setEditingId(null);
+    setFuncionarioId("");
+    setTurno("comercial");
+    setEntrada("08:00");
+    setSaida("18:00");
+    setIntervalo("1h");
+    setDiasSemana("Seg-Sex");
+  };
+
+  const openNew = () => {
+    resetForm();
+    setModalOpen(true);
+  };
+
+  const openEdit = (h: any) => {
+    setEditingId(h.id);
+    setFuncionarioId(h.funcionario_id);
+    setTurno(h.turno);
+    setEntrada(h.entrada?.substring(0, 5) || "08:00");
+    setSaida(h.saida?.substring(0, 5) || "18:00");
+    setIntervalo(h.intervalo || "1h");
+    setDiasSemana(h.dias_semana || "Seg-Sex");
+    setModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!funcionarioId) {
+      toast({ title: "Selecione um funcionário", variant: "destructive" });
+      return;
+    }
+
+    const payload = {
+      funcionario_id: funcionarioId,
+      turno,
+      entrada,
+      saida,
+      intervalo,
+      dias_semana: diasSemana,
+    };
+
+    if (editingId) {
+      const { error } = await supabase
+        .from("horarios_funcionario")
+        .update(payload)
+        .eq("id", editingId);
+      if (error) {
+        toast({ title: "Erro", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Horário atualizado!" });
+    } else {
+      const { error } = await supabase
+        .from("horarios_funcionario")
+        .insert(payload);
+      if (error) {
+        toast({ title: "Erro", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Horário criado!" });
+    }
+
+    setModalOpen(false);
+    resetForm();
+    queryClient.invalidateQueries({ queryKey: ["horarios-funcionario"] });
+  };
 
   return (
     <MainLayout>
@@ -36,7 +139,9 @@ export default function Horarios() {
             <h1 className="text-3xl font-bold text-foreground">Horários</h1>
             <p className="text-muted-foreground">Gestão de jornadas e turnos de trabalho</p>
           </div>
-          <Button className="gap-2"><Calendar className="h-4 w-4" />Novo Horário</Button>
+          <Button className="gap-2" onClick={openNew}>
+            <Calendar className="h-4 w-4" />Novo Horário
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -120,7 +225,9 @@ export default function Horarios() {
                         <TableCell>{h.intervalo}</TableCell>
                         <TableCell>{h.dias_semana}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(h)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -131,6 +238,75 @@ export default function Horarios() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              {editingId ? "Editar Horário" : "Novo Horário"}
+            </DialogTitle>
+            <DialogDescription>
+              Defina o turno e horários do funcionário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>Funcionário *</Label>
+              <Select value={funcionarioId} onValueChange={setFuncionarioId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o funcionário" />
+                </SelectTrigger>
+                <SelectContent>
+                  {funcionarios.map((f: any) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.nome} {f.cargo ? `- ${f.cargo}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Turno</Label>
+              <Select value={turno} onValueChange={setTurno}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manha">Manhã</SelectItem>
+                  <SelectItem value="tarde">Tarde</SelectItem>
+                  <SelectItem value="comercial">Comercial</SelectItem>
+                  <SelectItem value="noturno">Noturno</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Entrada</Label>
+                <Input type="time" value={entrada} onChange={(e) => setEntrada(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Saída</Label>
+                <Input type="time" value={saida} onChange={(e) => setSaida(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Intervalo</Label>
+                <Input value={intervalo} onChange={(e) => setIntervalo(e.target.value)} placeholder="1h" />
+              </div>
+              <div className="space-y-2">
+                <Label>Dias da Semana</Label>
+                <Input value={diasSemana} onChange={(e) => setDiasSemana(e.target.value)} placeholder="Seg-Sex" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)} className="flex-1">Cancelar</Button>
+              <Button onClick={handleSave} className="flex-1">Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
