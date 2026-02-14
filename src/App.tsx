@@ -36,6 +36,7 @@ import MetasDesafios from "./pages/operacional/MetasDesafios";
 import MapaEntregadores from "./pages/operacional/MapaEntregadores";
 import PlanejamentoAnual from "./pages/operacional/PlanejamentoAnual";
 import PlanejamentoMensal from "./pages/operacional/PlanejamentoMensal";
+import CanaisVenda from "./pages/operacional/CanaisVenda";
 
 // Clientes
 import CadastroClientes from "./pages/clientes/CadastroClientes";
@@ -234,6 +235,11 @@ const App = () => (
                   <Route path="/operacional/mensal" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <PlanejamentoMensal />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/canais-venda" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <CanaisVenda />
                     </ProtectedRoute>
                   } />
                   
