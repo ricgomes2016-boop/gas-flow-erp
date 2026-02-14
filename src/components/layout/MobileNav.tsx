@@ -64,6 +64,8 @@ const menuItems: MenuItem[] = [
       { label: "Central de Indicadores", path: "/operacional/indicadores" },
       { label: "Centro de Operações", path: "/operacional/centro" },
       { label: "Alertas Inteligentes", path: "/operacional/alertas" },
+      { label: "Rotas de Entrega", path: "/operacional/rotas" },
+      { label: "Escalas de Entregadores", path: "/operacional/escalas" },
       { label: "Análise de Concorrência", path: "/operacional/concorrencia" },
       { label: "Conselhos IA", path: "/operacional/ia" },
       { label: "DRE", path: "/operacional/dre" },
@@ -193,7 +195,7 @@ export function MobileNav() {
               <Flame className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="font-bold text-white text-lg">GasFlow</h2>
+              <h2 className="font-bold text-white text-lg">Gas Express25</h2>
               <p className="text-xs text-slate-400">Gestão de Gás</p>
             </div>
           </div>

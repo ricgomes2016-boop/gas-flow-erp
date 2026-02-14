@@ -387,7 +387,7 @@ export function Sidebar() {
         </nav>
 
         {/* Footer - Logout */}
-        <div className="border-t border-sidebar-border p-2">
+        <div className="flex-shrink-0 border-t border-sidebar-border p-2">
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -409,7 +409,7 @@ export function Sidebar() {
 
         {/* User Info */}
         {!collapsed && (
-          <div className="border-t border-sidebar-border p-3">
+          <div className="flex-shrink-0 border-t border-sidebar-border p-3">
             <div className="rounded-lg bg-sidebar-accent p-3">
               <p className="text-xs text-sidebar-foreground/70">Logado como</p>
               <p className="text-sm font-medium text-sidebar-foreground">
@@ -421,7 +421,7 @@ export function Sidebar() {
 
         {/* Collapsed User Info */}
         {collapsed && (
-          <div className="border-t border-sidebar-border p-2">
+          <div className="flex-shrink-0 border-t border-sidebar-border p-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-accent mx-auto cursor-pointer">
