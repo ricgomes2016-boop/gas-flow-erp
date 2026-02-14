@@ -28,7 +28,13 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CpfCnpjInput } from "@/components/ui/cpf-cnpj-input";
 import { formatPhone, formatCEP, validateCpfCnpj } from "@/hooks/useInputMasks";
@@ -105,6 +111,7 @@ export default function CadastroClientesCad() {
   const [selectedClients, setSelectedClients] = useState<Set<number>>(new Set());
   const [isSavingBulk, setIsSavingBulk] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Stats
   const [stats, setStats] = useState({
@@ -465,6 +472,7 @@ export default function CadastroClientesCad() {
     } finally {
       setIsProcessingPhoto(false);
       if (photoInputRef.current) photoInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
@@ -619,9 +627,36 @@ export default function CadastroClientesCad() {
               onChange={handlePhotoSelect}
               className="hidden"
             />
-            <Button variant="outline" className="gap-2" onClick={() => photoInputRef.current?.click()}>
-              <Camera className="h-4 w-4" />
-              Importar por Foto
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Camera className="h-4 w-4" />
+                  Importar por Foto
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="h-4 w-4 mr-2" />
+                  Tirar Foto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => photoInputRef.current?.click()}>
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Selecionar Imagem
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button className="gap-2" onClick={openCreateModal}>
+              <Plus className="h-4 w-4" />
+              Novo Cliente
             </Button>
             <Button className="gap-2" onClick={openCreateModal}>
               <Plus className="h-4 w-4" />
