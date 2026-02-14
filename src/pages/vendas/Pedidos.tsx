@@ -492,13 +492,32 @@ export default function Pedidos() {
                             )}
                             <DropdownMenuSeparator />
                             {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => cancelarPedido(pedido.id)}
-                              >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Cancelar Pedido
-                              </DropdownMenuItem>
+                              <>
+                                {pedido.status !== "em_rota" && (
+                                  <DropdownMenuItem onClick={() => alterarStatusPedido(pedido.id, "em_rota")}>
+                                    <Truck className="h-4 w-4 mr-2" />
+                                    Marcar Em Rota
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => alterarStatusPedido(pedido.id, "entregue")}>
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Marcar Entregue
+                                </DropdownMenuItem>
+                                {pedido.status !== "pendente" && (
+                                  <DropdownMenuItem onClick={() => alterarStatusPedido(pedido.id, "pendente")}>
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    Voltar p/ Pendente
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => cancelarPedido(pedido.id)}
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Cancelar Pedido
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
