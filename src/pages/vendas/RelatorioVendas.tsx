@@ -124,6 +124,26 @@ export default function RelatorioVendas() {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [pedidosFiltrados]);
 
+  // Agrupamento cruzado: Entregador x Canal de Venda (com produto)
+  const dadosEntregadorCanal = useMemo(() => {
+    const map = new Map<string, { nome: string; canais: Record<string, { qtd: number; valor: number }>; totalQtd: number; totalValor: number }>();
+    const canaisSet = new Set<string>();
+    pedidosFiltrados.filter(p => p.status !== "cancelado").forEach(p => {
+      const nomeEntregador = p.entregadores?.nome || "Sem entregador";
+      const canal = p.canal_venda || "outros";
+      canaisSet.add(canal);
+      const cur = map.get(nomeEntregador) || { nome: nomeEntregador, canais: {}, totalQtd: 0, totalValor: 0 };
+      if (!cur.canais[canal]) cur.canais[canal] = { qtd: 0, valor: 0 };
+      const qtdItens = p.pedido_itens?.reduce((acc, i) => acc + i.quantidade, 0) || 1;
+      cur.canais[canal].qtd += qtdItens;
+      cur.canais[canal].valor += p.valor_total || 0;
+      cur.totalQtd += qtdItens;
+      cur.totalValor += p.valor_total || 0;
+      map.set(nomeEntregador, cur);
+    });
+    return { entregadores: Array.from(map.values()).sort((a, b) => b.totalQtd - a.totalQtd), canais: Array.from(canaisSet).sort() };
+  }, [pedidosFiltrados]);
+
   // Agrupamento por Canal de Venda
   const dadosPorCanal = useMemo(() => {
     const map = new Map<string, { canal: string; label: string; total: number; qtd: number }>();
@@ -351,6 +371,8 @@ export default function RelatorioVendas() {
           <TabsList>
             <TabsTrigger value="pedidos" className="gap-2"><ShoppingCart className="h-4 w-4" />Pedidos</TabsTrigger>
             <TabsTrigger value="entregador" className="gap-2"><Users className="h-4 w-4" />Por Entregador</TabsTrigger>
+            <TabsTrigger value="entregador-canal" className="gap-2"><FileSpreadsheet className="h-4 w-4" />Entregador x Canal</TabsTrigger>
+            <TabsTrigger value="canal" className="gap-2"><Megaphone className="h-4 w-4" />Por Canal</TabsTrigger>
             <TabsTrigger value="canal" className="gap-2"><Megaphone className="h-4 w-4" />Por Canal</TabsTrigger>
           </TabsList>
 
@@ -463,6 +485,58 @@ export default function RelatorioVendas() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Tab Entregador x Canal */}
+          <TabsContent value="entregador-canal">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5" />Quantidade por Entregador e Canal de Venda
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                {dadosEntregadorCanal.entregadores.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">Sem dados no período.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-background z-10">Entregador</TableHead>
+                        {dadosEntregadorCanal.canais.map(canal => (
+                          <TableHead key={canal} className="text-center">{canalLabels[canal] || canal}</TableHead>
+                        ))}
+                        <TableHead className="text-center font-bold">Total Qtd</TableHead>
+                        <TableHead className="text-right font-bold">Total R$</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dadosEntregadorCanal.entregadores.map((ent, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium sticky left-0 bg-background z-10">{ent.nome}</TableCell>
+                          {dadosEntregadorCanal.canais.map(canal => (
+                            <TableCell key={canal} className="text-center">
+                              {ent.canais[canal]?.qtd || 0}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-center font-bold">{ent.totalQtd}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatCurrency(ent.totalValor)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/50 font-bold">
+                        <TableCell className="sticky left-0 bg-muted/50 z-10">Total</TableCell>
+                        {dadosEntregadorCanal.canais.map(canal => {
+                          const totalCanal = dadosEntregadorCanal.entregadores.reduce((s, e) => s + (e.canais[canal]?.qtd || 0), 0);
+                          return <TableCell key={canal} className="text-center">{totalCanal}</TableCell>;
+                        })}
+                        <TableCell className="text-center">{dadosEntregadorCanal.entregadores.reduce((s, e) => s + e.totalQtd, 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(dadosEntregadorCanal.entregadores.reduce((s, e) => s + e.totalValor, 0))}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Tab Por Canal */}
