@@ -112,6 +112,7 @@ import EntregadorDespesas from "./pages/entregador/EntregadorDespesas";
 import EntregadorPerfil from "./pages/entregador/EntregadorPerfil";
 import EntregadorHistorico from "./pages/entregador/EntregadorHistorico";
 import EntregadorIniciarJornada from "./pages/entregador/EntregadorIniciarJornada";
+import EntregadorConfiguracoes from "./pages/entregador/EntregadorConfiguracoes";
 
 // Gestão Operacional - Rotas e Escalas
 import GestaoRotas from "./pages/operacional/GestaoRotas";
@@ -571,6 +572,11 @@ const App = () => (
                   <Route path="/entregador/perfil" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <EntregadorPerfil />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/configuracoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorConfiguracoes />
                     </ProtectedRoute>
                   } />
                   
