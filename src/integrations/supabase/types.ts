@@ -1060,7 +1060,8 @@ export type Database = {
           created_at: string
           dias_semana: string | null
           entrada: string
-          funcionario_id: string
+          entregador_id: string | null
+          funcionario_id: string | null
           id: string
           intervalo: string | null
           saida: string
@@ -1072,7 +1073,8 @@ export type Database = {
           created_at?: string
           dias_semana?: string | null
           entrada?: string
-          funcionario_id: string
+          entregador_id?: string | null
+          funcionario_id?: string | null
           id?: string
           intervalo?: string | null
           saida?: string
@@ -1084,7 +1086,8 @@ export type Database = {
           created_at?: string
           dias_semana?: string | null
           entrada?: string
-          funcionario_id?: string
+          entregador_id?: string | null
+          funcionario_id?: string | null
           id?: string
           intervalo?: string | null
           saida?: string
@@ -1093,6 +1096,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "horarios_funcionario_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "horarios_funcionario_funcionario_id_fkey"
             columns: ["funcionario_id"]
