@@ -375,39 +375,54 @@ export type Database = {
       }
       compras: {
         Row: {
+          chave_nfe: string | null
           created_at: string
+          data_compra: string | null
+          data_pagamento: string | null
           data_prevista: string | null
           data_recebimento: string | null
           fornecedor_id: string | null
           id: string
+          numero_nota_fiscal: string | null
           observacoes: string | null
           status: string | null
           unidade_id: string | null
           updated_at: string
+          valor_frete: number | null
           valor_total: number | null
         }
         Insert: {
+          chave_nfe?: string | null
           created_at?: string
+          data_compra?: string | null
+          data_pagamento?: string | null
           data_prevista?: string | null
           data_recebimento?: string | null
           fornecedor_id?: string | null
           id?: string
+          numero_nota_fiscal?: string | null
           observacoes?: string | null
           status?: string | null
           unidade_id?: string | null
           updated_at?: string
+          valor_frete?: number | null
           valor_total?: number | null
         }
         Update: {
+          chave_nfe?: string | null
           created_at?: string
+          data_compra?: string | null
+          data_pagamento?: string | null
           data_prevista?: string | null
           data_recebimento?: string | null
           fornecedor_id?: string | null
           id?: string
+          numero_nota_fiscal?: string | null
           observacoes?: string | null
           status?: string | null
           unidade_id?: string | null
           updated_at?: string
+          valor_frete?: number | null
           valor_total?: number | null
         }
         Relationships: [
