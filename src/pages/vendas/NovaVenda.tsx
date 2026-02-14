@@ -4,6 +4,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingBag } from "lucide-react";
+import { Calendar, ShoppingBag, Sparkles, Loader2, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
@@ -67,6 +68,83 @@ export default function NovaVenda() {
     nome: null,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [aiCommand, setAiCommand] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiCommand = async () => {
+    if (!aiCommand.trim()) return;
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-sales-command", {
+        body: { comando: aiCommand },
+      });
+
+      if (error) throw error;
+
+      // Set customer
+      if (data.cliente_id) {
+        const { data: clienteData } = await supabase
+          .from("clientes")
+          .select("*")
+          .eq("id", data.cliente_id)
+          .single();
+        if (clienteData) {
+          setCustomer({
+            id: clienteData.id,
+            nome: clienteData.nome,
+            telefone: clienteData.telefone || "",
+            endereco: clienteData.endereco || "",
+            numero: "",
+            complemento: "",
+            bairro: clienteData.bairro || "",
+            cep: clienteData.cep || "",
+            observacao: data.observacoes || "",
+          });
+        }
+      } else if (data.cliente_nome) {
+        setCustomer({ ...initialCustomerData, nome: data.cliente_nome, observacao: data.observacoes || "" });
+      }
+
+      // Set items
+      if (data.itens && data.itens.length > 0) {
+        const newItens: ItemVenda[] = data.itens.map((item: any) => ({
+          id: crypto.randomUUID(),
+          produto_id: item.produto_id,
+          nome: item.nome,
+          quantidade: item.quantidade || 1,
+          preco_unitario: item.preco_unitario,
+          total: (item.quantidade || 1) * item.preco_unitario,
+        }));
+        setItens(newItens);
+      }
+
+      // Set payment
+      if (data.forma_pagamento) {
+        const totalItens = (data.itens || []).reduce((a: number, i: any) => a + (i.quantidade || 1) * i.preco_unitario, 0);
+        setPagamentos([{ id: crypto.randomUUID(), forma: data.forma_pagamento, valor: totalItens }]);
+      }
+
+      // Set channel
+      if (data.canal_venda) {
+        setCanalVenda(data.canal_venda);
+      }
+
+      setAiCommand("");
+      toast({
+        title: "Comando interpretado!",
+        description: `Venda pré-preenchida para ${data.cliente_nome || "cliente não identificado"}.`,
+      });
+    } catch (error: any) {
+      console.error("Erro IA:", error);
+      toast({
+        title: "Erro ao interpretar",
+        description: error.message || "Não foi possível processar o comando.",
+        variant: "destructive",
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const totalVenda = itens.reduce((acc, item) => acc + item.total, 0);
 
@@ -256,6 +334,29 @@ export default function NovaVenda() {
           </Badge>
         </div>
 
+        {/* AI Command Bar */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary shrink-0" />
+              <Input
+                placeholder='Ex: "Lançar 2 P13 para Maria Silva no pix" ou "venda para João, botijão P45, dinheiro"'
+                value={aiCommand}
+                onChange={(e) => setAiCommand(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAiCommand()}
+                className="bg-background"
+                disabled={aiLoading}
+              />
+              <Button onClick={handleAiCommand} disabled={aiLoading || !aiCommand.trim()} size="sm" className="shrink-0 gap-1">
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {aiLoading ? "Interpretando..." : "Enviar"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 ml-7">
+              💡 Digite um comando em linguagem natural para pré-preencher a venda automaticamente com IA
+            </p>
+          </CardContent>
+        </Card>
         {/* Layout Principal */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Coluna Esquerda - Formulário */}
