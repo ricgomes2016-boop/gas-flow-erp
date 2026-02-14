@@ -20,7 +20,8 @@ import {
   Settings,
   ChevronRight,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const perfilData = {
   nome: "Carlos Silva",
@@ -55,6 +56,14 @@ const menuItems = [
 ];
 
 export default function EntregadorPerfil() {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
   return (
     <EntregadorLayout title="Perfil">
       <div className="p-4 space-y-4">
@@ -201,6 +210,7 @@ export default function EntregadorPerfil() {
         <Button
           variant="outline"
           className="w-full h-12 text-destructive border-destructive hover:bg-destructive/10"
+          onClick={handleSignOut}
         >
           <LogOut className="h-5 w-5 mr-2" />
           Sair do App
