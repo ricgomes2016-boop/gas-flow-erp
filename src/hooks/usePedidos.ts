@@ -21,9 +21,9 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
         `)
         .order("created_at", { ascending: false });
 
-      // Filtrar por unidade se houver unidade selecionada
+      // Filtrar por unidade se houver unidade selecionada (incluir pedidos sem unidade)
       if (unidadeAtual?.id) {
-        query = query.eq("unidade_id", unidadeAtual.id);
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
       }
 
       // Filtrar por data
@@ -119,12 +119,37 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
     },
   });
 
+  const excluirPedidoMutation = useMutation({
+    mutationFn: async ({ pedidoId }: { pedidoId: string }) => {
+      // First delete pedido_itens
+      const { error: itensError } = await supabase
+        .from("pedido_itens")
+        .delete()
+        .eq("pedido_id", pedidoId);
+
+      if (itensError) throw itensError;
+
+      // Then delete the pedido
+      const { error } = await supabase
+        .from("pedidos")
+        .delete()
+        .eq("id", pedidoId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    },
+  });
+
   return {
     pedidos,
     isLoading,
     error,
     atualizarStatus: atualizarStatusMutation.mutate,
     atribuirEntregador: atribuirEntregadorMutation.mutate,
+    excluirPedido: excluirPedidoMutation.mutate,
     isUpdating: atualizarStatusMutation.isPending || atribuirEntregadorMutation.isPending,
+    isDeleting: excluirPedidoMutation.isPending,
   };
 }
