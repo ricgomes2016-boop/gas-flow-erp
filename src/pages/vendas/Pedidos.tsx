@@ -39,7 +39,10 @@ import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
 
 export default function Pedidos() {
   const navigate = useNavigate();
-  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, isUpdating } = usePedidos();
+  const hoje = new Date().toISOString().split("T")[0];
+  const [dataInicio, setDataInicio] = useState(hoje);
+  const [dataFim, setDataFim] = useState(hoje);
+  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, isUpdating } = usePedidos({ dataInicio, dataFim });
   const [pedidoSelecionado, setPedidoSelecionado] = useState<PedidoFormatado | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [viewDialogAberto, setViewDialogAberto] = useState(false);
@@ -221,13 +224,23 @@ export default function Pedidos() {
         {/* Filtros */}
         <Card>
           <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 items-end">
               <div className="flex-1 min-w-[200px]">
                 <Input
                   placeholder="Buscar por cliente, endereço, ID..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                 />
+              </div>
+              <div className="flex gap-2 items-center">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Data Início</label>
+                  <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-[150px]" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Data Fim</label>
+                  <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-[150px]" />
+                </div>
               </div>
               <Select value={filtroStatus} onValueChange={setFiltroStatus}>
                 <SelectTrigger className="w-[180px]">
@@ -241,7 +254,7 @@ export default function Pedidos() {
                   <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => setBusca("")}>
+              <Button variant="outline" onClick={() => { setBusca(""); setDataInicio(hoje); setDataFim(hoje); setFiltroStatus("todos"); }}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Limpar
               </Button>
