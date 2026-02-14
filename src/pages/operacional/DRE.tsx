@@ -1,150 +1,167 @@
+import { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TrendingUp, TrendingDown, DollarSign, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
-const dre = [
-  { categoria: "Receita Bruta", jan: 98000, fev: 125400, mar: 110000, tipo: "receita" },
-  { categoria: "(-) Deduções", jan: -4900, fev: -6270, mar: -5500, tipo: "deducao" },
-  { categoria: "Receita Líquida", jan: 93100, fev: 119130, mar: 104500, tipo: "subtotal" },
-  { categoria: "(-) CMV", jan: -45000, fev: -52000, mar: -48000, tipo: "custo" },
-  { categoria: "Lucro Bruto", jan: 48100, fev: 67130, mar: 56500, tipo: "subtotal" },
-  { categoria: "(-) Despesas Operacionais", jan: -18000, fev: -20000, mar: -19000, tipo: "despesa" },
-  { categoria: "(-) Despesas Administrativas", jan: -8000, fev: -9000, mar: -8500, tipo: "despesa" },
-  { categoria: "(-) Despesas com Pessoal", jan: -15000, fev: -16000, mar: -15500, tipo: "despesa" },
-  { categoria: "Lucro Operacional", jan: 7100, fev: 22130, mar: 13500, tipo: "subtotal" },
-  { categoria: "(-) Despesas Financeiras", jan: -1200, fev: -1500, mar: -1300, tipo: "despesa" },
-  { categoria: "Lucro Líquido", jan: 5900, fev: 20630, mar: 12200, tipo: "resultado" },
-];
+interface DRELine {
+  categoria: string;
+  valores: number[];
+  tipo: string;
+}
 
 export default function DRE() {
+  const { unidadeAtual } = useUnidade();
+  const [loading, setLoading] = useState(true);
+  const [dre, setDre] = useState<DRELine[]>([]);
+  const [meses, setMeses] = useState<string[]>([]);
+
+  useEffect(() => { fetchData(); }, [unidadeAtual]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const now = new Date();
+      const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      const mesesCalc: string[] = [];
+      const receitaBruta: number[] = [];
+      const cmv: number[] = [];
+      const despOp: number[] = [];
+      const despAdmin: number[] = [];
+      const despPessoal: number[] = [];
+      const despFin: number[] = [];
+
+      // Últimos 3 meses
+      for (let i = 2; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const inicio = d.toISOString();
+        const fim = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString();
+        mesesCalc.push(nomesMeses[d.getMonth()]);
+
+        // Receita bruta = total pedidos
+        let pq = supabase.from("pedidos").select("valor_total").gte("created_at", inicio).lt("created_at", fim).neq("status", "cancelado");
+        if (unidadeAtual?.id) pq = pq.eq("unidade_id", unidadeAtual.id);
+        const { data: pedidos } = await pq;
+        receitaBruta.push(pedidos?.reduce((s, p) => s + (p.valor_total || 0), 0) || 0);
+
+        // Despesas por categoria
+        let dq = supabase.from("movimentacoes_caixa").select("valor, categoria").eq("tipo", "saida").gte("created_at", inicio).lt("created_at", fim);
+        if (unidadeAtual?.id) dq = dq.eq("unidade_id", unidadeAtual.id);
+        const { data: despesas } = await dq;
+
+        let op = 0, admin = 0, pessoal = 0, fin = 0, custo = 0;
+        despesas?.forEach(d => {
+          const cat = (d.categoria || "").toLowerCase();
+          const val = Number(d.valor) || 0;
+          if (cat.includes("mercadoria") || cat.includes("compra") || cat.includes("estoque")) custo += val;
+          else if (cat.includes("pessoal") || cat.includes("salário") || cat.includes("salario")) pessoal += val;
+          else if (cat.includes("financ")) fin += val;
+          else if (cat.includes("admin")) admin += val;
+          else op += val;
+        });
+        cmv.push(custo);
+        despOp.push(op);
+        despAdmin.push(admin);
+        despPessoal.push(pessoal);
+        despFin.push(fin);
+      }
+
+      setMeses(mesesCalc);
+
+      const deducoes = receitaBruta.map(r => r * 0.05);
+      const receitaLiquida = receitaBruta.map((r, i) => r - deducoes[i]);
+      const lucroBruto = receitaLiquida.map((r, i) => r - cmv[i]);
+      const lucroOp = lucroBruto.map((r, i) => r - despOp[i] - despAdmin[i] - despPessoal[i]);
+      const lucroLiquido = lucroOp.map((r, i) => r - despFin[i]);
+
+      setDre([
+        { categoria: "Receita Bruta", valores: receitaBruta, tipo: "receita" },
+        { categoria: "(-) Deduções", valores: deducoes.map(v => -v), tipo: "deducao" },
+        { categoria: "Receita Líquida", valores: receitaLiquida, tipo: "subtotal" },
+        { categoria: "(-) CMV", valores: cmv.map(v => -v), tipo: "custo" },
+        { categoria: "Lucro Bruto", valores: lucroBruto, tipo: "subtotal" },
+        { categoria: "(-) Despesas Operacionais", valores: despOp.map(v => -v), tipo: "despesa" },
+        { categoria: "(-) Despesas Administrativas", valores: despAdmin.map(v => -v), tipo: "despesa" },
+        { categoria: "(-) Despesas com Pessoal", valores: despPessoal.map(v => -v), tipo: "despesa" },
+        { categoria: "Lucro Operacional", valores: lucroOp, tipo: "subtotal" },
+        { categoria: "(-) Despesas Financeiras", valores: despFin.map(v => -v), tipo: "despesa" },
+        { categoria: "Lucro Líquido", valores: lucroLiquido, tipo: "resultado" },
+      ]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
-    const formatted = Math.abs(value).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+    const formatted = Math.abs(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     return value < 0 ? `(${formatted})` : formatted;
   };
 
   const getRowClass = (tipo: string) => {
     switch (tipo) {
-      case "subtotal":
-        return "bg-muted/50 font-medium";
-      case "resultado":
-        return "bg-primary/10 font-bold";
-      default:
-        return "";
+      case "subtotal": return "bg-muted/50 font-medium";
+      case "resultado": return "bg-primary/10 font-bold";
+      default: return "";
     }
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
+        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+      </MainLayout>
+    );
+  }
+
+  const totalReceita = dre.find(d => d.categoria === "Receita Bruta")?.valores.reduce((s, v) => s + v, 0) || 0;
+  const totalCustos = dre.filter(d => d.tipo !== "receita" && d.tipo !== "subtotal" && d.tipo !== "resultado").reduce((s, d) => s + d.valores.reduce((a, v) => a + Math.abs(v), 0), 0);
+  const totalLucro = dre.find(d => d.categoria === "Lucro Líquido")?.valores.reduce((s, v) => s + v, 0) || 0;
 
   return (
     <MainLayout>
       <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            DRE - Demonstração do Resultado
-          </h1>
-          <p className="text-muted-foreground">
-            Demonstrativo de Resultado do Exercício
-          </p>
+          <h1 className="text-2xl font-bold text-foreground">DRE - Demonstração do Resultado</h1>
+          <p className="text-muted-foreground">Demonstrativo de Resultado do Exercício</p>
         </div>
 
-        {/* Resumo */}
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <TrendingUp className="h-6 w-6 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">R$ 333.4k</p>
-                  <p className="text-sm text-muted-foreground">Receita Trimestre</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-destructive/10">
-                  <TrendingDown className="h-6 w-6 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">R$ 294.7k</p>
-                  <p className="text-sm text-muted-foreground">Custos Trimestre</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <DollarSign className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">R$ 38.7k</p>
-                  <p className="text-sm text-muted-foreground">Lucro Trimestre</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-green-500/10"><TrendingUp className="h-6 w-6 text-green-500" /></div><div><p className="text-2xl font-bold">R$ {(totalReceita / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Receita Trimestre</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-destructive/10"><TrendingDown className="h-6 w-6 text-destructive" /></div><div><p className="text-2xl font-bold">R$ {(totalCustos / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Custos Trimestre</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">R$ {(totalLucro / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Lucro Trimestre</p></div></div></CardContent></Card>
         </div>
 
-        {/* DRE Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Demonstrativo Trimestral</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Demonstrativo Trimestral</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[300px]">Descrição</TableHead>
-                  <TableHead className="text-right">Janeiro</TableHead>
-                  <TableHead className="text-right">Fevereiro</TableHead>
-                  <TableHead className="text-right">Março</TableHead>
+                  {meses.map(m => <TableHead key={m} className="text-right">{m}</TableHead>)}
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dre.map((item, index) => (
-                  <TableRow key={index} className={getRowClass(item.tipo)}>
-                    <TableCell>{item.categoria}</TableCell>
-                    <TableCell
-                      className={`text-right ${item.jan < 0 ? "text-destructive" : ""}`}
-                    >
-                      {formatCurrency(item.jan)}
-                    </TableCell>
-                    <TableCell
-                      className={`text-right ${item.fev < 0 ? "text-destructive" : ""}`}
-                    >
-                      {formatCurrency(item.fev)}
-                    </TableCell>
-                    <TableCell
-                      className={`text-right ${item.mar < 0 ? "text-destructive" : ""}`}
-                    >
-                      {formatCurrency(item.mar)}
-                    </TableCell>
-                    <TableCell
-                      className={`text-right ${
-                        item.jan + item.fev + item.mar < 0 ? "text-destructive" : ""
-                      }`}
-                    >
-                      {formatCurrency(item.jan + item.fev + item.mar)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {dre.map((item, index) => {
+                  const total = item.valores.reduce((s, v) => s + v, 0);
+                  return (
+                    <TableRow key={index} className={getRowClass(item.tipo)}>
+                      <TableCell>{item.categoria}</TableCell>
+                      {item.valores.map((v, i) => (
+                        <TableCell key={i} className={`text-right ${v < 0 ? "text-destructive" : ""}`}>{formatCurrency(v)}</TableCell>
+                      ))}
+                      <TableCell className={`text-right ${total < 0 ? "text-destructive" : ""}`}>{formatCurrency(total)}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
