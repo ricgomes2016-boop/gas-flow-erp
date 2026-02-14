@@ -95,18 +95,26 @@ Deno.serve(async (req) => {
 
       if (createError) throw createError;
 
-      if (phone && newUser.user) {
-        await supabaseAdmin
-          .from("profiles")
-          .update({ phone })
-          .eq("user_id", newUser.user.id);
-      }
+      if (newUser.user) {
+        // Wait briefly for the trigger to create profile/role
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (role !== "operacional" && newUser.user) {
+        if (phone) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({ phone })
+            .eq("user_id", newUser.user.id);
+        }
+
+        // Delete any auto-created role and insert the correct one
         await supabaseAdmin
           .from("user_roles")
-          .update({ role })
+          .delete()
           .eq("user_id", newUser.user.id);
+
+        await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: newUser.user.id, role });
       }
 
       return new Response(JSON.stringify({ success: true, user_id: newUser.user?.id }), {
