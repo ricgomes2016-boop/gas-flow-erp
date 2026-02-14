@@ -4,6 +4,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Flame, Cylinder, Package } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -229,7 +230,10 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                       className={isVazio ? "bg-muted/20" : ""}
                     >
                       <TableCell className="font-medium">
-                        {isCheio ? `Gás ${linha.nome}` : isVazio ? `Vasilhame ${linha.nome}` : linha.nome}
+                        <span className="flex items-center gap-1.5">
+                          {isCheio ? <Flame className="h-4 w-4 text-orange-500" /> : isVazio ? <Cylinder className="h-4 w-4 text-muted-foreground" /> : <Package className="h-4 w-4 text-muted-foreground" />}
+                          {isCheio ? `Gás ${linha.nome}` : isVazio ? `Vasilhame ${linha.nome}` : linha.nome}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <Badge variant={isCheio ? "default" : isVazio ? "secondary" : "outline"} className="text-xs">
