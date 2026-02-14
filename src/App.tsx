@@ -108,6 +108,11 @@ import EntregadorRotas from "./pages/entregador/EntregadorRotas";
 import EntregadorNovaVenda from "./pages/entregador/EntregadorNovaVenda";
 import EntregadorDespesas from "./pages/entregador/EntregadorDespesas";
 import EntregadorPerfil from "./pages/entregador/EntregadorPerfil";
+import EntregadorIniciarJornada from "./pages/entregador/EntregadorIniciarJornada";
+
+// Gestão Operacional - Rotas e Escalas
+import GestaoRotas from "./pages/operacional/GestaoRotas";
+import GestaoEscalas from "./pages/operacional/GestaoEscalas";
 
 // App Cliente
 import ClienteHome from "./pages/cliente/ClienteHome";
@@ -502,10 +507,27 @@ const App = () => (
                     </ProtectedRoute>
                   } />
                   
+                  {/* Gestão de Rotas e Escalas - Admin */}
+                  <Route path="/operacional/rotas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <GestaoRotas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/escalas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <GestaoEscalas />
+                    </ProtectedRoute>
+                  } />
+                  
                   {/* App Entregador */}
                   <Route path="/entregador" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <EntregadorDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/jornada" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorIniciarJornada />
                     </ProtectedRoute>
                   } />
                   <Route path="/entregador/entregas" element={

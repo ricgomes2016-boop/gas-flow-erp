@@ -721,6 +721,70 @@ export type Database = {
         }
         Relationships: []
       }
+      escalas_entregador: {
+        Row: {
+          created_at: string
+          data: string
+          entregador_id: string
+          id: string
+          observacoes: string | null
+          rota_definida_id: string | null
+          status: string
+          turno_fim: string
+          turno_inicio: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          entregador_id: string
+          id?: string
+          observacoes?: string | null
+          rota_definida_id?: string | null
+          status?: string
+          turno_fim?: string
+          turno_inicio?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          entregador_id?: string
+          id?: string
+          observacoes?: string | null
+          rota_definida_id?: string | null
+          status?: string
+          turno_fim?: string
+          turno_inicio?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalas_entregador_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalas_entregador_rota_definida_id_fkey"
+            columns: ["rota_definida_id"]
+            isOneToOne: false
+            referencedRelation: "rotas_definidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalas_entregador_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       extrato_bancario: {
         Row: {
           conciliado: boolean
@@ -1565,6 +1629,50 @@ export type Database = {
             columns: ["veiculo_id"]
             isOneToOne: false
             referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotas_definidas: {
+        Row: {
+          ativo: boolean | null
+          bairros: string[]
+          created_at: string
+          distancia_km: number | null
+          id: string
+          nome: string
+          tempo_estimado: string | null
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          bairros?: string[]
+          created_at?: string
+          distancia_km?: number | null
+          id?: string
+          nome: string
+          tempo_estimado?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          bairros?: string[]
+          created_at?: string
+          distancia_km?: number | null
+          id?: string
+          nome?: string
+          tempo_estimado?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotas_definidas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
             referencedColumns: ["id"]
           },
         ]
