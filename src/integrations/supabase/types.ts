@@ -466,6 +466,50 @@ export type Database = {
           },
         ]
       }
+      documentos_contabeis: {
+        Row: {
+          arquivo_url: string | null
+          created_at: string
+          gerado_em: string | null
+          id: string
+          periodo: string
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          arquivo_url?: string | null
+          created_at?: string
+          gerado_em?: string | null
+          id?: string
+          periodo: string
+          status?: string
+          tipo: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          arquivo_url?: string | null
+          created_at?: string
+          gerado_em?: string | null
+          id?: string
+          periodo?: string
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_contabeis_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entregadores: {
         Row: {
           ativo: boolean | null
@@ -513,6 +557,60 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      extrato_bancario: {
+        Row: {
+          conciliado: boolean
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+          pedido_id: string | null
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          conciliado?: boolean
+          created_at?: string
+          data?: string
+          descricao: string
+          id?: string
+          pedido_id?: string | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          conciliado?: boolean
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          pedido_id?: string | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extrato_bancario_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extrato_bancario_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fornecedores: {
         Row: {

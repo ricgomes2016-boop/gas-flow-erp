@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,18 +13,48 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Link2 } from "lucide-react";
-
-const extratoBancario = [
-  { id: 1, data: "2024-01-16", descricao: "PIX RECEBIDO - JOAO SILVA", valor: 110.00, tipo: "credito", conciliado: true },
-  { id: 2, data: "2024-01-16", descricao: "PIX RECEBIDO - MARIA SANTOS", valor: 180.00, tipo: "credito", conciliado: true },
-  { id: 3, data: "2024-01-16", descricao: "PAGTO BOLETO - DISTRIBUIDORA ABC", valor: -5200.00, tipo: "debito", conciliado: true },
-  { id: 4, data: "2024-01-15", descricao: "TED RECEBIDA - EMPRESA XYZ", valor: 3500.00, tipo: "credito", conciliado: false },
-  { id: 5, data: "2024-01-15", descricao: "TARIFA BANCARIA", valor: -45.00, tipo: "debito", conciliado: false },
-];
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { toast } from "sonner";
 
 export default function Conciliacao() {
-  const conciliados = extratoBancario.filter(e => e.conciliado).length;
-  const pendentes = extratoBancario.filter(e => !e.conciliado).length;
+  const { unidadeAtual } = useUnidade();
+  const queryClient = useQueryClient();
+
+  const { data: extrato = [], isLoading } = useQuery({
+    queryKey: ["extrato_bancario", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase
+        .from("extrato_bancario")
+        .select("*")
+        .order("data", { ascending: false });
+
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const conciliarMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("extrato_bancario")
+        .update({ conciliado: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["extrato_bancario"] });
+      toast.success("Lançamento conciliado com sucesso!");
+    },
+  });
+
+  const conciliados = extrato.filter((e: any) => e.conciliado).length;
+  const pendentes = extrato.filter((e: any) => !e.conciliado).length;
+  const saldoExtrato = extrato.reduce((acc: number, e: any) => acc + Number(e.valor), 0);
 
   return (
     <MainLayout>
@@ -53,7 +84,7 @@ export default function Conciliacao() {
               <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{extratoBancario.length}</div>
+              <div className="text-2xl font-bold">{extrato.length}</div>
               <p className="text-xs text-muted-foreground">Total importados</p>
             </CardContent>
           </Card>
@@ -64,7 +95,9 @@ export default function Conciliacao() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{conciliados}</div>
-              <p className="text-xs text-muted-foreground">{Math.round(conciliados/extratoBancario.length*100)}% do total</p>
+              <p className="text-xs text-muted-foreground">
+                {extrato.length > 0 ? `${Math.round(conciliados / extrato.length * 100)}% do total` : "0%"}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -83,8 +116,10 @@ export default function Conciliacao() {
               <FileSpreadsheet className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">R$ 45.680</div>
-              <p className="text-xs text-muted-foreground">Confere com sistema</p>
+              <div className="text-2xl font-bold text-blue-600">
+                R$ {saldoExtrato.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-xs text-muted-foreground">Saldo calculado</p>
             </CardContent>
           </Card>
         </div>
@@ -94,47 +129,58 @@ export default function Conciliacao() {
             <CardTitle>Extrato Importado</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {extratoBancario.map((lancamento) => (
-                  <TableRow key={lancamento.id}>
-                    <TableCell>{new Date(lancamento.data).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="font-medium">{lancamento.descricao}</TableCell>
-                    <TableCell>
-                      <Badge variant={lancamento.tipo === "credito" ? "default" : "secondary"}>
-                        {lancamento.tipo === "credito" ? "Crédito" : "Débito"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className={`font-medium ${lancamento.valor > 0 ? "text-green-600" : "text-red-600"}`}>
-                      R$ {Math.abs(lancamento.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={lancamento.conciliado ? "default" : "secondary"}>
-                        {lancamento.conciliado ? "Conciliado" : "Pendente"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {!lancamento.conciliado && (
-                        <Button size="sm" className="gap-1">
-                          <Link2 className="h-3 w-3" />
-                          Vincular
-                        </Button>
-                      )}
-                    </TableCell>
+            {isLoading ? (
+              <p className="text-muted-foreground text-center py-8">Carregando...</p>
+            ) : extrato.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Nenhum lançamento importado ainda.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {extrato.map((lancamento: any) => (
+                    <TableRow key={lancamento.id}>
+                      <TableCell>{new Date(lancamento.data).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell className="font-medium">{lancamento.descricao}</TableCell>
+                      <TableCell>
+                        <Badge variant={lancamento.tipo === "credito" ? "default" : "secondary"}>
+                          {lancamento.tipo === "credito" ? "Crédito" : "Débito"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className={`font-medium ${Number(lancamento.valor) > 0 ? "text-green-600" : "text-red-600"}`}>
+                        R$ {Math.abs(Number(lancamento.valor)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={lancamento.conciliado ? "default" : "secondary"}>
+                          {lancamento.conciliado ? "Conciliado" : "Pendente"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {!lancamento.conciliado && (
+                          <Button
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => conciliarMutation.mutate(lancamento.id)}
+                            disabled={conciliarMutation.isPending}
+                          >
+                            <Link2 className="h-3 w-3" />
+                            Vincular
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

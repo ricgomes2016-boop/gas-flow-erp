@@ -4,23 +4,131 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Calendar, DollarSign, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-
-const previsaoData = [
-  { mes: "Jan", realizado: 85000, previsto: 80000 },
-  { mes: "Fev", realizado: 92000, previsto: 88000 },
-  { mes: "Mar", realizado: 78000, previsto: 85000 },
-  { mes: "Abr", realizado: null, previsto: 90000 },
-  { mes: "Mai", realizado: null, previsto: 95000 },
-  { mes: "Jun", realizado: null, previsto: 100000 },
-];
-
-const projecoes = [
-  { periodo: "Próxima Semana", entrada: 45000, saida: 32000, saldo: 13000 },
-  { periodo: "Próximo Mês", entrada: 180000, saida: 145000, saldo: 35000 },
-  { periodo: "Próximo Trimestre", entrada: 540000, saida: 420000, saldo: 120000 },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { format, addDays, addMonths, startOfDay, endOfDay, startOfMonth, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function PrevisaoCaixa() {
+  const { unidadeAtual } = useUnidade();
+
+  // Saldo atual from movimentacoes_caixa
+  const { data: saldoAtual = 0 } = useQuery({
+    queryKey: ["previsao_saldo", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase
+        .from("movimentacoes_caixa")
+        .select("tipo, valor")
+        .eq("status", "aprovada");
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).reduce((acc, m) => {
+        return acc + (m.tipo === "entrada" ? Number(m.valor) : -Number(m.valor));
+      }, 0);
+    },
+  });
+
+  // Contas a receber (próximos 30, 90 dias)
+  const { data: aReceber = [] } = useQuery({
+    queryKey: ["previsao_receber", unidadeAtual?.id],
+    queryFn: async () => {
+      const limite = format(addMonths(new Date(), 3), "yyyy-MM-dd");
+      let query = supabase
+        .from("contas_receber")
+        .select("valor, vencimento, status")
+        .eq("status", "pendente")
+        .lte("vencimento", limite);
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Contas a pagar (próximos 30, 90 dias)
+  const { data: aPagar = [] } = useQuery({
+    queryKey: ["previsao_pagar", unidadeAtual?.id],
+    queryFn: async () => {
+      const limite = format(addMonths(new Date(), 3), "yyyy-MM-dd");
+      let query = supabase
+        .from("contas_pagar")
+        .select("valor, vencimento, status")
+        .eq("status", "pendente")
+        .lte("vencimento", limite);
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Histórico mensal de movimentações (últimos 6 meses)
+  const { data: historicoMensal = [] } = useQuery({
+    queryKey: ["previsao_historico", unidadeAtual?.id],
+    queryFn: async () => {
+      const inicio = format(subMonths(startOfMonth(new Date()), 5), "yyyy-MM-dd");
+      let query = supabase
+        .from("movimentacoes_caixa")
+        .select("tipo, valor, created_at")
+        .eq("status", "aprovada")
+        .gte("created_at", inicio);
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Compute chart data from historical movements
+  const chartData = (() => {
+    const meses: Record<string, { entradas: number; saidas: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = subMonths(new Date(), i);
+      const key = format(d, "yyyy-MM");
+      meses[key] = { entradas: 0, saidas: 0 };
+    }
+    historicoMensal.forEach((m: any) => {
+      const key = format(new Date(m.created_at), "yyyy-MM");
+      if (meses[key]) {
+        if (m.tipo === "entrada") meses[key].entradas += Number(m.valor);
+        else meses[key].saidas += Number(m.valor);
+      }
+    });
+    return Object.entries(meses).map(([key, val]) => ({
+      mes: format(new Date(key + "-01"), "MMM", { locale: ptBR }),
+      entradas: val.entradas,
+      saidas: val.saidas,
+    }));
+  })();
+
+  // Compute projections
+  const hoje = new Date();
+  const em7dias = format(addDays(hoje, 7), "yyyy-MM-dd");
+  const em30dias = format(addDays(hoje, 30), "yyyy-MM-dd");
+  const em90dias = format(addDays(hoje, 90), "yyyy-MM-dd");
+
+  const calcProjecao = (limite: string) => {
+    const entrada = aReceber
+      .filter((r: any) => r.vencimento <= limite)
+      .reduce((s: number, r: any) => s + Number(r.valor), 0);
+    const saida = aPagar
+      .filter((p: any) => p.vencimento <= limite)
+      .reduce((s: number, p: any) => s + Number(p.valor), 0);
+    return { entrada, saida, saldo: entrada - saida };
+  };
+
+  const projecoes = [
+    { periodo: "Próxima Semana", ...calcProjecao(em7dias) },
+    { periodo: "Próximo Mês", ...calcProjecao(em30dias) },
+    { periodo: "Próximo Trimestre", ...calcProjecao(em90dias) },
+  ];
+
+  const receber30 = projecoes[1].entrada;
+  const previsao30 = saldoAtual + projecoes[1].saldo;
+  const alertas = projecoes.filter((p) => p.saldo < 0).length;
+
   return (
     <MainLayout>
       <Header title="Previsão de Caixa" subtitle="Projeções financeiras baseadas em histórico" />
@@ -28,11 +136,7 @@ export default function PrevisaoCaixa() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Previsão de Caixa</h1>
-            <p className="text-muted-foreground">Projeções financeiras baseadas em histórico</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline">Configurar Parâmetros</Button>
-            <Button>Gerar Nova Projeção</Button>
+            <p className="text-muted-foreground">Projeções financeiras baseadas em dados reais</p>
           </div>
         </div>
 
@@ -43,7 +147,9 @@ export default function PrevisaoCaixa() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">R$ 45.680</div>
+              <div className="text-2xl font-bold">
+                R$ {saldoAtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </div>
               <p className="text-xs text-muted-foreground">Base para projeção</p>
             </CardContent>
           </Card>
@@ -53,8 +159,10 @@ export default function PrevisaoCaixa() {
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">R$ 80.680</div>
-              <p className="text-xs text-muted-foreground">+R$ 35.000 previstos</p>
+              <div className={`text-2xl font-bold ${previsao30 >= 0 ? "text-green-600" : "text-red-600"}`}>
+                R$ {previsao30.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-xs text-muted-foreground">Saldo previsto</p>
             </CardContent>
           </Card>
           <Card>
@@ -63,7 +171,9 @@ export default function PrevisaoCaixa() {
               <Calendar className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">R$ 28.500</div>
+              <div className="text-2xl font-bold text-blue-600">
+                R$ {receber30.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </div>
               <p className="text-xs text-muted-foreground">Próximos 30 dias</p>
             </CardContent>
           </Card>
@@ -73,26 +183,26 @@ export default function PrevisaoCaixa() {
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">3</div>
-              <p className="text-xs text-muted-foreground">Períodos críticos</p>
+              <div className="text-2xl font-bold text-yellow-600">{alertas}</div>
+              <p className="text-xs text-muted-foreground">Períodos com saldo negativo</p>
             </CardContent>
           </Card>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Comparativo Realizado vs Previsto</CardTitle>
+            <CardTitle>Histórico Mensal - Entradas vs Saídas</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={previsaoData}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="mes" />
                 <YAxis />
-                <Tooltip formatter={(value) => value ? `R$ ${Number(value).toLocaleString('pt-BR')}` : 'N/A'} />
+                <Tooltip formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR")}`} />
                 <Legend />
-                <Line type="monotone" dataKey="realizado" stroke="#22c55e" strokeWidth={2} name="Realizado" connectNulls={false} />
-                <Line type="monotone" dataKey="previsto" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" name="Previsto" />
+                <Line type="monotone" dataKey="entradas" stroke="#22c55e" strokeWidth={2} name="Entradas" />
+                <Line type="monotone" dataKey="saidas" stroke="#ef4444" strokeWidth={2} name="Saídas" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -107,15 +217,21 @@ export default function PrevisaoCaixa() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Entradas Previstas</span>
-                  <span className="font-medium text-green-600">R$ {proj.entrada.toLocaleString('pt-BR')}</span>
+                  <span className="font-medium text-green-600">
+                    R$ {proj.entrada.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Saídas Previstas</span>
-                  <span className="font-medium text-red-600">R$ {proj.saida.toLocaleString('pt-BR')}</span>
+                  <span className="font-medium text-red-600">
+                    R$ {proj.saida.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
                 <div className="border-t pt-2 flex justify-between">
                   <span className="font-medium">Saldo Previsto</span>
-                  <span className="font-bold text-blue-600">R$ {proj.saldo.toLocaleString('pt-BR')}</span>
+                  <span className={`font-bold ${proj.saldo >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                    R$ {proj.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               </CardContent>
             </Card>
