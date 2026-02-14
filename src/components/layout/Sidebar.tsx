@@ -72,6 +72,8 @@ const menuItems: MenuItem[] = [
       { label: "Central de Indicadores", path: "/operacional/indicadores" },
       { label: "Centro de Operações", path: "/operacional/centro" },
       { label: "Alertas Inteligentes", path: "/operacional/alertas" },
+      { label: "Rotas de Entrega", path: "/operacional/rotas" },
+      { label: "Escalas de Entregadores", path: "/operacional/escalas" },
       { label: "Análise de Concorrência", path: "/operacional/concorrencia" },
       { label: "Conselhos IA", path: "/operacional/ia" },
       { label: "DRE", path: "/operacional/dre" },
@@ -355,10 +357,10 @@ export function Sidebar() {
                     <div
                       className={cn(
                         "overflow-hidden transition-all duration-200",
-                        isOpen ? "max-h-[320px] opacity-100" : "max-h-0 opacity-0"
+                        isOpen ? "max-h-[420px] opacity-100" : "max-h-0 opacity-0"
                       )}
                     >
-                      <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-4 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
+                      <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-4 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
                         {item.submenu?.map((subItem) => (
                           <Link
                             key={subItem.path}

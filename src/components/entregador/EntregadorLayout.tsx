@@ -22,6 +22,7 @@ interface EntregadorLayoutProps {
 
 const menuItems = [
   { path: "/entregador", icon: Home, label: "Início" },
+  { path: "/entregador/jornada", icon: Flame, label: "Jornada" },
   { path: "/entregador/entregas", icon: Package, label: "Entregas" },
   { path: "/entregador/rotas", icon: MapPin, label: "Rotas" },
   { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
