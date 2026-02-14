@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -28,14 +28,32 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles, User, RefreshCw } from "lucide-react";
+import {
+  Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles,
+  User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
+  Share2, DollarSign,
+} from "lucide-react";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
 import { useToast } from "@/hooks/use-toast";
 import { PedidoViewDialog } from "@/components/pedidos/PedidoViewDialog";
 import { StatusDropdown } from "@/components/pedidos/StatusDropdown";
 import { usePedidos } from "@/hooks/usePedidos";
 import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Entregador {
+  id: string;
+  nome: string;
+  status: string | null;
+}
 
 export default function Pedidos() {
   const navigate = useNavigate();
@@ -51,6 +69,26 @@ export default function Pedidos() {
   const [busca, setBusca] = useState("");
   const { toast } = useToast();
 
+  // Transferir entregador
+  const [transferDialogAberto, setTransferDialogAberto] = useState(false);
+  const [pedidoTransferir, setPedidoTransferir] = useState<PedidoFormatado | null>(null);
+  const [entregadores, setEntregadores] = useState<Entregador[]>([]);
+  const [loadingEntregadores, setLoadingEntregadores] = useState(false);
+
+  useEffect(() => {
+    const fetchEntregadores = async () => {
+      setLoadingEntregadores(true);
+      const { data } = await supabase
+        .from("entregadores")
+        .select("id, nome, status")
+        .eq("ativo", true)
+        .order("nome");
+      if (data) setEntregadores(data);
+      setLoadingEntregadores(false);
+    };
+    fetchEntregadores();
+  }, []);
+
   const handleAtribuirEntregador = (pedidoId: string, entregadorId: string, entregadorNome: string) => {
     atribuirEntregador(
       { pedidoId, entregadorId },
@@ -61,6 +99,7 @@ export default function Pedidos() {
             description: `${entregadorNome} foi atribuído ao pedido.`,
           });
           setDialogAberto(false);
+          setTransferDialogAberto(false);
         },
         onError: (error) => {
           toast({
@@ -103,16 +142,16 @@ export default function Pedidos() {
 
   const cancelarPedido = (pedidoId: string) => {
     alterarStatusPedido(pedidoId, "cancelado");
-    toast({
-      title: "Pedido cancelado",
-      description: "O pedido foi cancelado.",
-      variant: "destructive",
-    });
   };
 
   const abrirVisualizacao = (pedido: PedidoFormatado) => {
     setPedidoView(pedido);
     setViewDialogAberto(true);
+  };
+
+  const abrirTransferencia = (pedido: PedidoFormatado) => {
+    setPedidoTransferir(pedido);
+    setTransferDialogAberto(true);
   };
 
   const editarPedido = (pedidoId: string) => {
@@ -126,7 +165,8 @@ export default function Pedidos() {
       busca === "" ||
       p.cliente.toLowerCase().includes(busca.toLowerCase()) ||
       p.endereco.toLowerCase().includes(busca.toLowerCase()) ||
-      p.id.toLowerCase().includes(busca.toLowerCase());
+      p.id.toLowerCase().includes(busca.toLowerCase()) ||
+      (p.entregador && p.entregador.toLowerCase().includes(busca.toLowerCase()));
     return matchStatus && matchBusca;
   });
 
@@ -137,11 +177,25 @@ export default function Pedidos() {
     pendente: pedidos.filter((p) => p.status === "pendente").length,
     em_rota: pedidos.filter((p) => p.status === "em_rota").length,
     entregue: pedidos.filter((p) => p.status === "entregue").length,
+    cancelado: pedidos.filter((p) => p.status === "cancelado").length,
     total: pedidos.filter((p) => p.status !== "cancelado").reduce((acc, p) => acc + p.valor, 0),
   };
 
   // ID curto para exibição
   const getIdCurto = (id: string) => id.substring(0, 8).toUpperCase();
+
+  const getStatusBadgeEntregador = (status: string | null) => {
+    switch (status) {
+      case "disponivel":
+        return <Badge variant="default" className="text-[10px] ml-2">Disponível</Badge>;
+      case "em_rota":
+        return <Badge variant="secondary" className="text-[10px] ml-2">Em Rota</Badge>;
+      case "indisponivel":
+        return <Badge variant="destructive" className="text-[10px] ml-2">Indisponível</Badge>;
+      default:
+        return null;
+    }
+  };
 
   return (
     <MainLayout>
@@ -227,7 +281,7 @@ export default function Pedidos() {
             <div className="flex flex-wrap gap-4 items-end">
               <div className="flex-1 min-w-[200px]">
                 <Input
-                  placeholder="Buscar por cliente, endereço, ID..."
+                  placeholder="Buscar por cliente, endereço, entregador, ID..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                 />
@@ -263,7 +317,7 @@ export default function Pedidos() {
         </Card>
 
         {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -293,8 +347,8 @@ export default function Pedidos() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-success/10">
-                  <CheckCircle className="h-6 w-6 text-success" />
+                <div className="p-3 rounded-lg bg-emerald-500/10">
+                  <CheckCircle className="h-6 w-6 text-emerald-500" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{contadores.entregue}</p>
@@ -306,8 +360,21 @@ export default function Pedidos() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-destructive/10">
+                  <XCircle className="h-6 w-6 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{contadores.cancelado}</p>
+                  <p className="text-sm text-muted-foreground">Cancelados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-primary/10">
-                  <Search className="h-6 w-6 text-primary" />
+                  <DollarSign className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
@@ -323,7 +390,9 @@ export default function Pedidos() {
         {/* Tabela */}
         <Card>
           <CardHeader>
-            <CardTitle>Pedidos</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Pedidos ({pedidosFiltrados.length})</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -348,12 +417,12 @@ export default function Pedidos() {
                     <TableHead>Valor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data/Hora</TableHead>
-                    <TableHead className="w-16"></TableHead>
+                    <TableHead className="w-16">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pedidosFiltrados.map((pedido) => (
-                    <TableRow key={pedido.id}>
+                    <TableRow key={pedido.id} className={pedido.status === "cancelado" ? "opacity-60" : ""}>
                       <TableCell>
                         <Button
                           variant="link"
@@ -363,48 +432,32 @@ export default function Pedidos() {
                           #{getIdCurto(pedido.id)}
                         </Button>
                       </TableCell>
-                      <TableCell>{pedido.cliente}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{pedido.endereco}</TableCell>
+                      <TableCell className="font-medium">{pedido.cliente}</TableCell>
+                      <TableCell className="max-w-[200px] truncate text-muted-foreground">{pedido.endereco}</TableCell>
                       <TableCell className="max-w-[150px] truncate">{pedido.produtos}</TableCell>
                       <TableCell>
                         {pedido.entregador ? (
-                          <Badge variant="outline">{pedido.entregador}</Badge>
-                        ) : pedido.status === "pendente" ? (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-primary"
-                                onClick={() => setPedidoSelecionado(pedido)}
-                              >
-                                <Sparkles className="h-3 w-3 mr-1" />
-                                Sugerir
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Sugerir Entregador</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 mt-4">
-                                <div className="p-4 bg-muted rounded-lg">
-                                  <p className="font-medium">{pedido.cliente}</p>
-                                  <p className="text-sm text-muted-foreground">{pedido.endereco}</p>
-                                </div>
-                                <SugestaoEntregador
-                                  endereco={pedido.endereco}
-                                  onSelecionar={(id, nome) =>
-                                    handleAtribuirEntregador(pedido.id, String(id), nome)
-                                  }
-                                />
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => abrirTransferencia(pedido)}>
+                              <Truck className="h-3 w-3 mr-1" />
+                              {pedido.entregador}
+                            </Badge>
+                          </div>
+                        ) : pedido.status !== "cancelado" && pedido.status !== "entregue" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-primary h-7 px-2"
+                            onClick={() => abrirTransferencia(pedido)}
+                          >
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            Atribuir
+                          </Button>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </TableCell>
-                      <TableCell>R$ {pedido.valor.toFixed(2)}</TableCell>
+                      <TableCell className="font-medium">R$ {pedido.valor.toFixed(2)}</TableCell>
                       <TableCell>
                         <StatusDropdown
                           status={pedido.status}
@@ -414,9 +467,41 @@ export default function Pedidos() {
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{pedido.data}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => abrirVisualizacao(pedido)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => abrirVisualizacao(pedido)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Visualizar
+                            </DropdownMenuItem>
+                            {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
+                              <DropdownMenuItem onClick={() => editarPedido(pedido.id)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
+                            {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
+                              <DropdownMenuItem onClick={() => abrirTransferencia(pedido)}>
+                                <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                {pedido.entregador ? "Transferir Entregador" : "Atribuir Entregador"}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => cancelarPedido(pedido.id)}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Cancelar Pedido
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -432,6 +517,76 @@ export default function Pedidos() {
           onOpenChange={setViewDialogAberto}
           onCancelar={cancelarPedido}
         />
+
+        {/* Dialog de Transferência/Atribuição de Entregador */}
+        <Dialog open={transferDialogAberto} onOpenChange={setTransferDialogAberto}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5" />
+                {pedidoTransferir?.entregador ? "Transferir Entregador" : "Atribuir Entregador"}
+              </DialogTitle>
+            </DialogHeader>
+            {pedidoTransferir && (
+              <div className="space-y-4 mt-2">
+                <div className="p-4 bg-muted rounded-lg space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-sm">Pedido #{getIdCurto(pedidoTransferir.id)}</p>
+                    <Badge variant="outline">R$ {pedidoTransferir.valor.toFixed(2)}</Badge>
+                  </div>
+                  <p className="text-sm">{pedidoTransferir.cliente}</p>
+                  <p className="text-xs text-muted-foreground">{pedidoTransferir.endereco}</p>
+                  {pedidoTransferir.entregador && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Entregador atual: <span className="font-medium text-foreground">{pedidoTransferir.entregador}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Sugestão IA */}
+                <div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                    <Sparkles className="h-3 w-3" />
+                    Sugestão inteligente
+                  </div>
+                  <SugestaoEntregador
+                    endereco={pedidoTransferir.endereco}
+                    onSelecionar={(id, nome) => handleAtribuirEntregador(pedidoTransferir.id, String(id), nome)}
+                    compact
+                  />
+                </div>
+
+                {/* Seleção manual */}
+                <div>
+                  <p className="text-sm font-medium mb-2">Ou selecione manualmente:</p>
+                  <Select
+                    onValueChange={(entregadorId) => {
+                      const ent = entregadores.find((e) => e.id === entregadorId);
+                      if (ent) handleAtribuirEntregador(pedidoTransferir.id, ent.id, ent.nome);
+                    }}
+                    disabled={loadingEntregadores}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingEntregadores ? "Carregando..." : "Selecione o entregador"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {entregadores
+                        .filter((e) => e.id !== pedidoTransferir.entregador_id)
+                        .map((ent) => (
+                          <SelectItem key={ent.id} value={ent.id}>
+                            <div className="flex items-center">
+                              <span>{ent.nome}</span>
+                              {getStatusBadgeEntregador(ent.status)}
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
