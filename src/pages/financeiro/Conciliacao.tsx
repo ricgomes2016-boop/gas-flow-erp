@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,11 +12,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Link2, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Link2, Loader2, Zap, Search, Unlink } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
+
+// --- Parsers ---
 
 function parseOFX(text: string): Array<{ data: string; descricao: string; valor: number; tipo: string }> {
   const transactions: Array<{ data: string; descricao: string; valor: number; tipo: string }> = [];
@@ -36,12 +46,7 @@ function parseOFX(text: string): Array<{ data: string; descricao: string; valor:
     const data = `${year}-${month}-${day}`;
     const valor = parseFloat(getValue("TRNAMT").replace(",", "."));
     const descricao = getValue("MEMO") || getValue("NAME") || "Sem descrição";
-    transactions.push({
-      data,
-      descricao,
-      valor,
-      tipo: valor >= 0 ? "credito" : "debito",
-    });
+    transactions.push({ data, descricao, valor, tipo: valor >= 0 ? "credito" : "debito" });
   }
   return transactions;
 }
@@ -75,29 +80,55 @@ function parseCSV(text: string): Array<{ data: string; descricao: string; valor:
   }).filter((t) => !isNaN(t.valor));
 }
 
+// --- Component ---
+
 export default function Conciliacao() {
   const { unidadeAtual } = useUnidade();
   const queryClient = useQueryClient();
   const ofxInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [autoReconciling, setAutoReconciling] = useState(false);
+  const [vinculoDialogOpen, setVinculoDialogOpen] = useState(false);
+  const [selectedLancamento, setSelectedLancamento] = useState<any>(null);
+  const [pedidoSearch, setPedidoSearch] = useState("");
 
+  // Fetch extrato
   const { data: extrato = [], isLoading } = useQuery({
     queryKey: ["extrato_bancario", unidadeAtual?.id],
     queryFn: async () => {
       let query = supabase
         .from("extrato_bancario")
-        .select("*")
+        .select("*, pedidos(id, valor_total, cliente_id, created_at, clientes(nome))")
         .order("data", { ascending: false });
-
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
-
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
 
+  // Fetch pedidos for matching
+  const { data: pedidos = [] } = useQuery({
+    queryKey: ["pedidos_conciliacao", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase
+        .from("pedidos")
+        .select("id, valor_total, created_at, status, forma_pagamento, cliente_id, clientes(nome)")
+        .order("created_at", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Already linked pedido_ids
+  const linkedPedidoIds = useMemo(() => {
+    return new Set(extrato.filter((e: any) => e.pedido_id).map((e: any) => e.pedido_id));
+  }, [extrato]);
+
+  // Conciliar manual (mark as conciliado without pedido link)
   const conciliarMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -112,10 +143,102 @@ export default function Conciliacao() {
     },
   });
 
-  const conciliados = extrato.filter((e: any) => e.conciliado).length;
-  const pendentes = extrato.filter((e: any) => !e.conciliado).length;
-  const saldoExtrato = extrato.reduce((acc: number, e: any) => acc + Number(e.valor), 0);
+  // Vincular lançamento a pedido
+  const vincularMutation = useMutation({
+    mutationFn: async ({ lancamentoId, pedidoId }: { lancamentoId: string; pedidoId: string }) => {
+      const { error } = await supabase
+        .from("extrato_bancario")
+        .update({ pedido_id: pedidoId, conciliado: true })
+        .eq("id", lancamentoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["extrato_bancario"] });
+      setVinculoDialogOpen(false);
+      setSelectedLancamento(null);
+      toast.success("Lançamento vinculado ao pedido com sucesso!");
+    },
+  });
 
+  // Desvincular
+  const desvincularMutation = useMutation({
+    mutationFn: async (lancamentoId: string) => {
+      const { error } = await supabase
+        .from("extrato_bancario")
+        .update({ pedido_id: null, conciliado: false })
+        .eq("id", lancamentoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["extrato_bancario"] });
+      toast.success("Vínculo removido.");
+    },
+  });
+
+  // Auto-reconciliation logic
+  const handleAutoReconcile = async () => {
+    const pendingLancamentos = extrato.filter((e: any) => !e.conciliado && !e.pedido_id);
+    if (pendingLancamentos.length === 0) {
+      toast.info("Nenhum lançamento pendente para reconciliar.");
+      return;
+    }
+
+    setAutoReconciling(true);
+    let matched = 0;
+
+    try {
+      // Build list of available pedidos (not yet linked)
+      const availablePedidos = pedidos.filter((p: any) => !linkedPedidoIds.has(p.id));
+
+      const updates: Array<{ lancamentoId: string; pedidoId: string }> = [];
+
+      for (const lancamento of pendingLancamentos) {
+        const valor = Math.abs(Number(lancamento.valor));
+        const lancDate = new Date(lancamento.data);
+
+        // Find matching pedido by value (within 1% tolerance) and date (within 3 days)
+        const matchIdx = availablePedidos.findIndex((p: any) => {
+          if (updates.some((u) => u.pedidoId === p.id)) return false; // already matched in this batch
+          const pedidoValor = Math.abs(Number(p.valor_total));
+          const pedidoDate = new Date(p.created_at);
+          const valorDiff = Math.abs(valor - pedidoValor);
+          const tolerance = pedidoValor * 0.01; // 1%
+          const daysDiff = Math.abs((lancDate.getTime() - pedidoDate.getTime()) / (1000 * 60 * 60 * 24));
+          return valorDiff <= tolerance && daysDiff <= 3;
+        });
+
+        if (matchIdx >= 0) {
+          updates.push({
+            lancamentoId: lancamento.id,
+            pedidoId: availablePedidos[matchIdx].id,
+          });
+          matched++;
+        }
+      }
+
+      // Execute all updates
+      for (const update of updates) {
+        await supabase
+          .from("extrato_bancario")
+          .update({ pedido_id: update.pedidoId, conciliado: true })
+          .eq("id", update.lancamentoId);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["extrato_bancario"] });
+
+      if (matched > 0) {
+        toast.success(`${matched} lançamento(s) vinculado(s) automaticamente!`);
+      } else {
+        toast.info("Nenhum pedido correspondente encontrado (valor ±1%, data ±3 dias).");
+      }
+    } catch (err: any) {
+      toast.error("Erro na reconciliação: " + (err.message || "erro desconhecido"));
+    } finally {
+      setAutoReconciling(false);
+    }
+  };
+
+  // File import handler
   const handleFileImport = async (file: File, type: "ofx" | "csv") => {
     setImporting(true);
     try {
@@ -144,38 +267,42 @@ export default function Conciliacao() {
     }
   };
 
+  // Stats
+  const conciliados = extrato.filter((e: any) => e.conciliado).length;
+  const pendentes = extrato.filter((e: any) => !e.conciliado).length;
+  const saldoExtrato = extrato.reduce((acc: number, e: any) => acc + Number(e.valor), 0);
+
+  // Filtered pedidos for manual linking dialog
+  const filteredPedidos = useMemo(() => {
+    return pedidos
+      .filter((p: any) => !linkedPedidoIds.has(p.id))
+      .filter((p: any) => {
+        if (!pedidoSearch) return true;
+        const search = pedidoSearch.toLowerCase();
+        const nome = (p.clientes as any)?.nome?.toLowerCase() || "";
+        const id = p.id.toLowerCase();
+        const valor = String(p.valor_total);
+        return nome.includes(search) || id.includes(search) || valor.includes(search);
+      });
+  }, [pedidos, linkedPedidoIds, pedidoSearch]);
+
   return (
     <MainLayout>
       <Header title="Conciliação Bancária" subtitle="Importe e concilie extratos" />
       <div className="p-6 space-y-6">
-        <input
-          type="file"
-          ref={ofxInputRef}
-          accept=".ofx"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFileImport(f, "ofx");
-            e.target.value = "";
-          }}
+        <input type="file" ref={ofxInputRef} accept=".ofx" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileImport(f, "ofx"); e.target.value = ""; }}
         />
-        <input
-          type="file"
-          ref={csvInputRef}
-          accept=".csv"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFileImport(f, "csv");
-            e.target.value = "";
-          }}
+        <input type="file" ref={csvInputRef} accept=".csv" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileImport(f, "csv"); e.target.value = ""; }}
         />
-        <div className="flex items-center justify-between">
+
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Conciliação Bancária</h1>
             <p className="text-muted-foreground">Importe e concilie extratos OFX/CSV</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" className="gap-2" onClick={() => ofxInputRef.current?.click()} disabled={importing}>
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Importar OFX
@@ -184,9 +311,14 @@ export default function Conciliacao() {
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
               Importar CSV
             </Button>
+            <Button className="gap-2" onClick={handleAutoReconcile} disabled={autoReconciling || pendentes === 0}>
+              {autoReconciling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Reconciliar Automaticamente
+            </Button>
           </div>
         </div>
 
+        {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -206,7 +338,7 @@ export default function Conciliacao() {
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{conciliados}</div>
               <p className="text-xs text-muted-foreground">
-                {extrato.length > 0 ? `${Math.round(conciliados / extrato.length * 100)}% do total` : "0%"}
+                {extrato.length > 0 ? `${Math.round(conciliados / extrato.length * 100)}%` : "0%"}
               </p>
             </CardContent>
           </Card>
@@ -234,6 +366,7 @@ export default function Conciliacao() {
           </Card>
         </div>
 
+        {/* Extrato table */}
         <Card>
           <CardHeader>
             <CardTitle>Extrato Importado</CardTitle>
@@ -251,6 +384,7 @@ export default function Conciliacao() {
                     <TableHead>Descrição</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead>Pedido Vinculado</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -269,22 +403,50 @@ export default function Conciliacao() {
                         R$ {Math.abs(Number(lancamento.valor)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>
+                        {lancamento.pedido_id ? (
+                          <div className="flex items-center gap-1">
+                            <Link2 className="h-3 w-3 text-green-600" />
+                            <span className="text-xs text-muted-foreground">
+                              {(lancamento.pedidos as any)?.clientes?.nome || lancamento.pedido_id.slice(0, 8)}
+                            </span>
+                            <span className="text-xs font-medium">
+                              R$ {Number((lancamento.pedidos as any)?.valor_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={lancamento.conciliado ? "default" : "secondary"}>
                           {lancamento.conciliado ? "Conciliado" : "Pendente"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {!lancamento.conciliado && (
-                          <Button
-                            size="sm"
-                            className="gap-1"
-                            onClick={() => conciliarMutation.mutate(lancamento.id)}
-                            disabled={conciliarMutation.isPending}
-                          >
-                            <Link2 className="h-3 w-3" />
-                            Vincular
-                          </Button>
-                        )}
+                        <div className="flex gap-1 justify-end">
+                          {!lancamento.conciliado && (
+                            <>
+                              <Button size="sm" variant="outline" className="gap-1"
+                                onClick={() => { setSelectedLancamento(lancamento); setPedidoSearch(""); setVinculoDialogOpen(true); }}>
+                                <Search className="h-3 w-3" />
+                                Vincular
+                              </Button>
+                              <Button size="sm" className="gap-1"
+                                onClick={() => conciliarMutation.mutate(lancamento.id)}
+                                disabled={conciliarMutation.isPending}>
+                                <CheckCircle2 className="h-3 w-3" />
+                                OK
+                              </Button>
+                            </>
+                          )}
+                          {lancamento.conciliado && lancamento.pedido_id && (
+                            <Button size="sm" variant="ghost" className="gap-1 text-destructive"
+                              onClick={() => desvincularMutation.mutate(lancamento.id)}>
+                              <Unlink className="h-3 w-3" />
+                              Desfazer
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -293,6 +455,79 @@ export default function Conciliacao() {
             )}
           </CardContent>
         </Card>
+
+        {/* Manual linking dialog */}
+        <Dialog open={vinculoDialogOpen} onOpenChange={setVinculoDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Vincular a Pedido</DialogTitle>
+              <DialogDescription>
+                {selectedLancamento && (
+                  <span>
+                    Lançamento: <strong>{selectedLancamento.descricao}</strong> — R${" "}
+                    {Math.abs(Number(selectedLancamento.valor)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} em{" "}
+                    {new Date(selectedLancamento.data).toLocaleDateString("pt-BR")}
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2 py-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente, ID ou valor..."
+                value={pedidoSearch}
+                onChange={(e) => setPedidoSearch(e.target.value)}
+              />
+            </div>
+            <div className="overflow-auto flex-1 -mx-6 px-6">
+              {filteredPedidos.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">Nenhum pedido disponível para vincular.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead className="text-right">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPedidos.slice(0, 50).map((pedido: any) => {
+                      const valorMatch = selectedLancamento
+                        ? Math.abs(Math.abs(Number(selectedLancamento.valor)) - Number(pedido.valor_total)) < Number(pedido.valor_total) * 0.01
+                        : false;
+                      return (
+                        <TableRow key={pedido.id} className={valorMatch ? "bg-green-50 dark:bg-green-950/20" : ""}>
+                          <TableCell>{new Date(pedido.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                          <TableCell className="font-medium">{(pedido.clientes as any)?.nome || "—"}</TableCell>
+                          <TableCell className="font-medium">
+                            R$ {Number(pedido.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            {valorMatch && <Badge variant="default" className="ml-2 text-[10px]">Match</Badge>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{pedido.status}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{pedido.forma_pagamento || "—"}</TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" className="gap-1"
+                              onClick={() => vincularMutation.mutate({ lancamentoId: selectedLancamento.id, pedidoId: pedido.id })}
+                              disabled={vincularMutation.isPending}>
+                              <Link2 className="h-3 w-3" />
+                              Vincular
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
