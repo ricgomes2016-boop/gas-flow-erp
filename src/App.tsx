@@ -100,6 +100,7 @@ import ProdutividadeIA from "./pages/rh/ProdutividadeIA";
 import Auditoria from "./pages/config/Auditoria";
 import Permissoes from "./pages/config/Permissoes";
 import UnidadesConfig from "./pages/config/Unidades";
+import Usuarios from "./pages/config/Usuarios";
 
 // App Entregador
 import EntregadorDashboard from "./pages/entregador/EntregadorDashboard";
@@ -510,6 +511,11 @@ const App = () => (
                   <Route path="/config/unidades" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <UnidadesConfig />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/config/usuarios" element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <Usuarios />
                     </ProtectedRoute>
                   } />
                   
