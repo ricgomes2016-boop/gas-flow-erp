@@ -228,7 +228,9 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                       key={`${linha.nome}-${linha.tipoEstoque}-${idx}`}
                       className={isVazio ? "bg-muted/20" : ""}
                     >
-                      <TableCell className="font-medium">{linha.nome}</TableCell>
+                      <TableCell className="font-medium">
+                        {isCheio ? `Gás ${linha.nome}` : isVazio ? `Vasilhame ${linha.nome}` : linha.nome}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={isCheio ? "default" : isVazio ? "secondary" : "outline"} className="text-xs">
                           {linha.tipoEstoque}
