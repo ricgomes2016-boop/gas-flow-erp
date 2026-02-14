@@ -230,10 +230,26 @@ export function EstoqueDiaTable({ produtos, movimentacoes, dataInicio, dataFim, 
                       className={isVazio ? "bg-muted/20" : ""}
                     >
                       <TableCell className="font-medium">
-                        <span className="flex items-center gap-1.5">
-                          {isCheio ? <Flame className="h-4 w-4 text-orange-500" /> : isVazio ? <Cylinder className="h-4 w-4 text-muted-foreground" /> : <Package className="h-4 w-4 text-muted-foreground" />}
-                          {isCheio ? `Gás ${linha.nome}` : isVazio ? `Vasilhame ${linha.nome}` : linha.nome}
-                        </span>
+                        {(() => {
+                          const isAgua = /[áa]gua/i.test(linha.nome);
+                          const displayName = isCheio
+                            ? (isAgua ? linha.nome : `Gás ${linha.nome}`)
+                            : isVazio
+                            ? `Vasilhame ${isAgua ? '' : 'Gás '}${linha.nome}`
+                            : linha.nome;
+                          return (
+                            <span className="flex items-center gap-1.5">
+                              {isCheio ? (
+                                isAgua ? <Package className="h-4 w-4 text-blue-500" /> : <Flame className="h-4 w-4 text-orange-500" />
+                              ) : isVazio ? (
+                                <Cylinder className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              {displayName}
+                            </span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Badge variant={isCheio ? "default" : isVazio ? "secondary" : "outline"} className="text-xs">
