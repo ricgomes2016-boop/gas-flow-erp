@@ -79,6 +79,7 @@ const menuItems: MenuItem[] = [
       { label: "Mapa dos Entregadores", path: "/operacional/mapa" },
       { label: "Planejamento Anual", path: "/operacional/anual" },
       { label: "Planejamento Financeiro - Mês", path: "/operacional/mensal" },
+      { label: "Canais de Venda", path: "/operacional/canais-venda" },
     ],
   },
   {
