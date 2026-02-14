@@ -75,7 +75,11 @@ export default function EntregadorIniciarJornada() {
   const [estoqueCarga, setEstoqueCarga] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isIniciando, setIsIniciando] = useState(false);
+  const [isEncerrando, setIsEncerrando] = useState(false);
   const [rotaAtiva, setRotaAtiva] = useState(false);
+  const [rotaAtivaId, setRotaAtivaId] = useState<string | null>(null);
+  const [rotaAtivaKmInicial, setRotaAtivaKmInicial] = useState<number | null>(null);
+  const [kmFinal, setKmFinal] = useState("");
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -101,13 +105,15 @@ export default function EntregadorIniciarJornada() {
         // Check if already has active route today
         const { data: rotaAtual } = await supabase
           .from("rotas")
-          .select("id")
+          .select("id, km_inicial")
           .eq("entregador_id", entregador.id)
           .eq("status", "em_andamento")
           .maybeSingle();
 
         if (rotaAtual) {
           setRotaAtiva(true);
+          setRotaAtivaId(rotaAtual.id);
+          setRotaAtivaKmInicial(rotaAtual.km_inicial);
         }
 
         // Get today's schedule
@@ -235,17 +241,95 @@ export default function EntregadorIniciarJornada() {
     );
   }
 
+  const handleEncerrarJornada = async () => {
+    if (!entregadorId || !rotaAtivaId) return;
+    if (!kmFinal || parseInt(kmFinal) < 0) {
+      toast({ title: "Atenção", description: "Informe a quilometragem final.", variant: "destructive" });
+      return;
+    }
+    if (rotaAtivaKmInicial !== null && parseInt(kmFinal) < rotaAtivaKmInicial) {
+      toast({ title: "Atenção", description: "KM final não pode ser menor que o KM inicial.", variant: "destructive" });
+      return;
+    }
+
+    setIsEncerrando(true);
+    try {
+      await supabase.from("rotas").update({
+        status: "finalizada",
+        km_final: parseInt(kmFinal),
+        data_fim: new Date().toISOString(),
+      }).eq("id", rotaAtivaId);
+
+      await supabase.from("entregadores").update({ status: "indisponivel" }).eq("id", entregadorId);
+
+      if (escalaHoje) {
+        await supabase.from("escalas_entregador").update({ status: "finalizado" }).eq("id", escalaHoje.id);
+      }
+
+      toast({
+        title: "Jornada encerrada! 🏁",
+        description: `KM Final: ${parseInt(kmFinal).toLocaleString("pt-BR")} - Status: Não Disponível`,
+      });
+      navigate("/entregador");
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setIsEncerrando(false);
+    }
+  };
+
   if (rotaAtiva) {
     return (
-      <EntregadorLayout title="Iniciar Jornada">
+      <EntregadorLayout title="Jornada">
         <div className="p-4 space-y-4">
           <Card className="border-none shadow-md bg-success/5 border-l-4 border-l-success">
             <CardContent className="p-6 text-center space-y-3">
               <CheckCircle className="h-12 w-12 text-success mx-auto" />
               <h2 className="text-xl font-bold">Jornada em andamento</h2>
-              <p className="text-muted-foreground">Você já possui uma rota ativa hoje.</p>
+              <p className="text-muted-foreground">Você possui uma rota ativa.</p>
+              {rotaAtivaKmInicial !== null && (
+                <Badge variant="outline">KM Inicial: {rotaAtivaKmInicial.toLocaleString("pt-BR")}</Badge>
+              )}
               <Button onClick={() => navigate("/entregador/entregas")} className="w-full">
                 Ver Entregas
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Encerrar Jornada */}
+          <Card className="border-none shadow-md border-l-4 border-l-destructive">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                Encerrar Jornada
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label className="text-sm">Quilometragem Final</Label>
+                <Input
+                  type="number"
+                  placeholder="Ex: 45350"
+                  value={kmFinal}
+                  onChange={(e) => setKmFinal(e.target.value)}
+                  min={rotaAtivaKmInicial ?? 0}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Informe a quilometragem atual do hodômetro
+                </p>
+              </div>
+              <Button
+                onClick={handleEncerrarJornada}
+                disabled={isEncerrando || !kmFinal}
+                variant="destructive"
+                className="w-full h-12"
+              >
+                {isEncerrando ? (
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                )}
+                Encerrar Jornada - Ficar Indisponível
               </Button>
             </CardContent>
           </Card>
