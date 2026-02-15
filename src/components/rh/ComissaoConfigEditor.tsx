@@ -205,7 +205,7 @@ export function ComissaoConfigEditor() {
               <TabsList className="flex flex-wrap h-auto gap-1">
                 {produtos.map((p: any) => (
                   <TabsTrigger key={p.id} value={p.id} className="text-xs">
-                    {p.nome}
+                    {p.nome}{selectedUnidadeNome ? ` - ${selectedUnidadeNome}` : ""}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -214,7 +214,7 @@ export function ComissaoConfigEditor() {
                 <TabsContent key={p.id} value={p.id}>
                   <Card>
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-base">{p.nome}</CardTitle>
+                      <CardTitle className="text-base">{p.nome}{selectedUnidadeNome ? ` - ${selectedUnidadeNome}` : ""}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {canaisVenda.map((c: any) => (
