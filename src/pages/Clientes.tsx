@@ -100,15 +100,19 @@ export default function Clientes() {
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle>Lista de Clientes</CardTitle>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-xs">
+                  {clientesFiltrados.length} cliente{clientesFiltrados.length !== 1 ? "s" : ""}
+                </Badge>
+              </div>
               <div className="flex gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar cliente..."
+                    placeholder="Buscar por nome, telefone ou bairro..."
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
-                    className="w-64 pl-9"
+                    className="w-72 pl-9"
                   />
                 </div>
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -177,48 +181,60 @@ export default function Clientes() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Endereço</TableHead>
-                  <TableHead>Bairro</TableHead>
-                  <TableHead>Última Compra</TableHead>
-                  <TableHead>Total Compras</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clientesFiltrados.map((cliente) => (
-                  <TableRow key={cliente.id}>
-                    <TableCell className="font-medium">{cliente.nome}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {cliente.telefone}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        {cliente.endereco}
-                        {cliente.latitude && <span className="text-[10px] text-muted-foreground ml-1">📍</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell><Badge variant="secondary">{cliente.bairro}</Badge></TableCell>
-                    <TableCell>{cliente.ultimaCompra}</TableCell>
-                    <TableCell>{cliente.totalCompras}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Endereço</TableHead>
+                    <TableHead>Bairro</TableHead>
+                    <TableHead>Última Compra</TableHead>
+                    <TableHead className="text-center">Compras</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {clientesFiltrados.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        Nenhum cliente encontrado.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    clientesFiltrados.map((cliente) => (
+                      <TableRow key={cliente.id}>
+                        <TableCell className="font-medium">{cliente.nome}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm">{cliente.telefone}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 max-w-xs">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm truncate">{cliente.endereco}</span>
+                            {cliente.latitude && <span className="text-[10px] text-muted-foreground">📍</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="secondary">{cliente.bairro}</Badge></TableCell>
+                        <TableCell className="text-sm">{cliente.ultimaCompra}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline">{cliente.totalCompras}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
