@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Save, Loader2, Store } from "lucide-react";
+import { Settings, Save, Loader2, Store, Copy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,6 +23,8 @@ export function ComissaoConfigEditor() {
   const [editValues, setEditValues] = useState<Record<string, Record<string, number>>>({});
   const [activeTab, setActiveTab] = useState<string>("");
   const [selectedUnidadeId, setSelectedUnidadeId] = useState<string>("");
+  const [copyFromUnidadeId, setCopyFromUnidadeId] = useState<string>("");
+  const [isCopying, setIsCopying] = useState(false);
 
   // Fetch unidades
   const { data: unidades = [] } = useQuery({
@@ -156,6 +158,55 @@ export function ComissaoConfigEditor() {
     }));
   };
 
+  const handleCopyFrom = async () => {
+    if (!copyFromUnidadeId || !produtos.length || !canaisVenda.length) return;
+    setIsCopying(true);
+    try {
+      // Fetch config from source store
+      const { data: sourceConfig } = await supabase
+        .from("comissao_config")
+        .select("produto_id, canal_venda, valor")
+        .eq("unidade_id", copyFromUnidadeId);
+
+      // Fetch source products to map by name
+      const { data: sourceProdutos } = await supabase
+        .from("produtos")
+        .select("id, nome")
+        .eq("ativo", true)
+        .eq("unidade_id", copyFromUnidadeId);
+
+      if (!sourceConfig?.length || !sourceProdutos?.length) {
+        toast({ title: "Nenhuma configuração encontrada na loja de origem", variant: "destructive" });
+        return;
+      }
+
+      // Build source map: produto_name|canal -> valor
+      const sourceMap = new Map<string, number>();
+      sourceConfig.forEach((cfg: any) => {
+        const prodName = sourceProdutos.find((p: any) => p.id === cfg.produto_id)?.nome;
+        if (prodName) sourceMap.set(`${prodName}|${cfg.canal_venda}`, Number(cfg.valor));
+      });
+
+      // Apply to current products by matching name
+      const newValues = { ...editValues };
+      produtos.forEach((p: any) => {
+        canaisVenda.forEach((c: any) => {
+          const val = sourceMap.get(`${p.nome}|${c.nome}`);
+          if (val !== undefined) {
+            if (!newValues[p.id]) newValues[p.id] = {};
+            newValues[p.id][c.nome] = val;
+          }
+        });
+      });
+      setEditValues(newValues);
+      toast({ title: `Valores copiados da loja de origem! Clique em Salvar para confirmar.` });
+    } catch {
+      toast({ title: "Erro ao copiar configuração", variant: "destructive" });
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
   const selectedUnidadeNome = unidades.find((u: any) => u.id === selectedUnidadeId)?.nome;
 
   return (
@@ -191,6 +242,32 @@ export function ComissaoConfigEditor() {
               Editando: {selectedUnidadeNome}
             </Badge>
           )}
+
+          {/* Copy from another store */}
+          <div className="flex items-center gap-2 pt-1">
+            <Select value={copyFromUnidadeId} onValueChange={setCopyFromUnidadeId}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Copiar de outra loja..." />
+              </SelectTrigger>
+              <SelectContent>
+                {unidades
+                  .filter((u: any) => u.id !== selectedUnidadeId)
+                  .map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 shrink-0"
+              disabled={!copyFromUnidadeId || isCopying}
+              onClick={handleCopyFrom}
+            >
+              {isCopying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+              Copiar
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
