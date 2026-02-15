@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface EmpresaConfig {
   id: string;
@@ -49,6 +50,7 @@ interface UserProfile {
 export default function Configuracoes() {
   const { toast } = useToast();
   const { signOut } = useAuth();
+  const { unidadeAtual } = useUnidade();
   const queryClient = useQueryClient();
   const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig>({
     id: "",
@@ -73,14 +75,18 @@ export default function Configuracoes() {
 
   // Fetch products (cheio only, grouped by name)
   const { data: produtos = [], isLoading: isLoadingProdutos } = useQuery({
-    queryKey: ["produtos-config"],
+    queryKey: ["produtos-config", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("produtos")
         .select("id, nome, preco, categoria, tipo_botijao")
         .eq("ativo", true)
         .eq("tipo_botijao", "cheio")
         .order("nome");
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as Produto[];
     },
@@ -118,13 +124,11 @@ export default function Configuracoes() {
 
   // Initialize product prices when loaded
   useEffect(() => {
-    if (produtos.length > 0 && Object.keys(produtoPrecos).length === 0) {
-      const precos: Record<string, number> = {};
-      produtos.forEach((p) => {
-        precos[p.id] = p.preco;
-      });
-      setProdutoPrecos(precos);
-    }
+    const precos: Record<string, number> = {};
+    produtos.forEach((p) => {
+      precos[p.id] = p.preco;
+    });
+    setProdutoPrecos(precos);
   }, [produtos]);
 
   useEffect(() => {
