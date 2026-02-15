@@ -1992,6 +1992,7 @@ export type Database = {
           cliente_id: string | null
           cliente_nome: string | null
           codigo: string
+          consumidor_cpf: string | null
           consumidor_endereco: string | null
           consumidor_nome: string | null
           consumidor_telefone: string | null
@@ -2016,6 +2017,7 @@ export type Database = {
           cliente_id?: string | null
           cliente_nome?: string | null
           codigo: string
+          consumidor_cpf?: string | null
           consumidor_endereco?: string | null
           consumidor_nome?: string | null
           consumidor_telefone?: string | null
@@ -2040,6 +2042,7 @@ export type Database = {
           cliente_id?: string | null
           cliente_nome?: string | null
           codigo?: string
+          consumidor_cpf?: string | null
           consumidor_endereco?: string | null
           consumidor_nome?: string | null
           consumidor_telefone?: string | null
@@ -2325,6 +2328,7 @@ export type Database = {
           tipo: string
           unidade_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           ativo?: boolean
@@ -2338,6 +2342,7 @@ export type Database = {
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           ativo?: boolean
@@ -2351,6 +2356,7 @@ export type Database = {
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {

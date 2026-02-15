@@ -51,6 +51,7 @@ const roleLabels: Record<AppRole, string> = {
   operacional: "Operacional",
   entregador: "Entregador",
   cliente: "Cliente",
+  parceiro: "Parceiro",
 };
 
 export default function Usuarios() {

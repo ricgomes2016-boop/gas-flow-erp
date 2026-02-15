@@ -15,26 +15,49 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useValeGas, TipoParceiro } from "@/contexts/ValeGasContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { 
-  Building2, Plus, CreditCard, TrendingUp, Package, Phone, Mail,
+  Building2, Plus, CreditCard, TrendingUp, Package, Phone, Mail, UserCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 export default function ValeGasParceiros() {
-  const { parceiros, addParceiro, getEstatisticasParceiro } = useValeGas();
+  const { parceiros, addParceiro, getEstatisticasParceiro, refetch } = useValeGas();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
-    nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago" as TipoParceiro,
+    nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago" as TipoParceiro, userId: "",
+  });
+
+  // Fetch users with 'parceiro' role for linking
+  const { data: parceiroUsers = [] } = useQuery({
+    queryKey: ["parceiro-role-users"],
+    queryFn: async () => {
+      const { data: roleData } = await supabase.from("user_roles").select("user_id").eq("role", "parceiro");
+      if (!roleData || roleData.length === 0) return [];
+      const userIds = roleData.map(r => r.user_id);
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds);
+      return (profiles || []) as { user_id: string; full_name: string; email: string }[];
+    },
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await addParceiro({ ...formData, ativo: true });
+      // If userId is selected, link it
+      if (formData.userId) {
+        // Find the newly created parceiro by name (just added)
+        const { data: newParceiro } = await (supabase as any).from("vale_gas_parceiros").select("id").eq("nome", formData.nome).order("created_at", { ascending: false }).limit(1).single();
+        if (newParceiro) {
+          await (supabase as any).from("vale_gas_parceiros").update({ user_id: formData.userId }).eq("id", newParceiro.id);
+        }
+      }
       toast.success("Parceiro cadastrado!");
       setDialogOpen(false);
-      setFormData({ nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago" });
+      setFormData({ nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago", userId: "" });
+      refetch();
     } catch (err: any) {
       toast.error(err.message || "Erro ao cadastrar");
     }
@@ -74,6 +97,21 @@ export default function ValeGasParceiros() {
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     {formData.tipo === "prepago" ? "Parceiro compra os vales antecipadamente" : "Parceiro recebe vales em consignação e paga após utilização"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1"><UserCheck className="h-4 w-4" /> Vincular Usuário (Portal)</Label>
+                  <Select value={formData.userId} onValueChange={(v) => setFormData(p => ({ ...p, userId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar usuário com role 'parceiro'" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {parceiroUsers.map(u => (
+                        <SelectItem key={u.user_id} value={u.user_id}>{u.full_name} ({u.email})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Vincule um usuário com role "parceiro" para acesso ao Portal do Parceiro
                   </p>
                 </div>
                 <div className="flex gap-2 justify-end pt-4">
