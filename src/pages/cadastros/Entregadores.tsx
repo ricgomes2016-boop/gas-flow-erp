@@ -101,7 +101,7 @@ export default function Entregadores() {
       email: form.email || null,
       user_id: form.user_id || null,
     };
-    if (!editId && unidadeAtual?.id) {
+    if (unidadeAtual?.id) {
       payload.unidade_id = unidadeAtual.id;
     }
 
