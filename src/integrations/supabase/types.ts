@@ -2011,6 +2011,7 @@ export type Database = {
           unidade_id: string | null
           updated_at: string
           valor: number
+          valor_venda: number | null
           venda_id: string | null
         }
         Insert: {
@@ -2036,6 +2037,7 @@ export type Database = {
           unidade_id?: string | null
           updated_at?: string
           valor: number
+          valor_venda?: number | null
           venda_id?: string | null
         }
         Update: {
@@ -2061,6 +2063,7 @@ export type Database = {
           unidade_id?: string | null
           updated_at?: string
           valor?: number
+          valor_venda?: number | null
           venda_id?: string | null
         }
         Relationships: [
