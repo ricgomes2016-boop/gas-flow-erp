@@ -176,7 +176,17 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
 
   // Emitir lote
   const emitirLote = async (data: { parceiroId: string; quantidade: number; valorUnitario: number; numeroInicial?: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }): Promise<LoteVales> => {
-    const numeroInicial = data.numeroInicial || proximoNumeroVale;
+    // Fetch the real max number from the DB to avoid race conditions
+    let numeroInicial = data.numeroInicial;
+    if (!numeroInicial) {
+      const { data: maxRow } = await (supabase as any)
+        .from("vale_gas")
+        .select("numero")
+        .order("numero", { ascending: false })
+        .limit(1);
+      const maxNumero = maxRow?.[0]?.numero || 0;
+      numeroInicial = maxNumero + 1;
+    }
     const numeroFinal = numeroInicial + data.quantidade - 1;
     const valorTotal = data.quantidade * data.valorUnitario;
 
