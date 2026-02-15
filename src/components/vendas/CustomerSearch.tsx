@@ -4,9 +4,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, UserPlus, User, Phone, MapPin } from "lucide-react";
+import { Search, UserPlus, User, Phone, MapPin, Loader2, Map } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPhone, formatCEP } from "@/hooks/useInputMasks";
+import { geocodeAddress } from "@/lib/geocoding";
+import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
+import type { GeocodingResult } from "@/lib/geocoding";
 
 interface Cliente {
   id: string;
@@ -28,6 +31,8 @@ interface CustomerData {
   bairro: string;
   cep: string;
   observacao: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface CustomerSearchProps {
@@ -40,6 +45,8 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
   const [showResults, setShowResults] = useState(false);
   const [activeField, setActiveField] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,7 +73,6 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     setActiveField(field);
     setIsSearching(true);
 
-    // Limpa caracteres especiais para busca por telefone
     const cleanTerm = field === "telefone" ? term.replace(/\D/g, "") : term;
 
     if (field === "telefone" && cleanTerm.length < 2) {
@@ -84,15 +90,11 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
         .limit(8);
 
       if (field === "telefone") {
-        // Busca por telefone (apenas números)
         query = query.ilike("telefone", `%${cleanTerm}%`);
       } else if (field === "nome") {
-        // Busca por nome
         query = query.ilike("nome", `%${term}%`);
       } else if (field === "endereco") {
-        // Busca inteligente por endereço: divide os termos e busca cada parte
         const terms = term.trim().split(/\s+/).filter(t => t.length >= 2);
-        
         if (terms.length === 0) {
           setSearchResults([]);
           setShowResults(false);
@@ -100,7 +102,6 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           return;
         }
 
-        // Busca todos os clientes e filtra no frontend para maior flexibilidade
         const { data, error } = await supabase
           .from("clientes")
           .select("id, nome, telefone, endereco, bairro, cep, cidade")
@@ -114,7 +115,6 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
               cliente.bairro || "",
               cliente.cidade || ""
             ].join(" ").toLowerCase();
-
             return terms.every(t => fullAddress.includes(t.toLowerCase()));
           }).slice(0, 8);
 
@@ -126,7 +126,6 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
       }
 
       const { data, error } = await query;
-
       if (!error && data) {
         setSearchResults(data);
         setShowResults(data.length > 0);
@@ -138,27 +137,20 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     }
   }, []);
 
-  // Função com debounce para busca
   const searchClientes = useCallback((term: string, field: string) => {
-    // Limpa timeout anterior
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
-
-    // Se termo muito curto, limpa resultados imediatamente
     if (term.length < 2) {
       setSearchResults([]);
       setShowResults(false);
       return;
     }
-
-    // Define novo timeout com debounce de 300ms
     debounceRef.current = setTimeout(() => {
       executeSearch(term, field);
     }, 300);
   }, [executeSearch]);
 
-  // Limpa timeout ao desmontar componente
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
@@ -185,7 +177,37 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     onChange({ ...value, [field]: fieldValue, id: field === "nome" || field === "telefone" ? null : value.id });
   };
 
-  // CEP lookup - busca automática quando digita 8 dígitos
+  // Geocode address on blur
+  const handleAddressBlur = async () => {
+    const fullAddress = [value.endereco, value.numero, value.bairro, value.cep].filter(Boolean).join(", ");
+    if (fullAddress.length < 5) return;
+
+    setIsGeocoding(true);
+    const result = await geocodeAddress(fullAddress);
+    if (result) {
+      onChange({
+        ...value,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        bairro: value.bairro || result.bairro || "",
+      });
+    }
+    setIsGeocoding(false);
+  };
+
+  // Handle map picker confirmation
+  const handleMapConfirm = (result: GeocodingResult) => {
+    onChange({
+      ...value,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      endereco: result.endereco || value.endereco,
+      bairro: result.bairro || value.bairro,
+      cep: result.cep || value.cep,
+    });
+  };
+
+  // CEP lookup
   const buscarCEP = async (cepValue: string) => {
     const cep = cepValue.replace(/\D/g, "");
     if (cep.length !== 8) return;
@@ -205,12 +227,9 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     }
   };
 
-  // Handler para CEP que dispara busca ao completar
   const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCEP(e.target.value);
     handleFieldChange("cep", formatted);
-    
-    // Busca automaticamente quando tiver 8 dígitos
     if (formatted.replace(/\D/g, "").length === 8) {
       buscarCEP(formatted);
     }
@@ -282,18 +301,39 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
         <div className="grid gap-3 md:grid-cols-4">
           <div className="md:col-span-3 relative">
             <Label className="text-xs text-muted-foreground">Endereço</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rua, Avenida..."
-                value={value.endereco}
-                onChange={(e) => {
-                  handleFieldChange("endereco", e.target.value);
-                  searchClientes(e.target.value, "endereco");
-                }}
-                className="pl-10"
-              />
+            <div className="relative flex gap-1">
+              <div className="relative flex-1">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rua, Avenida..."
+                  value={value.endereco}
+                  onChange={(e) => {
+                    handleFieldChange("endereco", e.target.value);
+                    searchClientes(e.target.value, "endereco");
+                  }}
+                  onBlur={handleAddressBlur}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setMapPickerOpen(true)}
+                title="Selecionar no mapa"
+              >
+                {isGeocoding ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Map className="h-4 w-4" />
+                )}
+              </Button>
             </div>
+            {value.latitude && value.longitude && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                📍 {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)}
+              </p>
+            )}
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Número</Label>
@@ -301,6 +341,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
               placeholder="Nº"
               value={value.numero}
               onChange={(e) => handleFieldChange("numero", e.target.value)}
+              onBlur={handleAddressBlur}
             />
           </div>
         </div>
@@ -349,6 +390,18 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           />
         </div>
       </CardContent>
+
+      {/* Map Picker Dialog */}
+      <MapPickerDialog
+        open={mapPickerOpen}
+        onOpenChange={setMapPickerOpen}
+        initialPosition={
+          value.latitude && value.longitude
+            ? { lat: value.latitude, lng: value.longitude }
+            : null
+        }
+        onConfirm={handleMapConfirm}
+      />
     </Card>
   );
 }
