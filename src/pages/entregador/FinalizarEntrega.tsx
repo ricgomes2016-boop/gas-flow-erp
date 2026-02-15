@@ -6,29 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Package,
-  CreditCard,
-  Plus,
-  QrCode,
-  CheckCircle,
-  Trash2,
-  AlertCircle,
-  Keyboard,
-  Loader2,
+  Package, CreditCard, Plus, QrCode, CheckCircle, Trash2, AlertCircle,
+  Keyboard, Loader2, Pencil,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
@@ -36,21 +21,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const formasPagamento = [
-  "Dinheiro",
-  "PIX",
-  "Cartão Crédito",
-  "Cartão Débito",
-  "Vale Gás",
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás",
 ];
 
 interface Pagamento {
   forma: string;
   valor: number;
-  valeGasInfo?: {
-    parceiro: string;
-    codigo: string;
-    valido: boolean;
-  };
+  valeGasInfo?: { parceiro: string; codigo: string; valido: boolean };
+}
+
+interface PedidoItem {
+  id: string;
+  quantidade: number;
+  preco_unitario: number;
+  produtos: { nome: string } | null;
 }
 
 interface PedidoData {
@@ -60,12 +44,7 @@ interface PedidoData {
   observacoes: string | null;
   forma_pagamento: string | null;
   clientes: { nome: string; telefone: string | null; bairro: string | null } | null;
-  pedido_itens: {
-    id: string;
-    quantidade: number;
-    preco_unitario: number;
-    produtos: { nome: string } | null;
-  }[];
+  pedido_itens: PedidoItem[];
 }
 
 export default function FinalizarEntrega() {
@@ -85,11 +64,11 @@ export default function FinalizarEntrega() {
   const [codigoManual, setCodigoManual] = useState("");
   const [validandoCodigo, setValidandoCodigo] = useState(false);
   const [valeGasLido, setValeGasLido] = useState<{
-    parceiro: string;
-    codigo: string;
-    valor: number;
-    valido: boolean;
+    parceiro: string; codigo: string; valor: number; valido: boolean;
   } | null>(null);
+  // Editable items state
+  const [editableItens, setEditableItens] = useState<PedidoItem[]>([]);
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
 
   // Fetch real pedido data
   useEffect(() => {
@@ -111,8 +90,9 @@ export default function FinalizarEntrega() {
       if (error) {
         toast({ title: "Erro ao carregar pedido", description: error.message, variant: "destructive" });
       } else if (data) {
-        setPedido(data as unknown as PedidoData);
-        // Pre-fill total as a single payment if there's a value
+        const pedidoData = data as unknown as PedidoData;
+        setPedido(pedidoData);
+        setEditableItens(pedidoData.pedido_itens.map(i => ({ ...i })));
         const total = Number(data.valor_total) || 0;
         if (total > 0) {
           setPagamentos([{ forma: "Dinheiro", valor: total }]);
@@ -123,7 +103,7 @@ export default function FinalizarEntrega() {
     fetchPedido();
   }, [id, toast]);
 
-  const totalItens = (pedido?.pedido_itens || []).reduce(
+  const totalItens = editableItens.reduce(
     (acc, item) => acc + (item.quantidade || 0) * Number(item.preco_unitario || 0), 0
   );
 
@@ -146,22 +126,20 @@ export default function FinalizarEntrega() {
     }
   };
 
+  const updateItem = (index: number, field: "quantidade" | "preco_unitario", value: number) => {
+    setEditableItens(prev => prev.map((item, i) =>
+      i === index ? { ...item, [field]: value } : item
+    ));
+  };
+
   const validarValeGas = (codigo: string) => {
     setValidandoCodigo(true);
     setTimeout(() => {
       const padraoValido = /^VG-\d{4}-\d{6}$/.test(codigo) || codigo.length > 5;
       if (padraoValido) {
-        const valeSemulado = {
-          parceiro: "Supergás Parceiros",
-          codigo: codigo,
-          valor: 120.0,
-          valido: true,
-        };
+        const valeSemulado = { parceiro: "Supergás Parceiros", codigo, valor: 120.0, valido: true };
         setValeGasLido(valeSemulado);
-        toast({
-          title: "Vale Gás validado!",
-          description: `Parceiro: ${valeSemulado.parceiro} - Valor: R$ ${valeSemulado.valor.toFixed(2)}`,
-        });
+        toast({ title: "Vale Gás validado!", description: `Parceiro: ${valeSemulado.parceiro} - Valor: R$ ${valeSemulado.valor.toFixed(2)}` });
       } else {
         setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
         toast({ title: "Vale Gás inválido", description: "O código informado não é válido.", variant: "destructive" });
@@ -170,29 +148,17 @@ export default function FinalizarEntrega() {
     }, 1000);
   };
 
-  const handleQRCodeScan = (decodedText: string) => {
-    validarValeGas(decodedText);
-  };
+  const handleQRCodeScan = (decodedText: string) => validarValeGas(decodedText);
 
   const validarCodigoManual = () => {
-    if (codigoManual.trim()) {
-      validarValeGas(codigoManual.trim());
-    }
+    if (codigoManual.trim()) validarValeGas(codigoManual.trim());
   };
 
   const confirmarValeGas = () => {
     if (valeGasLido) {
       setPagamentos((prev) => [
         ...prev,
-        {
-          forma: "Vale Gás",
-          valor: valeGasLido.valor,
-          valeGasInfo: {
-            parceiro: valeGasLido.parceiro,
-            codigo: valeGasLido.codigo,
-            valido: valeGasLido.valido,
-          },
-        },
+        { forma: "Vale Gás", valor: valeGasLido.valor, valeGasInfo: { parceiro: valeGasLido.parceiro, codigo: valeGasLido.codigo, valido: valeGasLido.valido } },
       ]);
       setValeGasLido(null);
       setDialogQRAberto(false);
@@ -201,37 +167,36 @@ export default function FinalizarEntrega() {
 
   const finalizarEntrega = async () => {
     if (diferenca !== 0) {
-      toast({
-        title: "Atenção",
-        description: "O valor dos pagamentos deve ser igual ao total da entrega.",
-        variant: "destructive",
-      });
+      toast({ title: "Atenção", description: "O valor dos pagamentos deve ser igual ao total da entrega.", variant: "destructive" });
       return;
     }
-
     if (!id) return;
-
     setIsSaving(true);
 
-    // Build forma_pagamento string from payments
-    const formaStr = pagamentos.map(p => p.forma).join(", ");
+    try {
+      // Save edited items
+      for (const item of editableItens) {
+        const { error } = await supabase
+          .from("pedido_itens")
+          .update({ quantidade: item.quantidade, preco_unitario: item.preco_unitario })
+          .eq("id", item.id);
+        if (error) throw error;
+      }
 
-    const { error } = await supabase
-      .from("pedidos")
-      .update({ status: "entregue", forma_pagamento: formaStr })
-      .eq("id", id);
+      const formaStr = pagamentos.map(p => p.forma).join(", ");
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ status: "entregue", forma_pagamento: formaStr, valor_total: totalItens })
+        .eq("id", id);
+      if (error) throw error;
 
-    if (error) {
-      toast({ title: "Erro ao finalizar", description: error.message, variant: "destructive" });
+      toast({ title: "Entrega finalizada!", description: "Os dados foram salvos com sucesso." });
+      navigate("/entregador/entregas");
+    } catch (err: any) {
+      toast({ title: "Erro ao finalizar", description: err.message, variant: "destructive" });
+    } finally {
       setIsSaving(false);
-      return;
     }
-
-    toast({
-      title: "Entrega finalizada!",
-      description: "Os dados foram salvos com sucesso.",
-    });
-    navigate("/entregador/entregas");
   };
 
   if (isLoading) {
@@ -252,9 +217,7 @@ export default function FinalizarEntrega() {
         <div className="p-4 text-center text-muted-foreground py-12">
           <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p>Pedido não encontrado</p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate("/entregador/entregas")}>
-            Voltar
-          </Button>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/entregador/entregas")}>Voltar</Button>
         </div>
       </EntregadorLayout>
     );
@@ -272,16 +235,14 @@ export default function FinalizarEntrega() {
               <div>
                 <p className="text-white/80 text-sm">Pedido #{id?.slice(-6).toUpperCase()}</p>
                 <p className="font-bold text-lg">{clienteNome}</p>
-                {pedido.endereco_entrega && (
-                  <p className="text-sm text-white/80">{pedido.endereco_entrega}</p>
-                )}
+                {pedido.endereco_entrega && <p className="text-sm text-white/80">{pedido.endereco_entrega}</p>}
               </div>
               <Package className="h-12 w-12 text-white/50" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Produtos (read-only from pedido) */}
+        {/* Produtos (editáveis) */}
         <Card className="border-none shadow-md">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -290,20 +251,52 @@ export default function FinalizarEntrega() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {pedido.pedido_itens.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{item.produtos?.nome || "Produto"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    R$ {Number(item.preco_unitario).toFixed(2)} un.
-                  </p>
+            {editableItens.map((item, index) => (
+              <div key={item.id} className="p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-medium text-sm flex-1">{item.produtos?.nome || "Produto"}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setEditingItemIndex(editingItemIndex === index ? null : index)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">{item.quantidade}x</span>
-                  <span className="font-bold text-sm">
-                    R$ {(item.quantidade * Number(item.preco_unitario)).toFixed(2)}
-                  </span>
-                </div>
+                {editingItemIndex === index ? (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Quantidade</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={item.quantidade}
+                        onChange={(e) => updateItem(index, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Preço (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={item.preco_unitario}
+                        onChange={(e) => updateItem(index, "preco_unitario", Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">R$ {Number(item.preco_unitario).toFixed(2)} un.</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold">{item.quantidade}x</span>
+                      <span className="font-bold text-sm">R$ {(item.quantidade * Number(item.preco_unitario)).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             <div className="flex justify-between pt-3 border-t border-border">
@@ -325,71 +318,35 @@ export default function FinalizarEntrega() {
                 <Dialog open={dialogQRAberto} onOpenChange={setDialogQRAberto}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="h-8 text-xs">
-                      <QrCode className="h-4 w-4 mr-1" />
-                      Vale Gás
+                      <QrCode className="h-4 w-4 mr-1" />Vale Gás
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Validar Vale Gás</DialogTitle>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>Validar Vale Gás</DialogTitle></DialogHeader>
                     <div className="space-y-4">
                       {!valeGasLido ? (
                         <>
                           <div className="flex gap-2 p-1 bg-muted rounded-lg">
-                            <Button
-                              variant={!modoEntradaManual ? "default" : "ghost"}
-                              size="sm"
-                              className={`flex-1 ${!modoEntradaManual ? "gradient-primary text-white" : ""}`}
-                              onClick={() => setModoEntradaManual(false)}
-                            >
-                              <QrCode className="h-4 w-4 mr-2" />
-                              Câmera
+                            <Button variant={!modoEntradaManual ? "default" : "ghost"} size="sm" className={`flex-1 ${!modoEntradaManual ? "gradient-primary text-white" : ""}`} onClick={() => setModoEntradaManual(false)}>
+                              <QrCode className="h-4 w-4 mr-2" />Câmera
                             </Button>
-                            <Button
-                              variant={modoEntradaManual ? "default" : "ghost"}
-                              size="sm"
-                              className={`flex-1 ${modoEntradaManual ? "gradient-primary text-white" : ""}`}
-                              onClick={() => setModoEntradaManual(true)}
-                            >
-                              <Keyboard className="h-4 w-4 mr-2" />
-                              Digitar
+                            <Button variant={modoEntradaManual ? "default" : "ghost"} size="sm" className={`flex-1 ${modoEntradaManual ? "gradient-primary text-white" : ""}`} onClick={() => setModoEntradaManual(true)}>
+                              <Keyboard className="h-4 w-4 mr-2" />Digitar
                             </Button>
                           </div>
-
                           {modoEntradaManual ? (
                             <div className="space-y-4">
                               <div>
                                 <Label>Código do Vale Gás</Label>
-                                <Input
-                                  placeholder="Ex: VG-2024-001234"
-                                  value={codigoManual}
-                                  onChange={(e) => setCodigoManual(e.target.value)}
-                                  className="font-mono"
-                                />
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Digite o código impresso no vale
-                                </p>
+                                <Input placeholder="Ex: VG-2024-001234" value={codigoManual} onChange={(e) => setCodigoManual(e.target.value)} className="font-mono" />
+                                <p className="text-xs text-muted-foreground mt-1">Digite o código impresso no vale</p>
                               </div>
-                              <Button
-                                onClick={validarCodigoManual}
-                                disabled={!codigoManual.trim() || validandoCodigo}
-                                className="w-full gradient-primary text-white"
-                              >
+                              <Button onClick={validarCodigoManual} disabled={!codigoManual.trim() || validandoCodigo} className="w-full gradient-primary text-white">
                                 {validandoCodigo ? "Validando..." : "Validar Código"}
                               </Button>
                             </div>
                           ) : (
-                            <QRCodeScanner
-                              onScan={handleQRCodeScan}
-                              onError={(err) => {
-                                toast({
-                                  title: "Erro na câmera",
-                                  description: err,
-                                  variant: "destructive",
-                                });
-                              }}
-                            />
+                            <QRCodeScanner onScan={handleQRCodeScan} onError={(err) => toast({ title: "Erro na câmera", description: err, variant: "destructive" })} />
                           )}
                         </>
                       ) : (
@@ -401,18 +358,9 @@ export default function FinalizarEntrega() {
                                 <span className="font-semibold text-success">Vale Gás Válido</span>
                               </div>
                               <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Parceiro:</span>
-                                  <span className="font-medium">{valeGasLido.parceiro}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Código:</span>
-                                  <span className="font-mono">{valeGasLido.codigo}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Valor:</span>
-                                  <span className="font-bold text-lg">R$ {valeGasLido.valor.toFixed(2)}</span>
-                                </div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Parceiro:</span><span className="font-medium">{valeGasLido.parceiro}</span></div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Código:</span><span className="font-mono">{valeGasLido.codigo}</span></div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Valor:</span><span className="font-bold text-lg">R$ {valeGasLido.valor.toFixed(2)}</span></div>
                               </div>
                             </div>
                           ) : (
@@ -425,18 +373,8 @@ export default function FinalizarEntrega() {
                             </div>
                           )}
                           <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => { setValeGasLido(null); setCodigoManual(""); }}
-                              className="flex-1"
-                            >
-                              Tentar outro
-                            </Button>
-                            {valeGasLido.valido && (
-                              <Button onClick={confirmarValeGas} className="flex-1 gradient-primary text-white">
-                                Confirmar
-                              </Button>
-                            )}
+                            <Button variant="outline" onClick={() => { setValeGasLido(null); setCodigoManual(""); }} className="flex-1">Tentar outro</Button>
+                            {valeGasLido.valido && <Button onClick={confirmarValeGas} className="flex-1 gradient-primary text-white">Confirmar</Button>}
                           </div>
                         </div>
                       )}
@@ -447,21 +385,16 @@ export default function FinalizarEntrega() {
                 <Dialog open={dialogPagamentoAberto} onOpenChange={setDialogPagamentoAberto}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="h-8 text-xs">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Adicionar
+                      <Plus className="h-4 w-4 mr-1" />Adicionar
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Pagamento</DialogTitle>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>Adicionar Pagamento</DialogTitle></DialogHeader>
                     <div className="space-y-4">
                       <div>
                         <Label>Forma de Pagamento</Label>
                         <Select value={novoPagamentoForma} onValueChange={setNovoPagamentoForma}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
                             {formasPagamento.filter((f) => f !== "Vale Gás").map((forma) => (
                               <SelectItem key={forma} value={forma}>{forma}</SelectItem>
@@ -471,17 +404,9 @@ export default function FinalizarEntrega() {
                       </div>
                       <div>
                         <Label>Valor (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={novoPagamentoValor}
-                          onChange={(e) => setNovoPagamentoValor(e.target.value)}
-                          placeholder="0,00"
-                        />
+                        <Input type="number" step="0.01" value={novoPagamentoValor} onChange={(e) => setNovoPagamentoValor(e.target.value)} placeholder="0,00" />
                       </div>
-                      <Button onClick={adicionarPagamento} className="w-full gradient-primary text-white">
-                        Adicionar
-                      </Button>
+                      <Button onClick={adicionarPagamento} className="w-full gradient-primary text-white">Adicionar</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -493,20 +418,11 @@ export default function FinalizarEntrega() {
               <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div>
                   <p className="font-medium text-sm">{pag.forma}</p>
-                  {pag.valeGasInfo && (
-                    <p className="text-xs text-muted-foreground">
-                      {pag.valeGasInfo.parceiro} • {pag.valeGasInfo.codigo}
-                    </p>
-                  )}
+                  {pag.valeGasInfo && <p className="text-xs text-muted-foreground">{pag.valeGasInfo.parceiro} • {pag.valeGasInfo.codigo}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold">R$ {pag.valor.toFixed(2)}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => removerPagamento(index)}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removerPagamento(index)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -533,11 +449,7 @@ export default function FinalizarEntrega() {
           className="w-full h-14 text-lg gradient-primary text-white shadow-glow"
           disabled={diferenca !== 0 || isSaving}
         >
-          {isSaving ? (
-            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-          ) : (
-            <CheckCircle className="h-5 w-5 mr-2" />
-          )}
+          {isSaving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <CheckCircle className="h-5 w-5 mr-2" />}
           {isSaving ? "Salvando..." : "Finalizar Entrega"}
         </Button>
       </div>
