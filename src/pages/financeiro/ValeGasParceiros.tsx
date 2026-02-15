@@ -26,9 +26,9 @@ import { toast } from "sonner";
 export default function ValeGasParceiros() {
   const { parceiros, addParceiro, getEstatisticasParceiro, refetch } = useValeGas();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago" as TipoParceiro, userId: "",
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyForm = { nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago" as TipoParceiro, userId: "none" };
+  const [formData, setFormData] = useState(emptyForm);
 
   // Fetch users with 'parceiro' role for linking
   const { data: parceiroUsers = [] } = useQuery({
@@ -42,24 +42,47 @@ export default function ValeGasParceiros() {
     },
   });
 
+  const openEdit = (parceiro: any) => {
+    setEditingId(parceiro.id);
+    setFormData({
+      nome: parceiro.nome || "",
+      cnpj: parceiro.cnpj || "",
+      telefone: parceiro.telefone || "",
+      email: parceiro.email || "",
+      endereco: parceiro.endereco || "",
+      tipo: parceiro.tipo || "prepago",
+      userId: parceiro.user_id || "none",
+    });
+    setDialogOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const userId = formData.userId === "none" ? null : formData.userId;
     try {
-      await addParceiro({ ...formData, ativo: true });
-      // If userId is selected, link it
-      if (formData.userId) {
-        // Find the newly created parceiro by name (just added)
-        const { data: newParceiro } = await (supabase as any).from("vale_gas_parceiros").select("id").eq("nome", formData.nome).order("created_at", { ascending: false }).limit(1).single();
-        if (newParceiro) {
-          await (supabase as any).from("vale_gas_parceiros").update({ user_id: formData.userId }).eq("id", newParceiro.id);
+      if (editingId) {
+        const { error } = await (supabase as any).from("vale_gas_parceiros").update({
+          nome: formData.nome, cnpj: formData.cnpj, telefone: formData.telefone,
+          email: formData.email, endereco: formData.endereco, tipo: formData.tipo, user_id: userId,
+        }).eq("id", editingId);
+        if (error) throw error;
+        toast.success("Parceiro atualizado!");
+      } else {
+        await addParceiro({ ...formData, ativo: true });
+        if (userId) {
+          const { data: newParceiro } = await (supabase as any).from("vale_gas_parceiros").select("id").eq("nome", formData.nome).order("created_at", { ascending: false }).limit(1).single();
+          if (newParceiro) {
+            await (supabase as any).from("vale_gas_parceiros").update({ user_id: userId }).eq("id", newParceiro.id);
+          }
         }
+        toast.success("Parceiro cadastrado!");
       }
-      toast.success("Parceiro cadastrado!");
       setDialogOpen(false);
-      setFormData({ nome: "", cnpj: "", telefone: "", email: "", endereco: "", tipo: "prepago", userId: "" });
+      setEditingId(null);
+      setFormData(emptyForm);
       refetch();
     } catch (err: any) {
-      toast.error(err.message || "Erro ao cadastrar");
+      toast.error(err.message || "Erro ao salvar");
     }
   };
 
@@ -74,10 +97,10 @@ export default function ValeGasParceiros() {
       <Header title="Parceiros Vale Gás" subtitle="Cadastro e gestão de parceiros" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-end">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setFormData(emptyForm); } }}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Novo Parceiro</Button></DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>Cadastrar Parceiro</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Editar Parceiro" : "Cadastrar Parceiro"}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2"><Label>Nome/Razão Social</Label><Input value={formData.nome} onChange={e => setFormData(p => ({ ...p, nome: e.target.value }))} placeholder="Nome do parceiro" required /></div>
                 <div className="grid grid-cols-2 gap-4">
@@ -104,7 +127,7 @@ export default function ValeGasParceiros() {
                   <Select value={formData.userId} onValueChange={(v) => setFormData(p => ({ ...p, userId: v }))}>
                     <SelectTrigger><SelectValue placeholder="Selecionar usuário com role 'parceiro'" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {parceiroUsers.map(u => (
                         <SelectItem key={u.user_id} value={u.user_id}>{u.full_name} ({u.email})</SelectItem>
                       ))}
@@ -116,7 +139,7 @@ export default function ValeGasParceiros() {
                 </div>
                 <div className="flex gap-2 justify-end pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                  <Button type="submit">Cadastrar</Button>
+                  <Button type="submit">{editingId ? "Salvar" : "Cadastrar"}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -137,13 +160,14 @@ export default function ValeGasParceiros() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Parceiro</TableHead><TableHead>Tipo</TableHead><TableHead>Contato</TableHead>
-                  <TableHead className="text-center">Total Vales</TableHead><TableHead className="text-center">Utilizados</TableHead>
-                  <TableHead className="text-right">Valor Pendente</TableHead><TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Total Vales</TableHead><TableHead className="text-center">Utilizados</TableHead>
+                      <TableHead className="text-right">Valor Pendente</TableHead><TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {parceiros.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum parceiro cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum parceiro cadastrado</TableCell></TableRow>
                 ) : parceiros.map(parceiro => {
                   const stats = getEstatisticasParceiro(parceiro.id);
                   return (
@@ -169,6 +193,9 @@ export default function ValeGasParceiros() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant={parceiro.ativo ? "outline" : "destructive"}>{parceiro.ativo ? "Ativo" : "Inativo"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(parceiro)}>Editar</Button>
                       </TableCell>
                     </TableRow>
                   );
