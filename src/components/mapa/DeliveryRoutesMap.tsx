@@ -18,7 +18,7 @@ L.Icon.Default.mergeOptions({
 });
 
 export interface Entregador {
-  id: number;
+  id: string;
   nome: string;
   status: "em_rota" | "disponivel" | "offline";
   lat: number;
@@ -30,13 +30,13 @@ export interface Entregador {
 }
 
 export interface ClienteEntrega {
-  id: number;
+  id: string;
   cliente: string;
   endereco: string;
   lat: number;
   lng: number;
   status: "pendente" | "em_rota" | "entregue";
-  entregadorId?: number;
+  entregadorId?: string;
   horarioPrevisto: string;
 }
 
@@ -50,12 +50,12 @@ interface DeliveryRoutesMapProps {
   entregadores: Entregador[];
   clientes: ClienteEntrega[];
   percurso?: PercursoPonto[];
-  selectedEntregador?: number | null;
-  onSelectEntregador?: (id: number | null) => void;
+  selectedEntregador?: string | null;
+  onSelectEntregador?: (id: string | null) => void;
   showPercurso?: boolean;
   defaultCenter?: [number, number];
   onSelectCliente?: (cliente: ClienteEntrega | null) => void;
-  selectedClienteId?: number | null;
+  selectedClienteId?: string | null;
   routeToClienteLine?: [number, number][];
 }
 

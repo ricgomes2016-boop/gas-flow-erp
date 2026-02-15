@@ -11,7 +11,7 @@ import { DeliveryRoutesMap, Entregador, ClienteEntrega, PercursoPonto } from "@/
 // Mock data - entregadores com coordenadas
 const entregadoresMock: Entregador[] = [
   {
-    id: 1,
+    id: "e1",
     nome: "Carlos Souza",
     status: "em_rota",
     lat: -23.5605,
@@ -22,7 +22,7 @@ const entregadoresMock: Entregador[] = [
     kmInicial: 45230,
   },
   {
-    id: 2,
+    id: "e2",
     nome: "Roberto Lima",
     status: "disponivel",
     lat: -23.5505,
@@ -32,7 +32,7 @@ const entregadoresMock: Entregador[] = [
     kmInicial: 62100,
   },
   {
-    id: 3,
+    id: "e3",
     nome: "Fernando Alves",
     status: "em_rota",
     lat: -23.5405,
@@ -47,17 +47,17 @@ const entregadoresMock: Entregador[] = [
 // Mock data - clientes/entregas
 const clientesMock: ClienteEntrega[] = [
   {
-    id: 1,
+    id: "c1",
     cliente: "João Silva",
     endereco: "Rua das Flores, 123 - Centro",
     lat: -23.5655,
     lng: -46.6483,
     status: "em_rota",
-    entregadorId: 1,
+    entregadorId: "e1",
     horarioPrevisto: "10:30",
   },
   {
-    id: 2,
+    id: "c2",
     cliente: "Ana Oliveira",
     endereco: "Av. Brasil, 456 - Jardim América",
     lat: -23.5555,
@@ -66,17 +66,17 @@ const clientesMock: ClienteEntrega[] = [
     horarioPrevisto: "11:00",
   },
   {
-    id: 3,
+    id: "c3",
     cliente: "Maria Santos",
     endereco: "Rua São Paulo, 789 - Vila Nova",
     lat: -23.5355,
     lng: -46.6583,
     status: "em_rota",
-    entregadorId: 3,
+    entregadorId: "e3",
     horarioPrevisto: "11:30",
   },
   {
-    id: 4,
+    id: "c4",
     cliente: "Pedro Costa",
     endereco: "Rua Minas Gerais, 321 - Consolação",
     lat: -23.5455,
@@ -85,27 +85,27 @@ const clientesMock: ClienteEntrega[] = [
     horarioPrevisto: "12:00",
   },
   {
-    id: 5,
+    id: "c5",
     cliente: "Lucia Ferreira",
     endereco: "Av. Paulista, 1000 - Bela Vista",
     lat: -23.5705,
     lng: -46.6533,
     status: "pendente",
-    entregadorId: 1,
+    entregadorId: "e1",
     horarioPrevisto: "12:30",
   },
 ];
 
 // Mock data - percurso histórico do entregador
-const percursoMock: Record<number, PercursoPonto[]> = {
-  1: [
+const percursoMock: Record<string, PercursoPonto[]> = {
+  "e1": [
     { lat: -23.5505, lng: -46.6333, hora: "08:00" },
     { lat: -23.5525, lng: -46.6353, hora: "08:15" },
     { lat: -23.5555, lng: -46.6383, hora: "08:45" },
     { lat: -23.5585, lng: -46.6413, hora: "09:20" },
     { lat: -23.5605, lng: -46.6433, hora: "10:00" },
   ],
-  3: [
+  "e3": [
     { lat: -23.5505, lng: -46.6333, hora: "08:00" },
     { lat: -23.5455, lng: -46.6433, hora: "08:30" },
     { lat: -23.5405, lng: -46.6533, hora: "09:15" },
@@ -113,7 +113,7 @@ const percursoMock: Record<number, PercursoPonto[]> = {
 };
 
 export default function MapaEntregadores() {
-  const [selectedEntregador, setSelectedEntregador] = useState<number | null>(null);
+  const [selectedEntregador, setSelectedEntregador] = useState<string | null>(null);
   const [showPercurso, setShowPercurso] = useState(false);
   const [tabAtiva, setTabAtiva] = useState("mapa");
 
