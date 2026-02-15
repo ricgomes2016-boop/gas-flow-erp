@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown, Navigation } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +41,9 @@ import { formatPhone, formatCEP, validateCpfCnpj } from "@/hooks/useInputMasks";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { geocodeAddress, type GeocodingResult } from "@/lib/geocoding";
+import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
 
 interface Cliente {
   id: string;
@@ -88,6 +91,7 @@ const initialFormData: FormData = {
 export default function CadastroClientesCad() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -103,6 +107,16 @@ export default function CadastroClientesCad() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState<GeocodingResult[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const addressDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Map picker state
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [clienteLatLng, setClienteLatLng] = useState<{ lat: number; lng: number } | null>(null);
 
   // Photo import state
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -179,13 +193,90 @@ export default function CadastroClientesCad() {
     }
   };
 
+  // Address autocomplete search using Nominatim
+  const searchAddress = useCallback(async (query: string) => {
+    if (!query || query.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsSearchingAddress(true);
+    try {
+      const cidade = formData.cidade || unidadeAtual?.cidade || "";
+      const searchQuery = cidade ? `${query}, ${cidade}, Brasil` : `${query}, Brasil`;
+      const encoded = encodeURIComponent(searchQuery);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&countrycodes=br&limit=5&addressdetails=1`,
+        { headers: { "Accept-Language": "pt-BR" } }
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const results: GeocodingResult[] = data.map((item: any) => {
+          const addr = item.address || {};
+          return {
+            latitude: parseFloat(item.lat),
+            longitude: parseFloat(item.lon),
+            displayName: item.display_name,
+            endereco: addr.road || undefined,
+            bairro: addr.suburb || addr.neighbourhood || undefined,
+            cidade: addr.city || addr.town || addr.village || undefined,
+            cep: addr.postcode || undefined,
+          };
+        });
+        setAddressSuggestions(results);
+        setShowSuggestions(true);
+      } else {
+        setAddressSuggestions([]);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar endereço:", error);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  }, [formData.cidade, unidadeAtual?.cidade]);
+
+  const handleAddressInputChange = (value: string) => {
+    handleChange("endereco", value);
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    addressDebounceRef.current = setTimeout(() => searchAddress(value), 500);
+  };
+
+  const selectAddressSuggestion = (suggestion: GeocodingResult) => {
+    setFormData(prev => ({
+      ...prev,
+      endereco: suggestion.endereco || prev.endereco,
+      bairro: suggestion.bairro || prev.bairro,
+      cidade: suggestion.cidade || prev.cidade,
+      cep: suggestion.cep || prev.cep,
+    }));
+    setClienteLatLng({ lat: suggestion.latitude, lng: suggestion.longitude });
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  };
+
+  const handleMapConfirm = (result: GeocodingResult) => {
+    setFormData(prev => ({
+      ...prev,
+      endereco: result.endereco || prev.endereco,
+      bairro: result.bairro || prev.bairro,
+      cidade: result.cidade || prev.cidade,
+      cep: result.cep || prev.cep,
+    }));
+    setClienteLatLng({ lat: result.latitude, lng: result.longitude });
+  };
+
   const openCreateModal = () => {
     setEditingCliente(null);
-    setFormData(initialFormData);
+    // Auto-fill city from selected unit
+    const cidadeUnidade = unidadeAtual?.cidade || "";
+    setFormData({ ...initialFormData, cidade: cidadeUnidade });
+    setClienteLatLng(null);
+    setShowSuggestions(false);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (cliente: Cliente) => {
+  const openEditModal = async (cliente: Cliente) => {
     setEditingCliente(cliente);
     // Tentar separar número do endereço existente (formato "Rua X, Nº 123" ou "Rua X, 123")
     let rua = cliente.endereco || "";
@@ -210,6 +301,18 @@ export default function CadastroClientesCad() {
       cep: cliente.cep || "",
       tipo: cliente.tipo || "residencial",
     });
+    // Load existing lat/lng
+    const { data: clienteDb } = await supabase
+      .from("clientes")
+      .select("latitude, longitude")
+      .eq("id", cliente.id)
+      .single();
+    if (clienteDb?.latitude && clienteDb?.longitude) {
+      setClienteLatLng({ lat: clienteDb.latitude, lng: clienteDb.longitude });
+    } else {
+      setClienteLatLng(null);
+    }
+    setShowSuggestions(false);
     setIsModalOpen(true);
   };
 
@@ -318,7 +421,19 @@ export default function CadastroClientesCad() {
         formData.complemento,
       ].filter(Boolean).join(", ") || null;
 
-      const clienteData = {
+      // Geocode if we don't have coordinates yet
+      let lat = clienteLatLng?.lat || null;
+      let lng = clienteLatLng?.lng || null;
+      if (!lat && enderecoCompleto) {
+        const fullAddr = [enderecoCompleto, formData.bairro, formData.cidade].filter(Boolean).join(", ");
+        const geo = await geocodeAddress(fullAddr);
+        if (geo) {
+          lat = geo.latitude;
+          lng = geo.longitude;
+        }
+      }
+
+      const clienteData: Record<string, any> = {
         nome: formData.nome.trim(),
         cpf: formData.cpf || null,
         telefone: formData.telefone || null,
@@ -328,6 +443,8 @@ export default function CadastroClientesCad() {
         cidade: formData.cidade || null,
         cep: formData.cep || null,
         tipo: formData.tipo,
+        latitude: lat,
+        longitude: lng,
       };
 
       if (editingCliente) {
@@ -347,7 +464,7 @@ export default function CadastroClientesCad() {
         // Create
         const { error } = await supabase
           .from("clientes")
-          .insert({ ...clienteData, ativo: true });
+          .insert({ ...clienteData, ativo: true } as any);
 
         if (error) throw error;
 
@@ -948,13 +1065,37 @@ export default function CadastroClientesCad() {
             </div>
 
             <div className="grid grid-cols-4 gap-4">
-              <div className="col-span-3">
+              <div className="col-span-3 relative">
                 <Label>Endereço</Label>
-                <Input
-                  value={formData.endereco}
-                  onChange={(e) => handleChange("endereco", e.target.value)}
-                  placeholder="Rua/Avenida"
-                />
+                <div className="relative">
+                  <Input
+                    value={formData.endereco}
+                    onChange={(e) => handleAddressInputChange(e.target.value)}
+                    onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    placeholder="Digite a rua para buscar..."
+                  />
+                  {isSearchingAddress && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {showSuggestions && addressSuggestions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {addressSuggestions.map((s, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent/50 border-b last:border-b-0 transition-colors"
+                        onMouseDown={() => selectAddressSuggestion(s)}
+                      >
+                        <p className="font-medium truncate">{s.endereco || s.displayName.split(",")[0]}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[s.bairro, s.cidade, s.cep].filter(Boolean).join(" • ")}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <Label>Número</Label>
@@ -1006,6 +1147,29 @@ export default function CadastroClientesCad() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Location indicator + map picker */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className={`h-4 w-4 ${clienteLatLng ? "text-primary" : "text-muted-foreground"}`} />
+                {clienteLatLng ? (
+                  <span className="text-foreground">
+                    📍 Localização definida ({clienteLatLng.lat.toFixed(4)}, {clienteLatLng.lng.toFixed(4)})
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Localização será calculada automaticamente ao salvar</span>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsMapPickerOpen(true)}
+              >
+                <Navigation className="h-3.5 w-3.5 mr-1" />
+                {clienteLatLng ? "Ajustar" : "Definir no Mapa"}
+              </Button>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
@@ -1083,6 +1247,14 @@ export default function CadastroClientesCad() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Map Picker Dialog */}
+      <MapPickerDialog
+        open={isMapPickerOpen}
+        onOpenChange={setIsMapPickerOpen}
+        initialPosition={clienteLatLng}
+        onConfirm={handleMapConfirm}
+      />
     </MainLayout>
   );
 }
