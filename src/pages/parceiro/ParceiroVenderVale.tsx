@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Search, QrCode, CheckCircle, Printer, Loader2 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Search, CheckCircle, Printer, Loader2, MapPin } from "lucide-react";
 
 type Step = "buscar" | "consumidor" | "confirmado";
 
@@ -30,14 +30,14 @@ export default function ParceiroVenderVale() {
   const [cpf, setCpf] = useState("");
   const [nomeConsumidor, setNomeConsumidor] = useState("");
   const [telefoneConsumidor, setTelefoneConsumidor] = useState("");
+  const [enderecoConsumidor, setEnderecoConsumidor] = useState("");
+  const [valorVenda, setValorVenda] = useState("");
   const cupomRef = useRef<HTMLDivElement>(null);
 
   const buscarVale = async () => {
     if (!busca.trim() || !parceiro) return;
     setLoading(true);
     try {
-      // Try by code first
-      // Try code match first
       let { data, error } = await (supabase as any).from("vale_gas")
         .select("id, numero, codigo, valor, produto_nome, status, parceiro_id")
         .eq("parceiro_id", parceiro.id)
@@ -47,7 +47,6 @@ export default function ParceiroVenderVale() {
 
       let found = data?.[0] || null;
 
-      // If not found, try by number
       if (!found && !error) {
         const num = parseInt(busca.trim());
         if (!isNaN(num)) {
@@ -71,6 +70,7 @@ export default function ParceiroVenderVale() {
       }
 
       setVale(data);
+      setValorVenda(Number(data.valor).toFixed(2));
       setStep("consumidor");
     } catch (err: any) {
       toast.error(err.message || "Erro ao buscar vale");
@@ -84,6 +84,11 @@ export default function ParceiroVenderVale() {
       toast.error("Informe o nome do consumidor.");
       return;
     }
+    const valorVendaNum = parseFloat(valorVenda);
+    if (isNaN(valorVendaNum) || valorVendaNum <= 0) {
+      toast.error("Informe um valor de venda válido.");
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await (supabase as any).from("vale_gas").update({
@@ -91,6 +96,8 @@ export default function ParceiroVenderVale() {
         consumidor_nome: nomeConsumidor.trim(),
         consumidor_cpf: cpf.trim() || null,
         consumidor_telefone: telefoneConsumidor.trim() || null,
+        consumidor_endereco: enderecoConsumidor.trim() || null,
+        valor_venda: valorVendaNum,
       }).eq("id", vale.id);
 
       if (error) throw error;
@@ -133,7 +140,12 @@ export default function ParceiroVenderVale() {
     setCpf("");
     setNomeConsumidor("");
     setTelefoneConsumidor("");
+    setEnderecoConsumidor("");
+    setValorVenda("");
   };
+
+  const valorVendaNum = parseFloat(valorVenda) || 0;
+  const lucro = vale ? valorVendaNum - Number(vale.valor) : 0;
 
   return (
     <ParceiroLayout title="Vender Vale">
@@ -170,7 +182,7 @@ export default function ParceiroVenderVale() {
         {step === "consumidor" && vale && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Dados do Consumidor</CardTitle>
+              <CardTitle className="text-base">Dados da Venda</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Vale info */}
@@ -180,9 +192,28 @@ export default function ParceiroVenderVale() {
                   <Badge>Disponível</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">Código: {vale.codigo}</p>
-                <p className="text-sm font-bold text-primary">R$ {Number(vale.valor).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">Valor de custo: R$ {Number(vale.valor).toFixed(2)}</p>
                 {vale.produto_nome && (
                   <p className="text-xs text-muted-foreground">Produto: {vale.produto_nome}</p>
+                )}
+              </div>
+
+              {/* Valor de venda */}
+              <div className="p-3 rounded-lg border-2 border-primary/20 bg-primary/5 space-y-2">
+                <Label className="font-semibold">Valor de Venda (R$) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Ex: 110.00"
+                  value={valorVenda}
+                  onChange={(e) => setValorVenda(e.target.value)}
+                  className="text-lg font-bold"
+                />
+                {lucro !== 0 && (
+                  <p className={`text-xs font-medium ${lucro >= 0 ? "text-green-600" : "text-red-500"}`}>
+                    {lucro >= 0 ? "Lucro" : "Prejuízo"}: R$ {Math.abs(lucro).toFixed(2)}
+                  </p>
                 )}
               </div>
 
@@ -211,6 +242,17 @@ export default function ParceiroVenderVale() {
                     onChange={(e) => setTelefoneConsumidor(e.target.value)}
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> Endereço de Entrega
+                  </Label>
+                  <Textarea
+                    placeholder="Rua, número, bairro, complemento..."
+                    value={enderecoConsumidor}
+                    onChange={(e) => setEnderecoConsumidor(e.target.value)}
+                    rows={2}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -233,6 +275,9 @@ export default function ParceiroVenderVale() {
                 <p className="text-muted-foreground">
                   Vale #{vale.numero} vendido para {nomeConsumidor}
                 </p>
+                <p className="text-sm font-semibold text-primary">
+                  Valor cobrado: R$ {valorVendaNum.toFixed(2)}
+                </p>
               </CardContent>
             </Card>
 
@@ -244,13 +289,14 @@ export default function ParceiroVenderVale() {
               <div className="line"></div>
               <div className="bold">Vale #{vale.numero}</div>
               <div>Código: {vale.codigo}</div>
-              <div className="bold">Valor: R$ {Number(vale.valor).toFixed(2)}</div>
+              <div className="bold">Valor: R$ {valorVendaNum.toFixed(2)}</div>
               {vale.produto_nome && <div>Produto: {vale.produto_nome}</div>}
               <div className="line"></div>
               <div className="bold">Consumidor:</div>
               <div>{nomeConsumidor}</div>
               {cpf && <div>CPF: {cpf}</div>}
               {telefoneConsumidor && <div>Tel: {telefoneConsumidor}</div>}
+              {enderecoConsumidor && <div>End: {enderecoConsumidor}</div>}
               <div className="line"></div>
               <div className="center small">
                 {new Date().toLocaleString("pt-BR")}
