@@ -10,20 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, Save, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings, Save, Loader2, Store } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface ComissaoRow {
-  canal_venda: string;
-  canal_label: string;
-  valor: number;
-}
-
-interface ProdutoComissao {
-  produto_id: string;
-  produto_nome: string;
-  canais: ComissaoRow[];
-}
+import { Badge } from "@/components/ui/badge";
 
 export function ComissaoConfigEditor() {
   const { unidadeAtual } = useUnidade();
@@ -32,8 +22,26 @@ export function ComissaoConfigEditor() {
   const [open, setOpen] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, Record<string, number>>>({});
   const [activeTab, setActiveTab] = useState<string>("");
+  const [selectedUnidadeId, setSelectedUnidadeId] = useState<string>("");
 
-  // Fetch products (gas only or all)
+  // Fetch unidades
+  const { data: unidades = [] } = useQuery({
+    queryKey: ["unidades-comissao"],
+    queryFn: async () => {
+      const { data } = await supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome");
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  // Set default unidade when data loads
+  useEffect(() => {
+    if (unidades.length > 0 && !selectedUnidadeId) {
+      setSelectedUnidadeId(unidadeAtual?.id || unidades[0].id);
+    }
+  }, [unidades, unidadeAtual]);
+
+  // Fetch products
   const { data: produtos = [] } = useQuery({
     queryKey: ["produtos-comissao-config"],
     queryFn: async () => {
@@ -61,18 +69,18 @@ export function ComissaoConfigEditor() {
     enabled: open,
   });
 
-  // Fetch existing config
+  // Fetch existing config for selected unidade
   const { data: configExistente = [], isLoading } = useQuery({
-    queryKey: ["comissao-config", unidadeAtual?.id],
+    queryKey: ["comissao-config-editor", selectedUnidadeId],
     queryFn: async () => {
       let query = supabase.from("comissao_config").select("*");
-      if (unidadeAtual?.id) {
-        query = query.eq("unidade_id", unidadeAtual.id);
+      if (selectedUnidadeId) {
+        query = query.eq("unidade_id", selectedUnidadeId);
       }
       const { data } = await query;
       return data || [];
     },
-    enabled: open,
+    enabled: open && !!selectedUnidadeId,
   });
 
   // Initialize edit values when data loads
@@ -99,6 +107,8 @@ export function ComissaoConfigEditor() {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedUnidadeId) throw new Error("Selecione uma loja");
+
       const upserts: any[] = [];
       Object.entries(editValues).forEach(([produtoId, canais]) => {
         Object.entries(canais).forEach(([canalVenda, valor]) => {
@@ -106,17 +116,16 @@ export function ComissaoConfigEditor() {
             produto_id: produtoId,
             canal_venda: canalVenda,
             valor,
-            unidade_id: unidadeAtual?.id || null,
+            unidade_id: selectedUnidadeId,
           });
         });
       });
 
-      // Delete existing and insert new
-      let deleteQuery = supabase.from("comissao_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      if (unidadeAtual?.id) {
-        deleteQuery = deleteQuery.eq("unidade_id", unidadeAtual.id);
-      }
-      await deleteQuery;
+      // Delete existing for this unidade and insert new
+      await supabase
+        .from("comissao_config")
+        .delete()
+        .eq("unidade_id", selectedUnidadeId);
 
       if (upserts.length > 0) {
         const { error } = await supabase.from("comissao_config").insert(upserts);
@@ -126,6 +135,7 @@ export function ComissaoConfigEditor() {
     onSuccess: () => {
       toast({ title: "Comissões salvas com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["comissao-config"] });
+      queryClient.invalidateQueries({ queryKey: ["comissao-config-editor"] });
       queryClient.invalidateQueries({ queryKey: ["comissao-detalhada"] });
     },
     onError: () => {
@@ -141,6 +151,8 @@ export function ComissaoConfigEditor() {
     }));
   };
 
+  const selectedUnidadeNome = unidades.find((u: any) => u.id === selectedUnidadeId)?.nome;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -153,6 +165,28 @@ export function ComissaoConfigEditor() {
         <DialogHeader>
           <DialogTitle>Configurar Comissões por Produto / Canal</DialogTitle>
         </DialogHeader>
+
+        {/* Store selector */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <Store className="h-4 w-4" /> Loja
+          </label>
+          <Select value={selectedUnidadeId} onValueChange={setSelectedUnidadeId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a loja" />
+            </SelectTrigger>
+            <SelectContent>
+              {unidades.map((u: any) => (
+                <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedUnidadeNome && (
+            <Badge variant="secondary" className="text-xs">
+              Editando: {selectedUnidadeNome}
+            </Badge>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="space-y-3">
@@ -206,7 +240,7 @@ export function ComissaoConfigEditor() {
             <div className="flex justify-end pt-4">
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || !selectedUnidadeId}
                 className="gap-2"
               >
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
