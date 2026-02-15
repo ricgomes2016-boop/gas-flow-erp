@@ -41,15 +41,15 @@ export function UnidadeSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 h-9">
+        <Button variant="default" size="sm" className="gap-2 h-9 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">
           <Building2 className="h-4 w-4" />
-          <span className="hidden sm:inline truncate max-w-[100px] lg:max-w-[150px]">
+          <span className="truncate max-w-[120px] lg:max-w-[180px] font-semibold">
             {unidadeAtual?.nome || "Selecionar"}
           </span>
-          <Badge variant="secondary" className="text-xs capitalize hidden md:inline-flex">
+          <Badge variant="outline" className="text-xs capitalize hidden md:inline-flex border-primary-foreground/30 text-primary-foreground">
             {unidadeAtual?.tipo}
           </Badge>
-          <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+          <ChevronDown className="h-3.5 w-3.5 opacity-70" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
