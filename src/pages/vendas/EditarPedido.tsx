@@ -246,20 +246,9 @@ export default function EditarPedido() {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/vendas/pedidos")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileEdit className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Editar Pedido</h1>
-              <p className="text-sm text-muted-foreground">
-                #{pedido.id.slice(0, 6)} • {pedido.cliente_nome}
-              </p>
-            </div>
-          </div>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/vendas/pedidos")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           {getStatusBadge(pedido.status)}
         </div>
 
