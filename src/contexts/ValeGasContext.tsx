@@ -100,7 +100,7 @@ interface ValeGasContextType {
   
   // Lotes
   lotes: LoteVales[];
-  emitirLote: (data: { parceiroId: string; quantidade: number; valorUnitario: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }) => LoteVales;
+  emitirLote: (data: { parceiroId: string; quantidade: number; valorUnitario: number; numeroInicial?: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }) => LoteVales;
   cancelarLote: (loteId: string) => void;
   registrarPagamentoLote: (loteId: string, valor: number) => void;
   
@@ -131,176 +131,15 @@ const gerarCodigoVale = (numero: number) => {
 };
 
 export function ValeGasProvider({ children }: { children: ReactNode }) {
-  // Parceiros mock
-  const [parceiros, setParceiros] = useState<Parceiro[]>([
-    {
-      id: "parc-1",
-      nome: "Supermercado Central",
-      cnpj: "12.345.678/0001-90",
-      telefone: "(11) 3456-7890",
-      email: "contato@supermercadocentral.com",
-      endereco: "Av. Principal, 1000 - Centro",
-      tipo: "prepago",
-      ativo: true,
-      createdAt: new Date(2024, 0, 1),
-    },
-    {
-      id: "parc-2",
-      nome: "Loja de Conveniência Boa Vista",
-      cnpj: "98.765.432/0001-10",
-      telefone: "(11) 2345-6789",
-      email: "contato@boavista.com",
-      endereco: "Rua das Flores, 500 - Jardim",
-      tipo: "consignado",
-      ativo: true,
-      createdAt: new Date(2024, 0, 15),
-    },
-    {
-      id: "parc-3",
-      nome: "Mercearia do João",
-      cnpj: "11.222.333/0001-44",
-      telefone: "(11) 9876-5432",
-      email: "joao@mercearia.com",
-      endereco: "Rua dos Comerciantes, 123",
-      tipo: "consignado",
-      ativo: true,
-      createdAt: new Date(2024, 1, 1),
-    },
-  ]);
+  const [parceiros, setParceiros] = useState<Parceiro[]>([]);
 
-  // Lotes mock
-  const [lotes, setLotes] = useState<LoteVales[]>([
-    {
-      id: "lote-1",
-      parceiroId: "parc-1",
-      parceiroNome: "Supermercado Central",
-      tipoParceiro: "prepago",
-      quantidade: 50,
-      valorUnitario: 105,
-      valorTotal: 5250,
-      numeroInicial: 1,
-      numeroFinal: 50,
-      dataEmissao: new Date(2024, 0, 10),
-      dataVencimentoPagamento: new Date(2024, 0, 30),
-      statusPagamento: "pago",
-      valorPago: 5250,
-    },
-    {
-      id: "lote-2",
-      parceiroId: "parc-2",
-      parceiroNome: "Loja de Conveniência Boa Vista",
-      tipoParceiro: "consignado",
-      quantidade: 50,
-      valorUnitario: 105,
-      valorTotal: 5250,
-      numeroInicial: 51,
-      numeroFinal: 100,
-      dataEmissao: new Date(2024, 1, 1),
-      statusPagamento: "pendente",
-      valorPago: 0,
-    },
-    {
-      id: "lote-3",
-      parceiroId: "parc-3",
-      parceiroNome: "Mercearia do João",
-      tipoParceiro: "consignado",
-      quantidade: 30,
-      valorUnitario: 105,
-      valorTotal: 3150,
-      numeroInicial: 101,
-      numeroFinal: 130,
-      dataEmissao: new Date(2024, 1, 15),
-      statusPagamento: "pendente",
-      valorPago: 0,
-    },
-  ]);
+  const [lotes, setLotes] = useState<LoteVales[]>([]);
 
-  // Vales mock - baseados nos lotes
-  const [vales, setVales] = useState<ValeGas[]>(() => {
-    const todosVales: ValeGas[] = [];
-    
-    // Lote 1 - Supermercado (prepago) - alguns utilizados
-    for (let i = 1; i <= 50; i++) {
-      const status: StatusVale = i <= 10 ? "utilizado" : i <= 25 ? "vendido" : "disponivel";
-      todosVales.push({
-        id: `vale-${i}`,
-        numero: i,
-        codigo: gerarCodigoVale(i),
-        valor: 105,
-        parceiroId: "parc-1",
-        loteId: "lote-1",
-        status,
-        consumidorNome: status !== "disponivel" ? `Cliente ${i}` : undefined,
-        consumidorEndereco: status !== "disponivel" ? `Rua ${i}, ${i * 10}` : undefined,
-        consumidorTelefone: status !== "disponivel" ? `(11) 9${i}000-0000` : undefined,
-        dataUtilizacao: status === "utilizado" ? new Date(2024, 0, 15 + i) : undefined,
-        entregadorId: status === "utilizado" ? "ent-1" : undefined,
-        entregadorNome: status === "utilizado" ? "Carlos Silva" : undefined,
-        createdAt: new Date(2024, 0, 10),
-      });
-    }
-    
-    // Lote 2 - Boa Vista (consignado)
-    for (let i = 51; i <= 100; i++) {
-      const status: StatusVale = i <= 60 ? "utilizado" : i <= 75 ? "vendido" : "disponivel";
-      todosVales.push({
-        id: `vale-${i}`,
-        numero: i,
-        codigo: gerarCodigoVale(i),
-        valor: 105,
-        parceiroId: "parc-2",
-        loteId: "lote-2",
-        status,
-        consumidorNome: status !== "disponivel" ? `Cliente ${i}` : undefined,
-        consumidorEndereco: status !== "disponivel" ? `Av. ${i}, ${i * 5}` : undefined,
-        consumidorTelefone: status !== "disponivel" ? `(11) 8${i}00-0000` : undefined,
-        dataUtilizacao: status === "utilizado" ? new Date(2024, 1, i - 50) : undefined,
-        entregadorId: status === "utilizado" ? "ent-2" : undefined,
-        entregadorNome: status === "utilizado" ? "Pedro Santos" : undefined,
-        createdAt: new Date(2024, 1, 1),
-      });
-    }
-    
-    // Lote 3 - Mercearia do João (consignado)
-    for (let i = 101; i <= 130; i++) {
-      const status: StatusVale = i <= 105 ? "utilizado" : i <= 110 ? "vendido" : "disponivel";
-      todosVales.push({
-        id: `vale-${i}`,
-        numero: i,
-        codigo: gerarCodigoVale(i),
-        valor: 105,
-        parceiroId: "parc-3",
-        loteId: "lote-3",
-        status,
-        consumidorNome: status !== "disponivel" ? `Cliente ${i}` : undefined,
-        consumidorEndereco: status !== "disponivel" ? `Rua B, ${i}` : undefined,
-        dataUtilizacao: status === "utilizado" ? new Date(2024, 1, 20) : undefined,
-        entregadorId: status === "utilizado" ? "ent-1" : undefined,
-        entregadorNome: status === "utilizado" ? "Carlos Silva" : undefined,
-        createdAt: new Date(2024, 1, 15),
-      });
-    }
-    
-    return todosVales;
-  });
+  const [vales, setVales] = useState<ValeGas[]>([]);
 
-  // Acertos mock
-  const [acertos, setAcertos] = useState<AcertoConta[]>([
-    {
-      id: "acerto-1",
-      parceiroId: "parc-2",
-      parceiroNome: "Loja de Conveniência Boa Vista",
-      dataAcerto: new Date(2024, 1, 15),
-      valesUtilizados: ["vale-51", "vale-52", "vale-53", "vale-54", "vale-55"],
-      quantidade: 5,
-      valorTotal: 525,
-      statusPagamento: "pago",
-      dataPagamento: new Date(2024, 1, 20),
-      formaPagamento: "PIX",
-    },
-  ]);
+  const [acertos, setAcertos] = useState<AcertoConta[]>([]);
 
-  const [proximoNumeroVale, setProximoNumeroVale] = useState(131);
+  const [proximoNumeroVale, setProximoNumeroVale] = useState(1);
 
   // Funções de parceiros
   const addParceiro = (parceiro: Omit<Parceiro, "id" | "createdAt">) => {
@@ -367,11 +206,11 @@ export function ValeGasProvider({ children }: { children: ReactNode }) {
   };
 
   // Funções de lotes
-  const emitirLote = (data: { parceiroId: string; quantidade: number; valorUnitario: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }) => {
+  const emitirLote = (data: { parceiroId: string; quantidade: number; valorUnitario: number; numeroInicial?: number; dataVencimento?: Date; observacao?: string; descricao?: string; clienteId?: string; clienteNome?: string; produtoId?: string; produtoNome?: string; gerarContaReceber?: boolean }) => {
     const parceiro = parceiros.find(p => p.id === data.parceiroId);
     if (!parceiro) throw new Error("Parceiro não encontrado");
 
-    const numeroInicial = proximoNumeroVale;
+    const numeroInicial = data.numeroInicial || proximoNumeroVale;
     const numeroFinal = numeroInicial + data.quantidade - 1;
 
     const novoLote: LoteVales = {

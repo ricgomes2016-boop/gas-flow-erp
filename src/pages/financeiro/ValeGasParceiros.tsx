@@ -72,11 +72,7 @@ export default function ValeGasParceiros() {
     <MainLayout>
       <Header title="Parceiros Vale Gás" subtitle="Cadastro e gestão de parceiros" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Parceiros Vale Gás</h1>
-            <p className="text-muted-foreground">Gerencie os parceiros que vendem vale gás</p>
-          </div>
+        <div className="flex items-center justify-end">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">

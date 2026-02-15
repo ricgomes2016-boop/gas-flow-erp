@@ -123,11 +123,7 @@ export default function ValeGasAcerto() {
     <MainLayout>
       <Header title="Acerto de Contas - Vale Gás" subtitle="Gerencie os acertos com parceiros consignados" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Acerto de Contas - Vale Gás</h1>
-            <p className="text-muted-foreground">Gerencie os acertos com parceiros consignados</p>
-          </div>
+        <div className="flex items-center justify-end">
           <Dialog open={novoAcertoDialog} onOpenChange={setNovoAcertoDialog}>
             <DialogTrigger asChild>
               <Button className="gap-2">

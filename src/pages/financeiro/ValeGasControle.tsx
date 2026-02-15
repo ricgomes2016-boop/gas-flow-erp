@@ -163,10 +163,6 @@ export default function ValeGasControle() {
     <MainLayout>
       <Header title="Controle de Vales Gás" subtitle="Gerencie a numeração e status dos vales" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Controle de Vales Gás</h1>
-          <p className="text-muted-foreground">Gerencie a numeração e status dos vales</p>
-        </div>
 
         {/* Cards resumo */}
         <div className="grid gap-4 md:grid-cols-4">
