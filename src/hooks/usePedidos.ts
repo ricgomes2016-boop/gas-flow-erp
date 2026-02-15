@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -11,7 +12,6 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
   const { data: pedidos = [], isLoading, error } = useQuery({
     queryKey: ["pedidos", unidadeAtual?.id, filtros?.dataInicio, filtros?.dataFim],
     queryFn: async () => {
-      // Buscar pedidos com cliente e entregador
       let query = supabase
         .from("pedidos")
         .select(`
@@ -21,12 +21,10 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
         `)
         .order("created_at", { ascending: false });
 
-      // Filtrar por unidade se houver unidade selecionada (incluir pedidos sem unidade)
       if (unidadeAtual?.id) {
         query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
       }
 
-      // Filtrar por data
       if (filtros?.dataInicio) {
         query = query.gte("created_at", filtros.dataInicio + "T00:00:00");
       }
@@ -35,31 +33,20 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
       }
 
       const { data: pedidosData, error: pedidosError } = await query;
-
       if (pedidosError) throw pedidosError;
 
-      // Buscar itens de cada pedido com produtos
       const pedidosFormatados: PedidoFormatado[] = await Promise.all(
         (pedidosData || []).map(async (pedido) => {
           const { data: itensData } = await supabase
             .from("pedido_itens")
-            .select(`
-              *,
-              produtos (id, nome)
-            `)
+            .select(`*, produtos (id, nome)`)
             .eq("pedido_id", pedido.id);
 
           const itens = itensData || [];
-          
-          // Formatar string de produtos
           const produtosStr = itens
-            .map((item) => {
-              const nomeProduto = item.produtos?.nome || "Produto";
-              return `${item.quantidade}x ${nomeProduto}`;
-            })
+            .map((item) => `${item.quantidade}x ${item.produtos?.nome || "Produto"}`)
             .join(", ") || "Sem itens";
 
-          // Formatar endereço
           const cliente = pedido.clientes;
           const endereco = pedido.endereco_entrega || 
             (cliente ? [cliente.endereco, cliente.bairro, cliente.cidade].filter(Boolean).join(", ") : "Endereço não informado");
@@ -83,6 +70,8 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
             entregador: pedido.entregadores?.nome,
             entregador_id: pedido.entregador_id,
             observacoes: pedido.observacoes || undefined,
+            forma_pagamento: pedido.forma_pagamento || undefined,
+            canal_venda: pedido.canal_venda || undefined,
           };
         })
       );
@@ -91,13 +80,30 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
     },
   });
 
+  // #8 - Realtime: auto-refresh on pedidos changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("pedidos-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pedidos" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const atualizarStatusMutation = useMutation({
     mutationFn: async ({ pedidoId, novoStatus }: { pedidoId: string; novoStatus: PedidoStatus }) => {
       const { error } = await supabase
         .from("pedidos")
         .update({ status: novoStatus })
         .eq("id", pedidoId);
-
       if (error) throw error;
     },
     onSuccess: () => {
@@ -111,7 +117,6 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
         .from("pedidos")
         .update({ entregador_id: entregadorId })
         .eq("id", pedidoId);
-
       if (error) throw error;
     },
     onSuccess: () => {
@@ -121,20 +126,43 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
 
   const excluirPedidoMutation = useMutation({
     mutationFn: async ({ pedidoId }: { pedidoId: string }) => {
-      // First delete pedido_itens
       const { error: itensError } = await supabase
         .from("pedido_itens")
         .delete()
         .eq("pedido_id", pedidoId);
-
       if (itensError) throw itensError;
 
-      // Then delete the pedido
       const { error } = await supabase
         .from("pedidos")
         .delete()
         .eq("id", pedidoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    },
+  });
 
+  // Batch status update for #7
+  const atualizarStatusLoteMutation = useMutation({
+    mutationFn: async ({ pedidoIds, novoStatus }: { pedidoIds: string[]; novoStatus: PedidoStatus }) => {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ status: novoStatus })
+        .in("id", pedidoIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    },
+  });
+
+  const atribuirEntregadorLoteMutation = useMutation({
+    mutationFn: async ({ pedidoIds, entregadorId }: { pedidoIds: string[]; entregadorId: string }) => {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ entregador_id: entregadorId })
+        .in("id", pedidoIds);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -149,7 +177,9 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
     atualizarStatus: atualizarStatusMutation.mutate,
     atribuirEntregador: atribuirEntregadorMutation.mutate,
     excluirPedido: excluirPedidoMutation.mutate,
-    isUpdating: atualizarStatusMutation.isPending || atribuirEntregadorMutation.isPending,
+    atualizarStatusLote: atualizarStatusLoteMutation.mutate,
+    atribuirEntregadorLote: atribuirEntregadorLoteMutation.mutate,
+    isUpdating: atualizarStatusMutation.isPending || atribuirEntregadorMutation.isPending || atualizarStatusLoteMutation.isPending || atribuirEntregadorLoteMutation.isPending,
     isDeleting: excluirPedidoMutation.isPending,
   };
 }

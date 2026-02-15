@@ -24,4 +24,6 @@ export interface PedidoFormatado {
   entregador?: string;
   entregador_id?: string | null;
   observacoes?: string;
+  forma_pagamento?: string;
+  canal_venda?: string;
 }
