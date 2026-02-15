@@ -35,7 +35,7 @@ export function useParceiroDados() {
         .from("vale_gas_parceiros")
         .select("id, nome, cnpj, telefone, tipo")
         .eq("user_id", user!.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as ParceiroInfo;
     },
