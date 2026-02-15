@@ -70,7 +70,7 @@ const menuItems: MenuItem[] = [
     submenu: [
       { label: "Cockpit do Gestor", path: "/operacional/cockpit" },
       { label: "Central de Indicadores", path: "/operacional/indicadores" },
-      { label: "Centro de Operações", path: "/operacional/centro" },
+      { label: "Mapa Operacional", path: "/operacional/centro" },
       { label: "Alertas Inteligentes", path: "/operacional/alertas" },
       { label: "Rotas de Entrega", path: "/operacional/rotas" },
       { label: "Escalas de Entregadores", path: "/operacional/escalas" },
