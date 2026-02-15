@@ -122,6 +122,14 @@ export default function Pedidos() {
   };
 
   const alterarStatusPedido = (pedidoId: string, novoStatus: PedidoStatus) => {
+    // Bloquear "entregue" sem forma de pagamento
+    if (novoStatus === "entregue") {
+      const pedido = pedidos.find((p) => p.id === pedidoId);
+      if (pedido && !pedido.forma_pagamento) {
+        toast({ title: "Forma de pagamento obrigatória", description: "Não é possível marcar como entregue sem forma de pagamento. Edite o pedido primeiro.", variant: "destructive" });
+        return;
+      }
+    }
     const statusLabels = { pendente: "Pendente", em_rota: "Em Rota", entregue: "Entregue", cancelado: "Cancelado" };
     atualizarStatus(
       { pedidoId, novoStatus },

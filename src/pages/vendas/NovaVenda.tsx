@@ -580,6 +580,11 @@ export default function NovaVenda() {
       return;
     }
 
+    if (pagamentos.length === 0) {
+      toast({ title: "Forma de pagamento obrigatória", description: "Selecione pelo menos uma forma de pagamento antes de finalizar.", variant: "destructive" });
+      return;
+    }
+
     const totalPago = pagamentos.reduce((acc, p) => acc + p.valor, 0);
     if (totalPago < totalVenda) {
       toast({ title: "Pagamento incompleto", description: `Falta pagar R$ ${(totalVenda - totalPago).toFixed(2)}`, variant: "destructive" });
