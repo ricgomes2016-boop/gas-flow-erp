@@ -28,7 +28,9 @@ export default function CentroOperacoes() {
       const { data: pedidos } = await pq;
       setPedidosAtivos(pedidos || []);
 
-      const { data: entregs } = await supabase.from("entregadores").select("*").eq("ativo", true);
+      let eq = supabase.from("entregadores").select("*").eq("ativo", true);
+      if (unidadeAtual?.id) eq = eq.eq("unidade_id", unidadeAtual.id);
+      const { data: entregs } = await eq;
       setEntregadoresData(entregs || []);
 
       // Gerar alertas inteligentes
