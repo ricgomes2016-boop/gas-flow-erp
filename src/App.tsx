@@ -125,6 +125,10 @@ import GestaoEscalas from "./pages/operacional/GestaoEscalas";
 import ParceiroDashboard from "./pages/parceiro/ParceiroDashboard";
 import ParceiroVenderVale from "./pages/parceiro/ParceiroVenderVale";
 import ParceiroVales from "./pages/parceiro/ParceiroVales";
+import ParceiroQRCode from "./pages/parceiro/ParceiroQRCode";
+
+// Página Pública
+import ComprarValeGas from "./pages/publico/ComprarValeGas";
 
 // App Cliente
 import ClienteHome from "./pages/cliente/ClienteHome";
@@ -615,6 +619,14 @@ const App = () => (
                       <ParceiroVales />
                     </ProtectedRoute>
                   } />
+                  <Route path="/parceiro/qrcode" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "parceiro"]}>
+                      <ParceiroQRCode />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Página pública - Vale Gás via QR Code */}
+                  <Route path="/vale-gas/comprar/:parceiroId" element={<ComprarValeGas />} />
                   
                   {/* App Cliente - Público (sem autenticação) */}
                   <Route path="/cliente" element={<ClienteHome />} />
