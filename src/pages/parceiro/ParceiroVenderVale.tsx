@@ -37,16 +37,18 @@ export default function ParceiroVenderVale() {
     setLoading(true);
     try {
       // Try by code first
-      let query = (supabase as any).from("vale_gas")
+      // Try code match first
+      let { data, error } = await (supabase as any).from("vale_gas")
         .select("id, numero, codigo, valor, produto_nome, status, parceiro_id")
         .eq("parceiro_id", parceiro.id)
-        .eq("status", "disponivel");
+        .eq("status", "disponivel")
+        .eq("codigo", busca.trim().toUpperCase())
+        .limit(1);
 
-      // Try code match
-      let { data, error } = await query.eq("codigo", busca.trim().toUpperCase()).maybeSingle();
+      let found = data?.[0] || null;
 
       // If not found, try by number
-      if (!data && !error) {
+      if (!found && !error) {
         const num = parseInt(busca.trim());
         if (!isNaN(num)) {
           const res = await (supabase as any).from("vale_gas")
@@ -54,11 +56,13 @@ export default function ParceiroVenderVale() {
             .eq("parceiro_id", parceiro.id)
             .eq("status", "disponivel")
             .eq("numero", num)
-            .maybeSingle();
-          data = res.data;
+            .limit(1);
+          found = res.data?.[0] || null;
           error = res.error;
         }
       }
+
+      data = found;
 
       if (error) throw error;
       if (!data) {
