@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useValeGas } from "@/contexts/ValeGasContext";
+import { useUnidade } from "@/contexts/UnidadeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -180,6 +181,7 @@ function CupomPrint({ cupons, onClose }: { cupons: CupomVale[]; onClose: () => v
 
 export default function ValeGasEmissao() {
   const { parceiros, lotes, vales, emitirLote, cancelarLote, registrarPagamentoLote, proximoNumeroVale } = useValeGas();
+  const { unidadeAtual } = useUnidade();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pagamentoDialog, setPagamentoDialog] = useState<string | null>(null);
   const [valorPagamento, setValorPagamento] = useState("");
@@ -205,14 +207,17 @@ export default function ValeGasEmissao() {
   });
 
   const { data: produtos = [] } = useQuery({
-    queryKey: ["produtos-vale-gas"],
+    queryKey: ["produtos-vale-gas", unidadeAtual?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("produtos")
         .select("id, nome, preco")
         .eq("ativo", true)
-        .in("categoria", ["gas", "agua"])
-        .order("nome");
+        .in("categoria", ["gas", "agua"]);
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+      const { data } = await query.order("nome");
       return data || [];
     },
   });
