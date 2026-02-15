@@ -45,7 +45,29 @@ export function ClienteFormDialog({ open, onOpenChange, initialData, editId, onS
         latitude: result.latitude,
         longitude: result.longitude,
         bairro: prev.bairro || result.bairro || "",
+        cep: prev.cep || result.cep || "",
       }));
+    }
+    setIsGeocoding(false);
+  };
+
+  const handleCepBlur = async () => {
+    const cep = (form.cep || "").replace(/\D/g, "");
+    if (cep.length !== 8) return;
+    setIsGeocoding(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setForm((prev) => ({
+          ...prev,
+          endereco: data.logradouro || prev.endereco,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade || prev.cidade,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
     }
     setIsGeocoding(false);
   };
@@ -138,7 +160,7 @@ export function ClienteFormDialog({ open, onOpenChange, initialData, editId, onS
               <div className="grid grid-cols-3 gap-3">
                 <div className="grid gap-1.5">
                   <Label className="text-xs">CEP</Label>
-                  <Input value={form.cep} onChange={(e) => update("cep", e.target.value)} placeholder="00000-000" />
+                  <Input value={form.cep} onChange={(e) => update("cep", e.target.value)} onBlur={handleCepBlur} placeholder="00000-000" />
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="text-xs">Tipo</Label>
