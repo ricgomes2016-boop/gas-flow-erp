@@ -92,7 +92,7 @@ export default function ComissaoEntregador() {
 
       const { data: itensData } = await supabase
         .from("pedido_itens")
-        .select("pedido_id, produto_id, quantidade, preco_unitario, produtos(nome, categoria, tipo_botijao)")
+        .select("pedido_id, produto_id, quantidade, preco_unitario, produtos(nome, categoria, tipo_botijao, unidades(nome))")
         .in("pedido_id", pedidoIds);
 
       // Mapear pedidos para acesso rápido
@@ -122,7 +122,8 @@ export default function ComissaoEntregador() {
       if (!item.entregador_id) return;
       const eId = item.entregador_id;
       const canal = item.canal_venda || "balcao";
-      const prodNome = item.produtos?.nome || "Produto";
+      const unidadeNome = item.produtos?.unidades?.nome;
+      const prodNome = unidadeNome ? `${unidadeNome} - ${item.produtos?.nome}` : (item.produtos?.nome || "Produto");
       const comissaoUnit = comissaoMap.get(`${item.produto_id}|${canal}`) ?? 0;
 
       if (!porEntregador.has(eId)) {
