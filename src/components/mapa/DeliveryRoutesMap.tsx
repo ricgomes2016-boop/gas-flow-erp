@@ -51,6 +51,7 @@ interface DeliveryRoutesMapProps {
   selectedEntregador?: number | null;
   onSelectEntregador?: (id: number | null) => void;
   showPercurso?: boolean;
+  defaultCenter?: [number, number];
 }
 
 // Component to update map view
@@ -75,9 +76,10 @@ export function DeliveryRoutesMap({
   percurso = [],
   selectedEntregador,
   onSelectEntregador,
-  showPercurso = false
+  showPercurso = false,
+  defaultCenter
 }: DeliveryRoutesMapProps) {
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-23.5505, -46.6333]); // São Paulo
+  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter || [-23.5505, -46.6333]);
 
   // Get the route line for the selected entregador
   const getRouteLine = () => {
@@ -108,6 +110,13 @@ export function DeliveryRoutesMap({
 
   const routePoints = getRouteLine();
   const percursoPoints = getPercursoLine();
+
+  // Update center when defaultCenter prop changes
+  useEffect(() => {
+    if (defaultCenter) {
+      setMapCenter(defaultCenter);
+    }
+  }, [defaultCenter]);
 
   // Update center when selecting an entregador
   useEffect(() => {
