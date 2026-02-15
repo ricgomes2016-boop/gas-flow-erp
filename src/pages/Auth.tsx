@@ -36,7 +36,9 @@ export default function Auth() {
         // Roles ainda não carregaram, aguardar
         return;
       }
-      if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
+      if (roles.includes("parceiro") && !roles.includes("admin") && !roles.includes("gestor")) {
+        navigate("/parceiro");
+      } else if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
         navigate("/entregador");
       } else {
         navigate("/");

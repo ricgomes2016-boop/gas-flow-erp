@@ -121,6 +121,11 @@ import EntregadorConfiguracoes from "./pages/entregador/EntregadorConfiguracoes"
 import GestaoRotas from "./pages/operacional/GestaoRotas";
 import GestaoEscalas from "./pages/operacional/GestaoEscalas";
 
+// App Parceiro
+import ParceiroDashboard from "./pages/parceiro/ParceiroDashboard";
+import ParceiroVenderVale from "./pages/parceiro/ParceiroVenderVale";
+import ParceiroVales from "./pages/parceiro/ParceiroVales";
+
 // App Cliente
 import ClienteHome from "./pages/cliente/ClienteHome";
 import ClienteCadastro from "./pages/cliente/ClienteCadastro";
@@ -591,6 +596,23 @@ const App = () => (
                   <Route path="/entregador/configuracoes" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <EntregadorConfiguracoes />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Portal Parceiro */}
+                  <Route path="/parceiro" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "parceiro"]}>
+                      <ParceiroDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/parceiro/vender" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "parceiro"]}>
+                      <ParceiroVenderVale />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/parceiro/vales" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "parceiro"]}>
+                      <ParceiroVales />
                     </ProtectedRoute>
                   } />
                   
