@@ -29,7 +29,7 @@ import Despesas from "./pages/caixa/Despesas";
 // Operacional
 import ConselhosIA from "./pages/operacional/ConselhosIA";
 import CentralIndicadores from "./pages/operacional/CentralIndicadores";
-import CentroOperacoes from "./pages/operacional/CentroOperacoes";
+import MapaOperacional from "./pages/operacional/MapaOperacional";
 import CockpitGestor from "./pages/operacional/CockpitGestor";
 import AlertasInteligentes from "./pages/operacional/AlertasInteligentes";
 import AnaliseConcorrencia from "./pages/operacional/AnaliseConcorrencia";
@@ -219,7 +219,7 @@ const App = () => (
                   } />
                   <Route path="/operacional/centro" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
-                      <CentroOperacoes />
+                      <MapaOperacional />
                     </ProtectedRoute>
                   } />
                   <Route path="/operacional/alertas" element={
