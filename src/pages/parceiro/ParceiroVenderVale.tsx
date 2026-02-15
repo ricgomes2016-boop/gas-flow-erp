@@ -70,7 +70,7 @@ export default function ParceiroVenderVale() {
       }
 
       setVale(data);
-      setValorVenda(Number(data.valor).toFixed(2));
+      setValorVenda("125.00");
       setStep("consumidor");
     } catch (err: any) {
       toast.error(err.message || "Erro ao buscar vale");
