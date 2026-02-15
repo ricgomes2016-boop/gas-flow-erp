@@ -82,6 +82,9 @@ export default function ValeGasEmissao() {
     produtoId: "",
     gerarContaReceber: false,
     dataVencimentoConta: "",
+    numeroInicialCustom: "",
+    numeroFinalCustom: "",
+    usarNumeracaoCustom: false,
   });
 
   // Buscar clientes do Supabase
@@ -105,19 +108,39 @@ export default function ValeGasEmissao() {
   const parceiro = parceiros.find(p => p.id === formData.parceiroId);
   const clienteSelecionado = clientes.find(c => c.id === formData.clienteId);
   const produtoSelecionado = produtos.find(p => p.id === formData.produtoId);
-  const valorTotal = (parseInt(formData.quantidade) || 0) * (parseFloat(formData.valorUnitario) || 0);
+  
+
+  // Calcular numeração efetiva
+  const getNumeroInicial = () => {
+    if (formData.usarNumeracaoCustom && formData.numeroInicialCustom) {
+      return parseInt(formData.numeroInicialCustom) || 1;
+    }
+    return proximoNumeroVale;
+  };
+
+  const getQuantidadeEfetiva = () => {
+    if (formData.usarNumeracaoCustom && formData.numeroInicialCustom && formData.numeroFinalCustom) {
+      const ini = parseInt(formData.numeroInicialCustom) || 0;
+      const fim = parseInt(formData.numeroFinalCustom) || 0;
+      return fim - ini + 1;
+    }
+    return parseInt(formData.quantidade) || 0;
+  };
+
+  const valorTotal = getQuantidadeEfetiva() * (parseFloat(formData.valorUnitario) || 0);
 
   // Gerar preview dos vales
   const gerarPreview = () => {
-    const qtd = parseInt(formData.quantidade) || 0;
+    const qtd = getQuantidadeEfetiva();
     const valor = parseFloat(formData.valorUnitario) || 0;
+    const numInicial = getNumeroInicial();
     if (qtd <= 0 || valor <= 0) {
       toast.error("Informe quantidade e valor válidos");
       return;
     }
     const preview = [];
     for (let i = 0; i < qtd; i++) {
-      const num = proximoNumeroVale + i;
+      const num = numInicial + i;
       const ano = new Date().getFullYear();
       preview.push({
         numero: num,
@@ -133,15 +156,19 @@ export default function ValeGasEmissao() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.parceiroId || !formData.quantidade) {
+    const qtdEfetiva = getQuantidadeEfetiva();
+    const numInicial = getNumeroInicial();
+
+    if (!formData.parceiroId || qtdEfetiva <= 0) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
     const lote = emitirLote({
       parceiroId: formData.parceiroId,
-      quantidade: parseInt(formData.quantidade),
+      quantidade: qtdEfetiva,
       valorUnitario: parseFloat(formData.valorUnitario),
+      numeroInicial: formData.usarNumeracaoCustom ? numInicial : undefined,
       dataVencimento: formData.dataVencimento ? new Date(formData.dataVencimento) : undefined,
       observacao: formData.observacao || undefined,
       descricao: formData.descricao || undefined,
@@ -174,7 +201,7 @@ export default function ValeGasEmissao() {
     toast.success(`Lote emitido! Vales de ${lote.numeroInicial} a ${lote.numeroFinal}`);
     setDialogOpen(false);
     setPreviewVales([]);
-    setFormData({ parceiroId: "", quantidade: "", valorUnitario: "105", dataVencimento: "", observacao: "", descricao: "VALE GÁS", clienteId: "", produtoId: "", gerarContaReceber: false, dataVencimentoConta: "" });
+    setFormData({ parceiroId: "", quantidade: "", valorUnitario: "105", dataVencimento: "", observacao: "", descricao: "VALE GÁS", clienteId: "", produtoId: "", gerarContaReceber: false, dataVencimentoConta: "", numeroInicialCustom: "", numeroFinalCustom: "", usarNumeracaoCustom: false });
   };
 
   const handlePagamento = (loteId: string) => {
@@ -210,11 +237,7 @@ export default function ValeGasEmissao() {
     <MainLayout>
       <Header title="Emissão de Vale Gás" subtitle="Emita e gerencie lotes de vales" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Emissão de Vales Gás</h1>
-            <p className="text-muted-foreground">Emita lotes de vales para os parceiros</p>
-          </div>
+        <div className="flex items-center justify-end">
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setPreviewVales([]); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -312,29 +335,88 @@ export default function ValeGasEmissao() {
                   </Select>
                 </div>
 
-                {/* Quantidade e Valor */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Quantidade de Vales *</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.quantidade}
-                      onChange={e => { setFormData(prev => ({ ...prev, quantidade: e.target.value })); setPreviewVales([]); }}
-                      placeholder="Ex: 50"
-                      required
+                {/* Numeração personalizada */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="usarNumeracaoCustom"
+                      checked={formData.usarNumeracaoCustom}
+                      onCheckedChange={(checked) => {
+                        setFormData(prev => ({ ...prev, usarNumeracaoCustom: checked === true }));
+                        setPreviewVales([]);
+                      }}
                     />
+                    <Label htmlFor="usarNumeracaoCustom" className="flex items-center gap-2 cursor-pointer">
+                      <Hash className="h-4 w-4" />
+                      Definir numeração específica
+                    </Label>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Valor de cada Vale (R$) *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.valorUnitario}
-                      onChange={e => { setFormData(prev => ({ ...prev, valorUnitario: e.target.value })); setPreviewVales([]); }}
-                      required
-                    />
-                  </div>
+
+                  {formData.usarNumeracaoCustom ? (
+                    <div className="grid grid-cols-2 gap-4 pl-6">
+                      <div className="space-y-2">
+                        <Label>Número Inicial *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.numeroInicialCustom}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, numeroInicialCustom: val }));
+                            setPreviewVales([]);
+                          }}
+                          placeholder="Ex: 200"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Número Final *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.numeroFinalCustom}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, numeroFinalCustom: val }));
+                            setPreviewVales([]);
+                          }}
+                          placeholder="Ex: 210"
+                          required
+                        />
+                      </div>
+                      {getQuantidadeEfetiva() > 0 && (
+                        <div className="col-span-2 text-sm text-muted-foreground">
+                          Total: <span className="font-bold text-foreground">{getQuantidadeEfetiva()}</span> vales
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 pl-6">
+                      <div className="space-y-2">
+                        <Label>Quantidade de Vales *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.quantidade}
+                          onChange={e => { setFormData(prev => ({ ...prev, quantidade: e.target.value })); setPreviewVales([]); }}
+                          placeholder="Ex: 50"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Valor unitário */}
+                <div className="space-y-2">
+                  <Label>Valor de cada Vale (R$) *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.valorUnitario}
+                    onChange={e => { setFormData(prev => ({ ...prev, valorUnitario: e.target.value })); setPreviewVales([]); }}
+                    required
+                  />
                 </div>
 
                 {/* Resumo + Preview button */}
@@ -342,7 +424,7 @@ export default function ValeGasEmissao() {
                   <div className="flex justify-between text-sm">
                     <span>Numeração:</span>
                     <span className="font-mono">
-                      {proximoNumeroVale} a {proximoNumeroVale + (parseInt(formData.quantidade) || 1) - 1}
+                      {getNumeroInicial()} a {getNumeroInicial() + getQuantidadeEfetiva() - 1}
                     </span>
                   </div>
                   <div className="flex justify-between font-medium text-lg">

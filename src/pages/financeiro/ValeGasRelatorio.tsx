@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,14 +67,9 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useToast } from "@/hooks/use-toast";
+import { useValeGas } from "@/contexts/ValeGasContext";
 
-// Dados mock para o relatório
-const parceiros = [
-  { id: 1, nome: "Supermercado Central", tipo: "Consignado" },
-  { id: 2, nome: "Loja de Conveniência Boa Vista", tipo: "Consignado" },
-  { id: 3, nome: "Mercado São Paulo", tipo: "Consignado" },
-  { id: 4, nome: "Padaria Pão Quente", tipo: "Consignado" },
-];
+// Dados serão carregados do contexto real
 
 const statusOptions = [
   { value: "todos", label: "Todos os Status" },
@@ -92,91 +87,9 @@ const periodoPresets = [
   { label: "Últimos 3 meses", days: 90 },
 ];
 
-// Dados mock para gráficos
-const dadosMensais = [
-  { mes: "Set", emitidos: 45, vendidos: 38, utilizados: 32, valor: 4560 },
-  { mes: "Out", emitidos: 52, vendidos: 48, utilizados: 41, valor: 5280 },
-  { mes: "Nov", emitidos: 60, vendidos: 55, utilizados: 48, valor: 6300 },
-  { mes: "Dez", emitidos: 75, vendidos: 68, utilizados: 62, valor: 7875 },
-  { mes: "Jan", emitidos: 65, vendidos: 58, utilizados: 52, valor: 6825 },
-  { mes: "Fev", emitidos: 48, vendidos: 42, utilizados: 35, valor: 5040 },
-];
-
-const dadosPorParceiro = [
-  { nome: "Supermercado Central", quantidade: 85, valor: 8925, percentual: 35 },
-  { nome: "Loja Boa Vista", quantidade: 62, valor: 6510, percentual: 26 },
-  { nome: "Mercado São Paulo", quantidade: 48, valor: 5040, percentual: 20 },
-  { nome: "Padaria Pão Quente", quantidade: 45, valor: 4725, percentual: 19 },
-];
-
-const dadosPorStatus = [
-  { name: "Disponível", value: 42, color: "#3b82f6" },
-  { name: "Vendido", value: 68, color: "#f59e0b" },
-  { name: "Utilizado", value: 125, color: "#22c55e" },
-  { name: "Cancelado", value: 5, color: "#ef4444" },
-];
-
-// Dados mock para tabela detalhada
-const valesDetalhados = [
-  {
-    id: 1,
-    numero: "VG-2024-000125",
-    parceiro: "Supermercado Central",
-    dataEmissao: "2024-01-15",
-    dataVenda: "2024-01-18",
-    dataUtilizacao: "2024-01-22",
-    status: "Utilizado",
-    valor: 105.0,
-    consumidor: "Maria Silva",
-  },
-  {
-    id: 2,
-    numero: "VG-2024-000126",
-    parceiro: "Loja de Conveniência Boa Vista",
-    dataEmissao: "2024-01-16",
-    dataVenda: "2024-01-20",
-    dataUtilizacao: null,
-    status: "Vendido",
-    valor: 105.0,
-    consumidor: "João Souza",
-  },
-  {
-    id: 3,
-    numero: "VG-2024-000127",
-    parceiro: "Mercado São Paulo",
-    dataEmissao: "2024-01-17",
-    dataVenda: null,
-    dataUtilizacao: null,
-    status: "Disponível",
-    valor: 105.0,
-    consumidor: null,
-  },
-  {
-    id: 4,
-    numero: "VG-2024-000128",
-    parceiro: "Supermercado Central",
-    dataEmissao: "2024-01-18",
-    dataVenda: "2024-01-19",
-    dataUtilizacao: "2024-01-25",
-    status: "Utilizado",
-    valor: 105.0,
-    consumidor: "Ana Costa",
-  },
-  {
-    id: 5,
-    numero: "VG-2024-000129",
-    parceiro: "Padaria Pão Quente",
-    dataEmissao: "2024-01-19",
-    dataVenda: null,
-    dataUtilizacao: null,
-    status: "Cancelado",
-    valor: 105.0,
-    consumidor: null,
-  },
-];
-
 export default function ValeGasRelatorio() {
   const { toast } = useToast();
+  const { vales, parceiros, lotes } = useValeGas();
   const [dataInicio, setDataInicio] = useState<Date>(subDays(new Date(), 30));
   const [dataFim, setDataFim] = useState<Date>(new Date());
   const [parceiroSelecionado, setParceiroSelecionado] = useState("todos");
@@ -218,12 +131,78 @@ export default function ValeGasRelatorio() {
     );
   };
 
-  // Calcular totais
-  const totalEmitidos = dadosMensais.reduce((acc, d) => acc + d.emitidos, 0);
-  const totalVendidos = dadosMensais.reduce((acc, d) => acc + d.vendidos, 0);
-  const totalUtilizados = dadosMensais.reduce((acc, d) => acc + d.utilizados, 0);
-  const totalValor = dadosMensais.reduce((acc, d) => acc + d.valor, 0);
-  const taxaConversao = ((totalUtilizados / totalEmitidos) * 100).toFixed(1);
+  // Filtrar vales por período
+  const valesFiltrados = useMemo(() => {
+    return vales.filter(v => {
+      const dataVale = new Date(v.createdAt);
+      if (dataVale < dataInicio || dataVale > dataFim) return false;
+      if (parceiroSelecionado !== "todos" && v.parceiroId !== parceiroSelecionado) return false;
+      if (statusSelecionado !== "todos" && v.status !== statusSelecionado) return false;
+      return true;
+    });
+  }, [vales, dataInicio, dataFim, parceiroSelecionado, statusSelecionado]);
+
+  // Calcular totais do contexto real
+  const totalEmitidos = valesFiltrados.length;
+  const totalVendidos = valesFiltrados.filter(v => v.status === "vendido" || v.status === "utilizado").length;
+  const totalUtilizados = valesFiltrados.filter(v => v.status === "utilizado").length;
+  const totalValor = valesFiltrados.reduce((acc, v) => acc + v.valor, 0);
+  const taxaConversao = totalEmitidos > 0 ? ((totalUtilizados / totalEmitidos) * 100).toFixed(1) : "0.0";
+
+  // Dados por parceiro
+  const dadosPorParceiro = useMemo(() => {
+    const map: Record<string, { nome: string; quantidade: number; valor: number }> = {};
+    valesFiltrados.forEach(v => {
+      const p = parceiros.find(p => p.id === v.parceiroId);
+      if (!p) return;
+      if (!map[v.parceiroId]) map[v.parceiroId] = { nome: p.nome, quantidade: 0, valor: 0 };
+      map[v.parceiroId].quantidade++;
+      map[v.parceiroId].valor += v.valor;
+    });
+    const arr = Object.values(map);
+    const total = arr.reduce((s, a) => s + a.quantidade, 0);
+    return arr.map(a => ({ ...a, percentual: total > 0 ? Math.round((a.quantidade / total) * 100) : 0 }));
+  }, [valesFiltrados, parceiros]);
+
+  // Dados por status
+  const dadosPorStatus = useMemo(() => [
+    { name: "Disponível", value: valesFiltrados.filter(v => v.status === "disponivel").length, color: "#3b82f6" },
+    { name: "Vendido", value: valesFiltrados.filter(v => v.status === "vendido").length, color: "#f59e0b" },
+    { name: "Utilizado", value: valesFiltrados.filter(v => v.status === "utilizado").length, color: "#22c55e" },
+    { name: "Cancelado", value: valesFiltrados.filter(v => v.status === "cancelado").length, color: "#ef4444" },
+  ], [valesFiltrados]);
+
+  // Dados mensais agrupados
+  const dadosMensais = useMemo(() => {
+    const map: Record<string, { mes: string; emitidos: number; vendidos: number; utilizados: number; valor: number }> = {};
+    valesFiltrados.forEach(v => {
+      const key = format(new Date(v.createdAt), "MMM/yy", { locale: ptBR });
+      if (!map[key]) map[key] = { mes: key, emitidos: 0, vendidos: 0, utilizados: 0, valor: 0 };
+      map[key].emitidos++;
+      if (v.status === "vendido" || v.status === "utilizado") map[key].vendidos++;
+      if (v.status === "utilizado") map[key].utilizados++;
+      map[key].valor += v.valor;
+    });
+    return Object.values(map);
+  }, [valesFiltrados]);
+
+  // Vales detalhados para tabela
+  const valesDetalhados = useMemo(() => {
+    return valesFiltrados.slice(0, 100).map(v => {
+      const p = parceiros.find(p => p.id === v.parceiroId);
+      return {
+        id: v.id,
+        numero: v.codigo,
+        parceiro: p?.nome || "-",
+        dataEmissao: format(new Date(v.createdAt), "yyyy-MM-dd"),
+        dataVenda: v.consumidorNome ? format(new Date(v.createdAt), "yyyy-MM-dd") : null,
+        dataUtilizacao: v.dataUtilizacao ? format(new Date(v.dataUtilizacao), "yyyy-MM-dd") : null,
+        status: v.status === "disponivel" ? "Disponível" : v.status === "vendido" ? "Vendido" : v.status === "utilizado" ? "Utilizado" : "Cancelado",
+        valor: v.valor,
+        consumidor: v.consumidorNome || null,
+      };
+    });
+  }, [valesFiltrados, parceiros]);
 
   // Exportar para Excel
   const exportarExcel = () => {
@@ -426,15 +405,7 @@ export default function ValeGasRelatorio() {
       <Header title="Relatório de Vale Gás" subtitle="Análise gerencial de emissão, vendas e utilização" />
       <div className="space-y-6">
         {/* Cabeçalho */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Relatório de Vale Gás
-            </h1>
-            <p className="text-muted-foreground">
-              Análise gerencial de emissão, vendas e utilização de vales
-            </p>
-          </div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="gradient-primary text-white">
