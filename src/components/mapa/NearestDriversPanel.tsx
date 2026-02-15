@@ -9,7 +9,7 @@ interface NearestDriversPanelProps {
   selectedCliente: ClienteEntrega | null;
   entregadores: Entregador[];
   onClose: () => void;
-  onSelectRoute: (entregadorId: number) => void;
+  onSelectRoute: (entregadorId: string) => void;
 }
 
 export function NearestDriversPanel({

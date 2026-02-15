@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export default function MapaOperacional() {
   const { unidadeAtual } = useUnidade();
-  const [selectedEntregador, setSelectedEntregador] = useState<number | null>(null);
+  const [selectedEntregador, setSelectedEntregador] = useState<string | null>(null);
   const [showPercurso, setShowPercurso] = useState(false);
   const [pedidosAtivos, setPedidosAtivos] = useState<any[]>([]);
   const [entregadoresData, setEntregadoresData] = useState<any[]>([]);
@@ -76,24 +76,24 @@ export default function MapaOperacional() {
 
   useEffect(() => { fetchData(); const interval = setInterval(fetchData, 30000); return () => clearInterval(interval); }, [fetchData]);
 
-  const entregadoresMapa: Entregador[] = entregadoresData.filter(e => e.latitude && e.longitude).map((e, i) => ({
-    id: i + 1, nome: e.nome, status: e.status || "disponivel",
+  const entregadoresMapa: Entregador[] = entregadoresData.filter(e => e.latitude && e.longitude).map((e) => ({
+    id: e.id, nome: e.nome, status: e.status || "disponivel",
     lat: e.latitude, lng: e.longitude, ultimaAtualizacao: "agora",
   }));
 
   // Build client markers from pedidos - use pedido lat/lng or fallback to client lat/lng
   const clientesMapa: ClienteEntrega[] = pedidosAtivos
-    .map((p, i) => {
+    .map((p) => {
       const lat = p.latitude || (p.clientes as any)?.latitude;
       const lng = p.longitude || (p.clientes as any)?.longitude;
       if (!lat || !lng) return null;
       return {
-        id: i + 1,
+        id: p.id,
         cliente: (p.clientes as any)?.nome || "Cliente",
         endereco: p.endereco_entrega || (p.clientes as any)?.endereco || "",
         lat, lng,
         status: p.status,
-        entregadorId: p.entregador_id ? entregadoresMapa.find(e => entregadoresData[e.id - 1]?.id === p.entregador_id)?.id : undefined,
+        entregadorId: p.entregador_id || undefined,
         horarioPrevisto: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       };
     })
@@ -113,7 +113,7 @@ export default function MapaOperacional() {
   };
 
   // Handle selecting a route from driver to client
-  const handleSelectRoute = (entregadorMapId: number) => {
+  const handleSelectRoute = (entregadorMapId: string) => {
     const entregador = entregadoresMapa.find(e => e.id === entregadorMapId);
     if (!entregador || !selectedCliente) return;
     setSelectedEntregador(entregadorMapId);
@@ -269,12 +269,12 @@ export default function MapaOperacional() {
                     key={e.id}
                     onClick={() => {
                       if (e.latitude && e.longitude) {
-                        setSelectedEntregador(selectedEntregador === idx + 1 ? null : idx + 1);
+                        setSelectedEntregador(selectedEntregador === e.id ? null : e.id);
                       }
                     }}
                     className={cn(
                       "flex items-center justify-between p-2 rounded-lg border text-sm w-full text-left transition-colors hover:bg-accent/50",
-                      selectedEntregador === idx + 1 && "bg-primary/10 border-primary/30"
+                      selectedEntregador === e.id && "bg-primary/10 border-primary/30"
                     )}
                   >
                     <div className="flex items-center gap-2">
