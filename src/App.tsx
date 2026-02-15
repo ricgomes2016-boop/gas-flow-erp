@@ -98,6 +98,7 @@ import PrevencaoTrabalhistaIA from "./pages/rh/PrevencaoTrabalhistaIA";
 import ProdutividadeIA from "./pages/rh/ProdutividadeIA";
 
 // Configurações
+import Configuracoes from "./pages/Configuracoes";
 import Auditoria from "./pages/config/Auditoria";
 import Permissoes from "./pages/config/Permissoes";
 import UnidadesConfig from "./pages/config/Unidades";
@@ -524,6 +525,11 @@ const App = () => (
                   <Route path="/config/usuarios" element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <Usuarios />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/configuracoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Configuracoes />
                     </ProtectedRoute>
                   } />
                   
