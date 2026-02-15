@@ -29,30 +29,42 @@ export const createEntregadorIcon = (isSelected: boolean = false) => new L.DivIc
   iconAnchor: [isSelected ? 24 : 20, isSelected ? 48 : 40],
 });
 
-// Custom client/destination icon
-export const createClienteIcon = (isPendente: boolean = true) => new L.DivIcon({
-  className: "custom-cliente-icon",
-  html: `
-    <div style="
-      background: ${isPendente ? 'hsl(var(--warning))' : 'hsl(var(--muted))'};
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    ">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-        <circle cx="12" cy="10" r="3"/>
-      </svg>
-    </div>
-  `,
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-});
+// Custom client/destination icon with status-based colors
+export const createClienteIcon = (status: string = "pendente", isSelected: boolean = false) => {
+  const colors: Record<string, string> = {
+    pendente: "hsl(45, 93%, 47%)",    // yellow/warning
+    confirmado: "hsl(142, 71%, 45%)", // green
+    em_rota: "hsl(217, 91%, 60%)",    // blue
+  };
+  const bg = colors[status] || "hsl(var(--muted))";
+  const size = isSelected ? 40 : 32;
+  const border = isSelected ? "3px solid hsl(var(--primary))" : "2px solid white";
+
+  return new L.DivIcon({
+    className: "custom-cliente-icon",
+    html: `
+      <div style="
+        background: ${bg};
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: ${border};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        transition: all 0.2s ease;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+  });
+};
 
 // Percurso icon (waypoint)
 export const createPercursoIcon = (index: number) => new L.DivIcon({

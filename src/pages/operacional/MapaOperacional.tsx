@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Truck, RefreshCw, Clock, Package, AlertTriangle, CheckCircle, Maximize2, Minimize2, Radio, Phone } from "lucide-react";
 import { DeliveryRoutesMap, Entregador, ClienteEntrega } from "@/components/mapa/DeliveryRoutesMap";
+import { NearestDriversPanel } from "@/components/mapa/NearestDriversPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,8 @@ export default function MapaOperacional() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+  const [selectedCliente, setSelectedCliente] = useState<ClienteEntrega | null>(null);
+  const [routeToClienteLine, setRouteToClienteLine] = useState<[number, number][]>([]);
 
   // Buscar coordenadas da unidade para centralizar o mapa
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function MapaOperacional() {
     try {
       const hojeInicio = new Date(); hojeInicio.setHours(0, 0, 0, 0);
 
-      let pq = supabase.from("pedidos").select("*, clientes(nome, bairro, endereco, telefone)").gte("created_at", hojeInicio.toISOString()).in("status", ["pendente", "confirmado", "em_rota"]);
+      let pq = supabase.from("pedidos").select("*, clientes(nome, bairro, endereco, telefone, latitude, longitude)").gte("created_at", hojeInicio.toISOString()).in("status", ["pendente", "confirmado", "em_rota"]);
       if (unidadeAtual?.id) pq = pq.eq("unidade_id", unidadeAtual.id);
       const { data: pedidos } = await pq;
       setPedidosAtivos(pedidos || []);
@@ -78,10 +81,23 @@ export default function MapaOperacional() {
     lat: e.latitude, lng: e.longitude, ultimaAtualizacao: "agora",
   }));
 
-  const clientesMapa: ClienteEntrega[] = pedidosAtivos.filter(p => p.latitude && p.longitude).map((p, i) => ({
-    id: i + 1, cliente: (p.clientes as any)?.nome || "Cliente", endereco: p.endereco_entrega || "",
-    lat: p.latitude, lng: p.longitude, status: p.status, horarioPrevisto: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-  }));
+  // Build client markers from pedidos - use pedido lat/lng or fallback to client lat/lng
+  const clientesMapa: ClienteEntrega[] = pedidosAtivos
+    .map((p, i) => {
+      const lat = p.latitude || (p.clientes as any)?.latitude;
+      const lng = p.longitude || (p.clientes as any)?.longitude;
+      if (!lat || !lng) return null;
+      return {
+        id: i + 1,
+        cliente: (p.clientes as any)?.nome || "Cliente",
+        endereco: p.endereco_entrega || (p.clientes as any)?.endereco || "",
+        lat, lng,
+        status: p.status,
+        entregadorId: p.entregador_id ? entregadoresMapa.find(e => entregadoresData[e.id - 1]?.id === p.entregador_id)?.id : undefined,
+        horarioPrevisto: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      };
+    })
+    .filter(Boolean) as ClienteEntrega[];
 
   const totalEmRota = entregadoresData.filter(e => e.status === "em_rota").length;
   const totalDisponivel = entregadoresData.filter(e => e.status === "disponivel").length;
@@ -94,6 +110,24 @@ export default function MapaOperacional() {
     const diff = Math.floor((Date.now() - lastUpdate.getTime()) / 1000);
     if (diff < 60) return `${diff}s atrás`;
     return `${Math.floor(diff / 60)}min atrás`;
+  };
+
+  // Handle selecting a route from driver to client
+  const handleSelectRoute = (entregadorMapId: number) => {
+    const entregador = entregadoresMapa.find(e => e.id === entregadorMapId);
+    if (!entregador || !selectedCliente) return;
+    setSelectedEntregador(entregadorMapId);
+    setRouteToClienteLine([
+      [entregador.lat, entregador.lng],
+      [selectedCliente.lat, selectedCliente.lng],
+    ]);
+  };
+
+  const handleSelectCliente = (cliente: ClienteEntrega | null) => {
+    setSelectedCliente(cliente);
+    if (!cliente) {
+      setRouteToClienteLine([]);
+    }
   };
 
   return (
@@ -190,7 +224,7 @@ export default function MapaOperacional() {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 relative">
               <div className={cn("rounded-b-lg overflow-hidden", isFullscreen ? "h-[calc(100vh-300px)]" : "h-[500px]")}>
                 <DeliveryRoutesMap
                   entregadores={entregadoresMapa}
@@ -200,8 +234,21 @@ export default function MapaOperacional() {
                   onSelectEntregador={setSelectedEntregador}
                   showPercurso={showPercurso}
                   defaultCenter={mapCenter || undefined}
+                  onSelectCliente={handleSelectCliente}
+                  selectedClienteId={selectedCliente?.id || null}
+                  routeToClienteLine={routeToClienteLine}
                 />
               </div>
+              {/* Painel de entregadores mais próximos */}
+              <NearestDriversPanel
+                selectedCliente={selectedCliente}
+                entregadores={entregadoresMapa}
+                onClose={() => {
+                  setSelectedCliente(null);
+                  setRouteToClienteLine([]);
+                }}
+                onSelectRoute={handleSelectRoute}
+              />
             </CardContent>
           </Card>
 
@@ -292,6 +339,27 @@ export default function MapaOperacional() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </div>
+
+        {/* Legenda */}
+        <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+          <span className="font-medium uppercase tracking-wider">Legenda:</span>
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full" style={{ background: "hsl(45, 93%, 47%)" }} />
+            <span>Pendente</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full" style={{ background: "hsl(142, 71%, 45%)" }} />
+            <span>Confirmado</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full" style={{ background: "hsl(217, 91%, 60%)" }} />
+            <span>Em Rota</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded-full" style={{ background: "hsl(var(--success))" }} />
+            <span>Entregador</span>
           </div>
         </div>
       </div>

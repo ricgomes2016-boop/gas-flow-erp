@@ -6,6 +6,8 @@ import { createEntregadorIcon, createClienteIcon, createPercursoIcon } from "./E
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Navigation, User, MapPin } from "lucide-react";
+import { NearestDriversPanel } from "./NearestDriversPanel";
+import { haversineDistance } from "@/lib/haversine";
 
 // Fix for default marker icons in React-Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -52,6 +54,9 @@ interface DeliveryRoutesMapProps {
   onSelectEntregador?: (id: number | null) => void;
   showPercurso?: boolean;
   defaultCenter?: [number, number];
+  onSelectCliente?: (cliente: ClienteEntrega | null) => void;
+  selectedClienteId?: number | null;
+  routeToClienteLine?: [number, number][];
 }
 
 // Component to update map view
@@ -77,7 +82,10 @@ export function DeliveryRoutesMap({
   selectedEntregador,
   onSelectEntregador,
   showPercurso = false,
-  defaultCenter
+  defaultCenter,
+  onSelectCliente,
+  selectedClienteId,
+  routeToClienteLine = [],
 }: DeliveryRoutesMapProps) {
   const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter || [-23.5505, -46.6333]);
 
@@ -151,6 +159,19 @@ export function DeliveryRoutesMap({
             weight: 4,
             opacity: 0.8,
             dashArray: "10, 10"
+          }}
+        />
+      )}
+
+      {/* Rota entregador → cliente selecionado */}
+      {routeToClienteLine.length > 1 && (
+        <Polyline
+          positions={routeToClienteLine}
+          pathOptions={{
+            color: "#2563eb",
+            weight: 4,
+            opacity: 0.9,
+            dashArray: "8, 12"
           }}
         />
       )}
@@ -246,7 +267,14 @@ export function DeliveryRoutesMap({
         <Marker
           key={`cliente-${cliente.id}`}
           position={[cliente.lat, cliente.lng]}
-          icon={createClienteIcon(cliente.status === "pendente")}
+          icon={createClienteIcon(cliente.status, selectedClienteId === cliente.id)}
+          eventHandlers={{
+            click: () => {
+              if (onSelectCliente) {
+                onSelectCliente(selectedClienteId === cliente.id ? null : cliente);
+              }
+            }
+          }}
         >
           <Popup>
             <div className="min-w-[160px] p-1">
@@ -256,13 +284,24 @@ export function DeliveryRoutesMap({
               </div>
               <p className="text-xs text-muted-foreground">{cliente.endereco}</p>
               <div className="flex items-center justify-between mt-2">
-                <Badge variant={cliente.status === "pendente" ? "secondary" : "outline"} className="text-[10px]">
-                  {cliente.status === "pendente" ? "Pendente" : cliente.status === "em_rota" ? "Em Rota" : "Entregue"}
+                <Badge variant={cliente.status === "pendente" ? "secondary" : cliente.status === "em_rota" ? "default" : "outline"} className="text-[10px]">
+                  {cliente.status === "pendente" ? "Pendente" : cliente.status === "em_rota" ? "Em Rota" : "Confirmado"}
                 </Badge>
                 <span className="text-[10px] text-muted-foreground">
                   {cliente.horarioPrevisto}
                 </span>
               </div>
+              {onSelectCliente && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-2 h-7 text-xs"
+                  onClick={() => onSelectCliente(cliente)}
+                >
+                  <Navigation className="h-3 w-3 mr-1" />
+                  Ver Entregadores Próximos
+                </Button>
+              )}
             </div>
           </Popup>
         </Marker>
