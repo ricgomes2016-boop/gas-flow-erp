@@ -134,37 +134,34 @@ export default function ValeGasRelatorio() {
   // Filtrar vales por período
   const valesFiltrados = useMemo(() => {
     return vales.filter(v => {
-      const dataVale = new Date(v.createdAt);
+      const dataVale = new Date(v.created_at);
       if (dataVale < dataInicio || dataVale > dataFim) return false;
-      if (parceiroSelecionado !== "todos" && v.parceiroId !== parceiroSelecionado) return false;
+      if (parceiroSelecionado !== "todos" && v.parceiro_id !== parceiroSelecionado) return false;
       if (statusSelecionado !== "todos" && v.status !== statusSelecionado) return false;
       return true;
     });
   }, [vales, dataInicio, dataFim, parceiroSelecionado, statusSelecionado]);
 
-  // Calcular totais do contexto real
   const totalEmitidos = valesFiltrados.length;
   const totalVendidos = valesFiltrados.filter(v => v.status === "vendido" || v.status === "utilizado").length;
   const totalUtilizados = valesFiltrados.filter(v => v.status === "utilizado").length;
-  const totalValor = valesFiltrados.reduce((acc, v) => acc + v.valor, 0);
+  const totalValor = valesFiltrados.reduce((acc, v) => acc + Number(v.valor), 0);
   const taxaConversao = totalEmitidos > 0 ? ((totalUtilizados / totalEmitidos) * 100).toFixed(1) : "0.0";
 
-  // Dados por parceiro
   const dadosPorParceiro = useMemo(() => {
     const map: Record<string, { nome: string; quantidade: number; valor: number }> = {};
     valesFiltrados.forEach(v => {
-      const p = parceiros.find(p => p.id === v.parceiroId);
+      const p = parceiros.find(p => p.id === v.parceiro_id);
       if (!p) return;
-      if (!map[v.parceiroId]) map[v.parceiroId] = { nome: p.nome, quantidade: 0, valor: 0 };
-      map[v.parceiroId].quantidade++;
-      map[v.parceiroId].valor += v.valor;
+      if (!map[v.parceiro_id]) map[v.parceiro_id] = { nome: p.nome, quantidade: 0, valor: 0 };
+      map[v.parceiro_id].quantidade++;
+      map[v.parceiro_id].valor += Number(v.valor);
     });
     const arr = Object.values(map);
     const total = arr.reduce((s, a) => s + a.quantidade, 0);
     return arr.map(a => ({ ...a, percentual: total > 0 ? Math.round((a.quantidade / total) * 100) : 0 }));
   }, [valesFiltrados, parceiros]);
 
-  // Dados por status
   const dadosPorStatus = useMemo(() => [
     { name: "Disponível", value: valesFiltrados.filter(v => v.status === "disponivel").length, color: "#3b82f6" },
     { name: "Vendido", value: valesFiltrados.filter(v => v.status === "vendido").length, color: "#f59e0b" },
@@ -172,34 +169,32 @@ export default function ValeGasRelatorio() {
     { name: "Cancelado", value: valesFiltrados.filter(v => v.status === "cancelado").length, color: "#ef4444" },
   ], [valesFiltrados]);
 
-  // Dados mensais agrupados
   const dadosMensais = useMemo(() => {
     const map: Record<string, { mes: string; emitidos: number; vendidos: number; utilizados: number; valor: number }> = {};
     valesFiltrados.forEach(v => {
-      const key = format(new Date(v.createdAt), "MMM/yy", { locale: ptBR });
+      const key = format(new Date(v.created_at), "MMM/yy", { locale: ptBR });
       if (!map[key]) map[key] = { mes: key, emitidos: 0, vendidos: 0, utilizados: 0, valor: 0 };
       map[key].emitidos++;
       if (v.status === "vendido" || v.status === "utilizado") map[key].vendidos++;
       if (v.status === "utilizado") map[key].utilizados++;
-      map[key].valor += v.valor;
+      map[key].valor += Number(v.valor);
     });
     return Object.values(map);
   }, [valesFiltrados]);
 
-  // Vales detalhados para tabela
   const valesDetalhados = useMemo(() => {
     return valesFiltrados.slice(0, 100).map(v => {
-      const p = parceiros.find(p => p.id === v.parceiroId);
+      const p = parceiros.find(p => p.id === v.parceiro_id);
       return {
         id: v.id,
         numero: v.codigo,
         parceiro: p?.nome || "-",
-        dataEmissao: format(new Date(v.createdAt), "yyyy-MM-dd"),
-        dataVenda: v.consumidorNome ? format(new Date(v.createdAt), "yyyy-MM-dd") : null,
-        dataUtilizacao: v.dataUtilizacao ? format(new Date(v.dataUtilizacao), "yyyy-MM-dd") : null,
+        dataEmissao: format(new Date(v.created_at), "yyyy-MM-dd"),
+        dataVenda: v.consumidor_nome ? format(new Date(v.created_at), "yyyy-MM-dd") : null,
+        dataUtilizacao: v.data_utilizacao ? format(new Date(v.data_utilizacao), "yyyy-MM-dd") : null,
         status: v.status === "disponivel" ? "Disponível" : v.status === "vendido" ? "Vendido" : v.status === "utilizado" ? "Utilizado" : "Cancelado",
-        valor: v.valor,
-        consumidor: v.consumidorNome || null,
+        valor: Number(v.valor),
+        consumidor: v.consumidor_nome || null,
       };
     });
   }, [valesFiltrados, parceiros]);
