@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon, RotateCcw, Check, User, Package as PackageIcon, CreditCard, CheckCircle, Plus } from "lucide-react";
+import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon, RotateCcw, Check, User, Package as PackageIcon, CreditCard, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
@@ -173,21 +173,6 @@ export default function NovaVenda() {
     },
   });
 
-  // #3 - Fetch top products for quick access
-  const { data: produtosFrequentes = [] } = useQuery({
-    queryKey: ["produtos-frequentes", unidadeAtual?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("id, nome, preco, estoque")
-        .eq("ativo", true)
-        .or("tipo_botijao.is.null,tipo_botijao.neq.vazio")
-        .order("nome")
-        .limit(6);
-      if (error) throw error;
-      return data || [];
-    },
-  });
 
   // Fixed channels + dynamic ones
   const fixedChannels = [
@@ -522,26 +507,6 @@ export default function NovaVenda() {
 
   const totalVenda = itens.reduce((acc, item) => acc + item.total, 0);
 
-  // #3 - Quick add product
-  const handleQuickAddProduct = (produto: { id: string; nome: string; preco: number }) => {
-    const existingIndex = itens.findIndex((i) => i.produto_id === produto.id);
-    if (existingIndex >= 0) {
-      const newItens = [...itens];
-      newItens[existingIndex].quantidade += 1;
-      newItens[existingIndex].total = newItens[existingIndex].quantidade * newItens[existingIndex].preco_unitario;
-      setItens(newItens);
-    } else {
-      setItens([...itens, {
-        id: crypto.randomUUID(),
-        produto_id: produto.id,
-        nome: produto.nome,
-        quantidade: 1,
-        preco_unitario: produto.preco,
-        total: produto.preco,
-      }]);
-    }
-    toast({ title: `${produto.nome} adicionado` });
-  };
 
   // #7 - Repeat last sale
   const handleRepetirUltimaVenda = async () => {
@@ -824,24 +789,6 @@ export default function NovaVenda() {
           </CardContent>
         </Card>
 
-        {/* #3 - Quick product buttons */}
-        {produtosFrequentes.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-muted-foreground self-center mr-1">Rápido:</span>
-            {produtosFrequentes.map((prod) => (
-              <Button
-                key={prod.id}
-                variant="outline"
-                size="sm"
-                className="text-xs h-8 gap-1"
-                onClick={() => handleQuickAddProduct(prod)}
-              >
-                <Plus className="h-3 w-3" />
-                {prod.nome} <span className="text-muted-foreground">R${prod.preco.toFixed(0)}</span>
-              </Button>
-            ))}
-          </div>
-        )}
 
         {/* Layout Principal */}
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
