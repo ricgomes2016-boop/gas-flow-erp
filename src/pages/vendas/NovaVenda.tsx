@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon } from "lucide-react";
+import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon, RotateCcw, Check, User, Package as PackageIcon, CreditCard, CheckCircle, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
+import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { cn } from "@/lib/utils";
 
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
@@ -52,6 +54,64 @@ const initialCustomerData: CustomerData = {
   observacao: "",
 };
 
+const DRAFT_KEY = "nova-venda-rascunho";
+
+function saveDraft(data: { customer: CustomerData; itens: ItemVenda[]; pagamentos: Pagamento[]; canalVenda: string; entregador: { id: string | null; nome: string | null } }) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+// Stepper component
+function VendaStepper({ customer, itens, pagamentos, totalVenda }: {
+  customer: CustomerData;
+  itens: ItemVenda[];
+  pagamentos: Pagamento[];
+  totalVenda: number;
+}) {
+  const totalPago = pagamentos.reduce((acc, p) => acc + p.valor, 0);
+  const steps = [
+    { label: "Cliente", done: !!customer.nome, icon: User },
+    { label: "Produtos", done: itens.length > 0, icon: PackageIcon },
+    { label: "Pagamento", done: totalPago >= totalVenda && totalVenda > 0, icon: CreditCard },
+    { label: "Confirmar", done: totalPago >= totalVenda && totalVenda > 0 && itens.length > 0, icon: CheckCircle },
+  ];
+
+  return (
+    <div className="flex items-center justify-between gap-1">
+      {steps.map((step, i) => {
+        const Icon = step.icon;
+        return (
+          <div key={step.label} className="flex items-center gap-1 flex-1">
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors",
+              step.done ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+            )}>
+              {step.done ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+              <span className="hidden sm:inline">{step.label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div className={cn("h-0.5 flex-1 rounded", step.done ? "bg-primary/30" : "bg-muted")} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function NovaVenda() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -74,6 +134,30 @@ export default function NovaVenda() {
   const recognitionRef = useRef<any>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const draftLoaded = useRef(false);
+
+  // #5 - Load draft on mount
+  useEffect(() => {
+    if (draftLoaded.current) return;
+    draftLoaded.current = true;
+    const draft = loadDraft();
+    if (draft && (draft.itens?.length > 0 || draft.customer?.nome)) {
+      setCustomer(draft.customer || initialCustomerData);
+      setItens(draft.itens || []);
+      setPagamentos(draft.pagamentos || []);
+      setCanalVenda(draft.canalVenda || "telefone");
+      setEntregador(draft.entregador || { id: null, nome: null });
+      toast({ title: "Rascunho restaurado", description: "Sua venda em andamento foi recuperada." });
+    }
+  }, []);
+
+  // #5 - Auto-save draft
+  useEffect(() => {
+    if (!draftLoaded.current) return;
+    if (customer.nome || itens.length > 0) {
+      saveDraft({ customer, itens, pagamentos, canalVenda, entregador });
+    }
+  }, [customer, itens, pagamentos, canalVenda, entregador]);
 
   // Fetch dynamic sales channels
   const { data: canaisVenda = [] } = useQuery({
@@ -84,6 +168,22 @@ export default function NovaVenda() {
         .select("id, nome, tipo")
         .eq("ativo", true)
         .order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // #3 - Fetch top products for quick access
+  const { data: produtosFrequentes = [] } = useQuery({
+    queryKey: ["produtos-frequentes", unidadeAtual?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, preco, estoque")
+        .eq("ativo", true)
+        .or("tipo_botijao.is.null,tipo_botijao.neq.vazio")
+        .order("nome")
+        .limit(6);
       if (error) throw error;
       return data || [];
     },
@@ -144,7 +244,6 @@ export default function NovaVenda() {
 
     recognition.onend = () => {
       setIsListening(false);
-      // Auto-send when voice stops
       setTimeout(() => {
         const btn = document.getElementById("ai-send-btn");
         if (btn) btn.click();
@@ -172,7 +271,6 @@ export default function NovaVenda() {
 
       if (error) throw error;
 
-      // If client found in DB
       if (data.cliente_id) {
         const { data: clienteData } = await supabase
           .from("clientes")
@@ -193,7 +291,6 @@ export default function NovaVenda() {
           });
         }
       } else if (data.cliente_nome) {
-        // Auto-register new client
         const novoCliente: any = {
           nome: data.cliente_nome,
           endereco: data.endereco || null,
@@ -211,8 +308,6 @@ export default function NovaVenda() {
           .single();
 
         if (createError) {
-          console.error("Erro ao cadastrar cliente:", createError);
-          // Still fill the form even if DB insert fails
           setCustomer({
             ...initialCustomerData,
             nome: data.cliente_nome,
@@ -243,7 +338,6 @@ export default function NovaVenda() {
         }
       }
 
-      // Set items
       if (data.itens && data.itens.length > 0) {
         const newItens: ItemVenda[] = data.itens.map((item: any) => ({
           id: crypto.randomUUID(),
@@ -256,13 +350,11 @@ export default function NovaVenda() {
         setItens(newItens);
       }
 
-      // Set payment
       if (data.forma_pagamento) {
         const totalItens = (data.itens || []).reduce((a: number, i: any) => a + (i.quantidade || 1) * i.preco_unitario, 0);
         setPagamentos([{ id: crypto.randomUUID(), forma: data.forma_pagamento, valor: totalItens }]);
       }
 
-      // Set channel
       if (data.canal_venda) {
         setCanalVenda(data.canal_venda);
       }
@@ -393,31 +485,13 @@ export default function NovaVenda() {
             await supabase.from("pedido_itens").insert(itensInsert);
           }
 
-          for (const item of (venda.itens || [])) {
-            const { data: produto } = await supabase
-              .from("produtos")
-              .select("id, estoque, categoria, tipo_botijao, botijao_par_id")
-              .eq("id", item.produto_id)
-              .single();
-
-            if (produto) {
-              const novoEstoque = Math.max(0, (produto.estoque || 0) - (item.quantidade || 1));
-              await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", item.produto_id);
-
-              if (produto.categoria === "gas" && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
-                const { data: produtoVazio } = await supabase
-                  .from("produtos")
-                  .select("id, estoque")
-                  .eq("id", produto.botijao_par_id)
-                  .single();
-                if (produtoVazio) {
-                  await supabase.from("produtos")
-                    .update({ estoque: (produtoVazio.estoque || 0) + (item.quantidade || 1) })
-                    .eq("id", produtoVazio.id);
-                }
-              }
-            }
-          }
+          // #4 - Use shared stock update service
+          await atualizarEstoqueVenda(
+            (venda.itens || []).map((item: any) => ({
+              produto_id: item.produto_id,
+              quantidade: item.quantidade || 1,
+            }))
+          );
 
           successCount++;
         } catch (err: any) {
@@ -431,6 +505,7 @@ export default function NovaVenda() {
       });
 
       if (successCount > 0) {
+        clearDraft();
         navigate("/vendas/pedidos");
       }
     } catch (error: any) {
@@ -447,6 +522,84 @@ export default function NovaVenda() {
 
   const totalVenda = itens.reduce((acc, item) => acc + item.total, 0);
 
+  // #3 - Quick add product
+  const handleQuickAddProduct = (produto: { id: string; nome: string; preco: number }) => {
+    const existingIndex = itens.findIndex((i) => i.produto_id === produto.id);
+    if (existingIndex >= 0) {
+      const newItens = [...itens];
+      newItens[existingIndex].quantidade += 1;
+      newItens[existingIndex].total = newItens[existingIndex].quantidade * newItens[existingIndex].preco_unitario;
+      setItens(newItens);
+    } else {
+      setItens([...itens, {
+        id: crypto.randomUUID(),
+        produto_id: produto.id,
+        nome: produto.nome,
+        quantidade: 1,
+        preco_unitario: produto.preco,
+        total: produto.preco,
+      }]);
+    }
+    toast({ title: `${produto.nome} adicionado` });
+  };
+
+  // #7 - Repeat last sale
+  const handleRepetirUltimaVenda = async () => {
+    try {
+      const { data: ultimoPedido } = await supabase
+        .from("pedidos")
+        .select(`
+          *,
+          clientes (id, nome, telefone, endereco, bairro, cep),
+          pedido_itens (produto_id, quantidade, preco_unitario, produtos (id, nome))
+        `)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!ultimoPedido) {
+        toast({ title: "Nenhuma venda anterior", variant: "destructive" });
+        return;
+      }
+
+      const cliente = ultimoPedido.clientes;
+      if (cliente) {
+        setCustomer({
+          id: cliente.id,
+          nome: cliente.nome,
+          telefone: cliente.telefone || "",
+          endereco: cliente.endereco || "",
+          numero: "",
+          complemento: "",
+          bairro: cliente.bairro || "",
+          cep: cliente.cep || "",
+          observacao: ultimoPedido.observacoes || "",
+        });
+      }
+
+      const itensUltimo: ItemVenda[] = (ultimoPedido.pedido_itens || []).map((item: any) => ({
+        id: crypto.randomUUID(),
+        produto_id: item.produto_id,
+        nome: item.produtos?.nome || "Produto",
+        quantidade: item.quantidade,
+        preco_unitario: Number(item.preco_unitario),
+        total: item.quantidade * Number(item.preco_unitario),
+      }));
+      setItens(itensUltimo);
+
+      if (ultimoPedido.forma_pagamento) {
+        const totalItens = itensUltimo.reduce((a, i) => a + i.total, 0);
+        setPagamentos([{ id: crypto.randomUUID(), forma: ultimoPedido.forma_pagamento.split(",")[0].trim(), valor: totalItens }]);
+      }
+
+      if (ultimoPedido.canal_venda) setCanalVenda(ultimoPedido.canal_venda);
+
+      toast({ title: "Última venda carregada!", description: `Dados de ${cliente?.nome || "cliente"} foram preenchidos.` });
+    } catch (error: any) {
+      console.error("Erro ao repetir venda:", error);
+      toast({ title: "Erro ao carregar", description: "Não foi possível carregar a última venda.", variant: "destructive" });
+    }
+  };
 
   const handleSelecionarEntregador = (id: string, nome: string) => {
     setEntregador({ id, nome });
@@ -506,33 +659,11 @@ export default function NovaVenda() {
       const { error: itensError } = await supabase.from("pedido_itens").insert(itensInsert);
       if (itensError) throw itensError;
 
-      // Update stock
-      for (const item of itens) {
-        const { data: produto } = await supabase
-          .from("produtos")
-          .select("id, estoque, categoria, tipo_botijao, botijao_par_id")
-          .eq("id", item.produto_id)
-          .single();
-
-        if (produto) {
-          const novoEstoque = Math.max(0, (produto.estoque || 0) - item.quantidade);
-          await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", item.produto_id);
-
-          if (produto.categoria === "gas" && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
-            const { data: produtoVazio } = await supabase
-              .from("produtos")
-              .select("id, estoque")
-              .eq("id", produto.botijao_par_id)
-              .single();
-
-            if (produtoVazio) {
-              await supabase.from("produtos")
-                .update({ estoque: (produtoVazio.estoque || 0) + item.quantidade })
-                .eq("id", produtoVazio.id);
-            }
-          }
-        }
-      }
+      // #4 - Use shared stock update service
+      await atualizarEstoqueVenda(itens.map((item) => ({
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+      })));
 
       // Receipt
       let empresaConfig: EmpresaConfig | undefined;
@@ -559,6 +690,9 @@ export default function NovaVenda() {
         empresa: empresaConfig,
       });
 
+      // #5 - Clear draft after successful sale
+      clearDraft();
+
       toast({
         title: "Venda finalizada!",
         description: `Pedido #${pedido.id.slice(0, 6)} criado com sucesso. Comprovante gerado.`,
@@ -577,119 +711,141 @@ export default function NovaVenda() {
     if (itens.length > 0 || pagamentos.length > 0) {
       if (!confirm("Deseja realmente cancelar esta venda? Os dados serão perdidos.")) return;
     }
+    clearDraft();
     navigate("/vendas/pedidos");
   };
 
   return (
     <MainLayout>
-      <Header title="Nova Venda" subtitle="Registrar nova venda" />
-      <div className="p-6 space-y-6">
-        {/* Header */}
+      {/* #1 - Single header, no duplicate */}
+      <Header title="Nova Venda" subtitle={unidadeAtual?.nome || "Carregando..."} />
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+
+        {/* #8 - Progress stepper */}
+        <VendaStepper customer={customer} itens={itens} pagamentos={pagamentos} totalVenda={totalVenda} />
+
+        {/* #7 - Repeat last sale button + badge */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <ShoppingBag className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Nova Venda</h1>
-              <p className="text-sm text-muted-foreground">{unidadeAtual?.nome || "Carregando..."}</p>
-            </div>
-          </div>
           <Badge variant="outline" className="text-xs">
             #{new Date().getTime().toString().slice(-6)}
           </Badge>
+          <Button variant="outline" size="sm" onClick={handleRepetirUltimaVenda} className="gap-1.5 text-xs">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Repetir última venda
+          </Button>
         </div>
 
-        {/* AI Command Bar with Voice */}
+        {/* #2 - AI Command Bar responsive */}
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary shrink-0" />
               <Input
-                placeholder='Ex: "Lançar 2 P13 para Maria, Rua Ceará 30, Centro, no crédito"'
+                placeholder='Ex: "2 P13 para Maria, Rua Ceará 30, Centro"'
                 value={aiCommand}
                 onChange={(e) => setAiCommand(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAiCommand()}
-                className="bg-background"
+                className="bg-background flex-1 min-w-[200px]"
                 disabled={aiLoading || isListening}
               />
-              <Button
-                variant={isListening ? "destructive" : "outline"}
-                size="icon"
-                onClick={isListening ? stopListening : startListening}
-                disabled={aiLoading}
-                className={`shrink-0 ${isListening ? "animate-pulse" : ""}`}
-                title={isListening ? "Parar gravação" : "Comando por voz"}
-              >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => photoInputRef.current?.click()}
-                disabled={aiLoading || photoLoading}
-                className="shrink-0"
-                title="Lançar vendas por foto"
-              >
-                {photoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => cameraInputRef.current?.click()}
-                disabled={aiLoading || photoLoading}
-                className="shrink-0"
-                title="Tirar foto da anotação"
-              >
-                {photoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-              </Button>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handlePhotoSales(file);
-                  e.target.value = "";
-                }}
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handlePhotoSales(file);
-                  e.target.value = "";
-                }}
-              />
-              <Button
-                id="ai-send-btn"
-                onClick={handleAiCommand}
-                disabled={aiLoading || !aiCommand.trim()}
-                size="sm"
-                className="shrink-0 gap-1"
-              >
-                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {aiLoading ? "Interpretando..." : "Enviar"}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant={isListening ? "destructive" : "outline"}
+                  size="icon"
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={aiLoading}
+                  className={`shrink-0 h-9 w-9 ${isListening ? "animate-pulse" : ""}`}
+                  title={isListening ? "Parar gravação" : "Comando por voz"}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={aiLoading || photoLoading}
+                  className="shrink-0 h-9 w-9"
+                  title="Lançar vendas por foto"
+                >
+                  {photoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={aiLoading || photoLoading}
+                  className="shrink-0 h-9 w-9"
+                  title="Tirar foto da anotação"
+                >
+                  {photoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                </Button>
+                <Button
+                  id="ai-send-btn"
+                  onClick={handleAiCommand}
+                  disabled={aiLoading || !aiCommand.trim()}
+                  size="sm"
+                  className="shrink-0 gap-1"
+                >
+                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  <span className="hidden sm:inline">{aiLoading ? "..." : "Enviar"}</span>
+                </Button>
+              </div>
             </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePhotoSales(file);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePhotoSales(file);
+                e.target.value = "";
+              }}
+            />
             <p className="text-xs text-muted-foreground mt-2 ml-7">
               {photoLoading 
-                ? "📸 Processando foto... Identificando vendas na anotação."
+                ? "📸 Processando foto..."
                 : isListening 
-                ? "🔴 Ouvindo... Fale o comando de venda."
-                : "💡 Digite, 🎤 dite, ou 📷 tire foto de uma anotação com múltiplas vendas."}
+                ? "🔴 Ouvindo... Fale o comando."
+                : "💡 Digite, 🎤 dite, ou 📷 tire foto de anotações."}
             </p>
           </CardContent>
         </Card>
 
+        {/* #3 - Quick product buttons */}
+        {produtosFrequentes.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs text-muted-foreground self-center mr-1">Rápido:</span>
+            {produtosFrequentes.map((prod) => (
+              <Button
+                key={prod.id}
+                variant="outline"
+                size="sm"
+                className="text-xs h-8 gap-1"
+                onClick={() => handleQuickAddProduct(prod)}
+              >
+                <Plus className="h-3 w-3" />
+                {prod.nome} <span className="text-muted-foreground">R${prod.preco.toFixed(0)}</span>
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Layout Principal */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <Card>
               <CardContent className="pt-6">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -721,7 +877,7 @@ export default function NovaVenda() {
             <PaymentSection pagamentos={pagamentos} onChange={setPagamentos} totalVenda={totalVenda} />
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <OrderSummary
               itens={itens}
               pagamentos={pagamentos}
