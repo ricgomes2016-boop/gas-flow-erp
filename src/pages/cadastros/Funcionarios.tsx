@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Users, Plus, Search, Edit, Trash2, Phone, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Funcionario {
   id: string;
@@ -42,23 +43,30 @@ export default function Funcionarios() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
+  const { unidadeAtual } = useUnidade();
 
   const fetchFuncionarios = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("funcionarios")
       .select("*")
       .eq("ativo", true)
       .order("nome");
+
+    if (unidadeAtual?.id) {
+      query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    }
+
+    const { data, error } = await query;
     if (error) { console.error(error); return; }
     setFuncionarios(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetchFuncionarios(); }, []);
+  useEffect(() => { fetchFuncionarios(); }, [unidadeAtual?.id]);
 
   const handleSave = async () => {
     if (!form.nome.trim()) { toast.error("Nome é obrigatório"); return; }
-    const payload = {
+    const payload: any = {
       nome: form.nome,
       cpf: form.cpf || null,
       telefone: form.telefone || null,
@@ -69,6 +77,9 @@ export default function Funcionarios() {
       salario: form.salario ? parseFloat(form.salario) : 0,
       endereco: form.endereco || null,
     };
+    if (!editId && unidadeAtual?.id) {
+      payload.unidade_id = unidadeAtual.id;
+    }
 
     if (editId) {
       const { error } = await supabase.from("funcionarios").update(payload).eq("id", editId);

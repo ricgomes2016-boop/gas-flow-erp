@@ -6,42 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  DialogFooter, DialogClose, DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { UserPlus, Loader2, Trash2, Shield, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { UserPlus, Loader2, Trash2, Shield, Pencil, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AppRole } from "@/contexts/AuthContext";
@@ -53,7 +34,14 @@ interface UserWithRoles {
   email: string;
   phone: string | null;
   roles: AppRole[];
+  unidade_ids: string[];
   created_at: string;
+}
+
+interface UnidadeOption {
+  id: string;
+  nome: string;
+  tipo: string;
 }
 
 const roleLabels: Record<AppRole, string> = {
@@ -67,6 +55,7 @@ const roleLabels: Record<AppRole, string> = {
 
 export default function Usuarios() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [unidades, setUnidades] = useState<UnidadeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -79,17 +68,30 @@ export default function Usuarios() {
     password: "",
     phone: "",
     role: "operacional" as AppRole,
+    unidade_ids: [] as string[],
   });
 
   const [editForm, setEditForm] = useState({
     full_name: "",
     phone: "",
     role: "operacional" as AppRole,
+    unidade_ids: [] as string[],
   });
 
   useEffect(() => {
     fetchUsers();
+    fetchUnidades();
   }, []);
+
+  const fetchUnidades = async () => {
+    const { data } = await supabase
+      .from("unidades")
+      .select("id, nome, tipo")
+      .eq("ativo", true)
+      .order("tipo")
+      .order("nome");
+    setUnidades(data || []);
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -104,6 +106,10 @@ export default function Usuarios() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleUnidade = (list: string[], id: string) => {
+    return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
   };
 
   const handleCreate = async () => {
@@ -126,6 +132,7 @@ export default function Usuarios() {
           full_name: newUser.full_name,
           phone: newUser.phone || undefined,
           role: newUser.role,
+          unidade_ids: newUser.unidade_ids,
         },
       });
       if (error) throw error;
@@ -133,7 +140,7 @@ export default function Usuarios() {
 
       toast.success("Usuário criado com sucesso!");
       setCreateDialogOpen(false);
-      setNewUser({ full_name: "", email: "", password: "", phone: "", role: "operacional" });
+      setNewUser({ full_name: "", email: "", password: "", phone: "", role: "operacional", unidade_ids: [] });
       fetchUsers();
     } catch (err: any) {
       toast.error("Erro ao criar usuário: " + err.message);
@@ -148,6 +155,7 @@ export default function Usuarios() {
       full_name: user.full_name,
       phone: user.phone || "",
       role: user.roles[0] || "operacional",
+      unidade_ids: user.unidade_ids || [],
     });
     setEditDialogOpen(true);
   };
@@ -168,6 +176,7 @@ export default function Usuarios() {
           full_name: editForm.full_name,
           phone: editForm.phone || null,
           role: editForm.role,
+          unidade_ids: editForm.unidade_ids,
         },
       });
       if (error) throw error;
@@ -199,6 +208,46 @@ export default function Usuarios() {
     }
   };
 
+  const getUnidadeNames = (ids: string[]) => {
+    if (!ids || ids.length === 0) return "Nenhuma";
+    return ids
+      .map((id) => unidades.find((u) => u.id === id)?.nome)
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  const UnidadesCheckboxes = ({
+    selected,
+    onChange,
+  }: {
+    selected: string[];
+    onChange: (ids: string[]) => void;
+  }) => (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        <Building2 className="h-4 w-4" />
+        Lojas com Acesso
+      </Label>
+      <p className="text-xs text-muted-foreground">
+        Admin/Gestor vê todas automaticamente. Para outros cargos, selecione as lojas.
+      </p>
+      <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
+        {unidades.map((u) => (
+          <label key={u.id} className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={selected.includes(u.id)}
+              onCheckedChange={() => onChange(toggleUnidade(selected, u.id))}
+            />
+            <span className="text-sm">{u.nome}</span>
+            <Badge variant="outline" className="text-xs capitalize ml-auto">
+              {u.tipo}
+            </Badge>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <MainLayout>
       <Header title="Cadastro de Usuários" subtitle="Gerencie os usuários e permissões do sistema" />
@@ -216,12 +265,12 @@ export default function Usuarios() {
                   Novo Usuário
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
                   <DialogDescription>Preencha os dados para criar um novo acesso ao sistema.</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
                     <Label>Nome Completo *</Label>
                     <Input
@@ -274,6 +323,10 @@ export default function Usuarios() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <UnidadesCheckboxes
+                    selected={newUser.unidade_ids}
+                    onChange={(ids) => setNewUser((p) => ({ ...p, unidade_ids: ids }))}
+                  />
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -303,58 +356,71 @@ export default function Usuarios() {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Cargo</TableHead>
+                      <TableHead>Lojas</TableHead>
                       <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.full_name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{user.phone || "—"}</TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {roleLabels[user.roles[0]] || user.roles[0] || "—"}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditDialog(user)}
-                              title="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Excluir">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir <strong>{user.full_name}</strong>? Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(user.user_id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {users.map((user) => {
+                      const isAdminGestor = user.roles.includes("admin") || user.roles.includes("gestor");
+                      return (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.full_name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.phone || "—"}</TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {roleLabels[user.roles[0]] || user.roles[0] || "—"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {isAdminGestor ? (
+                              <Badge variant="secondary" className="text-xs">Todas</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {getUnidadeNames(user.unidade_ids)}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEditDialog(user)}
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Excluir">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja excluir <strong>{user.full_name}</strong>? Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(user.user_id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -365,12 +431,12 @@ export default function Usuarios() {
 
       {/* Edit User Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>Altere os dados do usuário {editingUser?.email}.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
               <Label>Nome Completo *</Label>
               <Input
@@ -405,6 +471,10 @@ export default function Usuarios() {
                 </SelectContent>
               </Select>
             </div>
+            <UnidadesCheckboxes
+              selected={editForm.unidade_ids}
+              onChange={(ids) => setEditForm((p) => ({ ...p, unidade_ids: ids }))}
+            />
           </div>
           <DialogFooter>
             <DialogClose asChild>

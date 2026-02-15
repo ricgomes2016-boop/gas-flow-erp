@@ -686,6 +686,7 @@ export type Database = {
           nome: string
           status: string | null
           telefone: string | null
+          unidade_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -701,6 +702,7 @@ export type Database = {
           nome: string
           status?: string | null
           telefone?: string | null
+          unidade_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -716,10 +718,19 @@ export type Database = {
           nome?: string
           status?: string | null
           telefone?: string | null
+          unidade_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "entregadores_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       escalas_entregador: {
         Row: {
@@ -965,6 +976,7 @@ export type Database = {
           setor: string | null
           status: string | null
           telefone: string | null
+          unidade_id: string | null
           updated_at: string
         }
         Insert: {
@@ -981,6 +993,7 @@ export type Database = {
           setor?: string | null
           status?: string | null
           telefone?: string | null
+          unidade_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -997,9 +1010,18 @@ export type Database = {
           setor?: string | null
           status?: string | null
           telefone?: string | null
+          unidade_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "funcionarios_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gamificacao_ranking: {
         Row: {
@@ -1817,6 +1839,35 @@ export type Database = {
         }
         Relationships: []
       }
+      user_unidades: {
+        Row: {
+          created_at: string
+          id: string
+          unidade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          unidade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          unidade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_unidades_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vales_funcionario: {
         Row: {
           created_at: string
@@ -1885,6 +1936,7 @@ export type Database = {
           modelo: string
           placa: string
           tipo: string | null
+          unidade_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1897,6 +1949,7 @@ export type Database = {
           modelo: string
           placa: string
           tipo?: string | null
+          unidade_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1909,9 +1962,18 @@ export type Database = {
           modelo?: string
           placa?: string
           tipo?: string | null
+          unidade_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "veiculos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1922,11 +1984,16 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_unidade_ids: { Args: { _user_id: string }; Returns: string[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      user_has_unidade: {
+        Args: { _unidade_id: string; _user_id: string }
         Returns: boolean
       }
     }

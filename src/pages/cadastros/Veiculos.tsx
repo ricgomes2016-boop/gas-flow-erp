@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Truck, Plus, Search, Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Veiculo {
   id: string;
@@ -36,26 +37,33 @@ export default function Veiculos() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
+  const { unidadeAtual } = useUnidade();
 
   const fetchVeiculos = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("veiculos")
       .select("*")
       .eq("ativo", true)
       .order("placa");
+    
+    if (unidadeAtual?.id) {
+      query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    }
+
+    const { data, error } = await query;
     if (error) { console.error(error); return; }
     setVeiculos(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetchVeiculos(); }, []);
+  useEffect(() => { fetchVeiculos(); }, [unidadeAtual?.id]);
 
   const handleSave = async () => {
     if (!form.placa.trim() || !form.modelo.trim()) {
       toast.error("Placa e Modelo são obrigatórios");
       return;
     }
-    const payload = {
+    const payload: any = {
       placa: form.placa,
       modelo: form.modelo,
       marca: form.marca || null,
@@ -63,6 +71,9 @@ export default function Veiculos() {
       km_atual: form.km_atual ? parseFloat(form.km_atual) : 0,
       tipo: form.tipo || "moto",
     };
+    if (!editId && unidadeAtual?.id) {
+      payload.unidade_id = unidadeAtual.id;
+    }
 
     if (editId) {
       const { error } = await supabase.from("veiculos").update(payload).eq("id", editId);

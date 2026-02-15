@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Unidade {
   id: string;
@@ -30,45 +31,86 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [unidadeAtual, setUnidadeAtualState] = useState<Unidade | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user, roles, loading: authLoading } = useAuth();
+
+  const isAdminOrGestor = roles.includes("admin") || roles.includes("gestor");
 
   const fetchUnidades = async () => {
+    if (!user) {
+      setUnidades([]);
+      setUnidadeAtualState(null);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase
-        .from("unidades")
-        .select("*")
-        .eq("ativo", true)
-        .order("tipo", { ascending: true }) // matriz first
-        .order("nome");
+      if (isAdminOrGestor) {
+        // Admin/gestor sees all active unidades
+        const { data, error } = await supabase
+          .from("unidades")
+          .select("*")
+          .eq("ativo", true)
+          .order("tipo", { ascending: true })
+          .order("nome");
 
-      if (error) {
-        console.error("Error fetching unidades:", error);
-        return;
-      }
-
-      const typedData = (data || []).map((u) => ({
-        ...u,
-        tipo: u.tipo as "matriz" | "filial",
-        ativo: u.ativo ?? true,
-      }));
-
-      setUnidades(typedData);
-
-      // Set current unidade from localStorage or default to matriz
-      const savedUnidadeId = localStorage.getItem("unidade_atual_id");
-      const savedUnidade = typedData.find((u) => u.id === savedUnidadeId);
-      
-      if (savedUnidade) {
-        setUnidadeAtualState(savedUnidade);
-      } else {
-        // Default to matriz
-        const matriz = typedData.find((u) => u.tipo === "matriz");
-        if (matriz) {
-          setUnidadeAtualState(matriz);
-          localStorage.setItem("unidade_atual_id", matriz.id);
-        } else if (typedData.length > 0) {
-          setUnidadeAtualState(typedData[0]);
-          localStorage.setItem("unidade_atual_id", typedData[0].id);
+        if (error) {
+          console.error("Error fetching unidades:", error);
+          setLoading(false);
+          return;
         }
+
+        const typedData = (data || []).map((u) => ({
+          ...u,
+          tipo: u.tipo as "matriz" | "filial",
+          ativo: u.ativo ?? true,
+        }));
+
+        setUnidades(typedData);
+        selectDefault(typedData);
+      } else {
+        // Regular users only see their assigned unidades
+        const { data: userUnidades, error: uuError } = await supabase
+          .from("user_unidades")
+          .select("unidade_id")
+          .eq("user_id", user.id);
+
+        if (uuError) {
+          console.error("Error fetching user_unidades:", uuError);
+          setLoading(false);
+          return;
+        }
+
+        const unidadeIds = (userUnidades || []).map((uu) => uu.unidade_id);
+
+        if (unidadeIds.length === 0) {
+          setUnidades([]);
+          setUnidadeAtualState(null);
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("unidades")
+          .select("*")
+          .in("id", unidadeIds)
+          .eq("ativo", true)
+          .order("tipo", { ascending: true })
+          .order("nome");
+
+        if (error) {
+          console.error("Error fetching unidades:", error);
+          setLoading(false);
+          return;
+        }
+
+        const typedData = (data || []).map((u) => ({
+          ...u,
+          tipo: u.tipo as "matriz" | "filial",
+          ativo: u.ativo ?? true,
+        }));
+
+        setUnidades(typedData);
+        selectDefault(typedData);
       }
     } catch (error) {
       console.error("Error fetching unidades:", error);
@@ -77,9 +119,29 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const selectDefault = (typedData: Unidade[]) => {
+    const savedUnidadeId = localStorage.getItem("unidade_atual_id");
+    const savedUnidade = typedData.find((u) => u.id === savedUnidadeId);
+
+    if (savedUnidade) {
+      setUnidadeAtualState(savedUnidade);
+    } else {
+      const matriz = typedData.find((u) => u.tipo === "matriz");
+      if (matriz) {
+        setUnidadeAtualState(matriz);
+        localStorage.setItem("unidade_atual_id", matriz.id);
+      } else if (typedData.length > 0) {
+        setUnidadeAtualState(typedData[0]);
+        localStorage.setItem("unidade_atual_id", typedData[0].id);
+      }
+    }
+  };
+
   useEffect(() => {
-    fetchUnidades();
-  }, []);
+    if (!authLoading) {
+      fetchUnidades();
+    }
+  }, [user, roles, authLoading]);
 
   const setUnidadeAtual = (unidade: Unidade) => {
     setUnidadeAtualState(unidade);
