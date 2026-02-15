@@ -179,12 +179,12 @@ export default function AcertoEntregador() {
     try {
       const result = await validarValeGasNoBanco(codigo);
       if (result.valido) {
-        const vale = { parceiro: result.parceiro, codigo: result.codigo, valor: result.valorVenda, valido: true, valeId: result.valeId };
+        const vale = { parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valido: true, valeId: result.valeId };
         setValeGasValidado(vale);
         if (editingEntrega) {
           setEditingEntrega({ ...editingEntrega, vale_gas_codigo: codigo });
         }
-        toastHook({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor: R$ ${result.valorVenda.toFixed(2)}` });
+        toastHook({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor: R$ ${result.valor.toFixed(2)}` });
       } else {
         setValeGasValidado({ parceiro: "", codigo, valor: 0, valido: false });
         toastHook({ title: "Vale Gás inválido", description: result.erro || "Código não encontrado.", variant: "destructive" });
