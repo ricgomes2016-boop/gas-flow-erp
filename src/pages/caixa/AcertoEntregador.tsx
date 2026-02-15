@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,13 +13,17 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  User, Package, Wallet, Download, CreditCard, Banknote, Receipt, Minus,
+  User, Package, Wallet, Download, CreditCard, Banknote, Receipt, Minus, Pencil, Loader2, Save,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -35,16 +39,37 @@ const paymentLabels: Record<string, string> = {
   cartao_debito: "Cartão Débito",
   fiado: "Fiado",
   vale_gas: "Vale Gás",
+  Dinheiro: "Dinheiro",
+  PIX: "PIX",
+  "Cartão Crédito": "Cartão Crédito",
+  "Cartão Débito": "Cartão Débito",
+  "Vale Gás": "Vale Gás",
 };
+
+const formasPagamento = [
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás", "Fiado",
+];
+
+interface EditingEntrega {
+  id: string;
+  forma_pagamento: string;
+  itens: { id: string; nome: string; quantidade: number; preco_unitario: number }[];
+}
 
 export default function AcertoEntregador() {
   const { unidadeAtual } = useUnidade();
+  const { hasAnyRole } = useAuth();
+  const queryClient = useQueryClient();
   const hoje = format(new Date(), "yyyy-MM-dd");
 
   const [selectedId, setSelectedId] = useState("");
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
   const [buscar, setBuscar] = useState(false);
+  const [editingEntrega, setEditingEntrega] = useState<EditingEntrega | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const podeEditar = hasAnyRole(["admin", "gestor"]);
 
   // Entregadores
   const { data: entregadores = [] } = useQuery({
@@ -76,7 +101,7 @@ export default function AcertoEntregador() {
         .select(`
           id, created_at, valor_total, forma_pagamento, status, canal_venda,
           clientes (nome),
-          pedido_itens (quantidade, preco_unitario, produtos (nome))
+          pedido_itens (id, quantidade, preco_unitario, produtos (nome))
         `)
         .eq("entregador_id", selectedId)
         .eq("status", "entregue")
@@ -97,7 +122,6 @@ export default function AcertoEntregador() {
     queryKey: ["acerto-despesas", selectedId, dataInicio, dataFim, unidadeAtual?.id],
     queryFn: async () => {
       if (!selectedId) return [];
-      // Find entregador to get ID for movimentacoes
       let query = supabase
         .from("movimentacoes_caixa")
         .select("id, descricao, valor, categoria, created_at")
@@ -121,6 +145,66 @@ export default function AcertoEntregador() {
       return;
     }
     setBuscar(true);
+  };
+
+  // Open edit dialog
+  const abrirEdicao = (entrega: any) => {
+    setEditingEntrega({
+      id: entrega.id,
+      forma_pagamento: entrega.forma_pagamento || "",
+      itens: (entrega.pedido_itens || []).map((i: any) => ({
+        id: i.id,
+        nome: i.produtos?.nome || "Produto",
+        quantidade: i.quantidade,
+        preco_unitario: Number(i.preco_unitario),
+      })),
+    });
+  };
+
+  const updateEditItem = (index: number, field: "quantidade" | "preco_unitario", value: number) => {
+    if (!editingEntrega) return;
+    setEditingEntrega({
+      ...editingEntrega,
+      itens: editingEntrega.itens.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
+      ),
+    });
+  };
+
+  const salvarEdicao = async () => {
+    if (!editingEntrega) return;
+    setIsSavingEdit(true);
+
+    try {
+      // Update each pedido_item
+      for (const item of editingEntrega.itens) {
+        const { error } = await supabase
+          .from("pedido_itens")
+          .update({ quantidade: item.quantidade, preco_unitario: item.preco_unitario })
+          .eq("id", item.id);
+        if (error) throw error;
+      }
+
+      // Recalculate total
+      const novoTotal = editingEntrega.itens.reduce(
+        (acc, item) => acc + item.quantidade * item.preco_unitario, 0
+      );
+
+      // Update pedido
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ forma_pagamento: editingEntrega.forma_pagamento, valor_total: novoTotal })
+        .eq("id", editingEntrega.id);
+      if (error) throw error;
+
+      toast.success("Entrega atualizada com sucesso!");
+      setEditingEntrega(null);
+      queryClient.invalidateQueries({ queryKey: ["acerto-entregas"] });
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // Métricas
@@ -168,7 +252,6 @@ export default function AcertoEntregador() {
     doc.text(`Período: ${format(parseISO(dataInicio), "dd/MM/yyyy")} a ${format(parseISO(dataFim), "dd/MM/yyyy")}`, 14, 28);
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
 
-    // Resumo financeiro
     autoTable(doc, {
       head: [["Métrica", "Valor"]],
       body: [
@@ -186,7 +269,6 @@ export default function AcertoEntregador() {
       headStyles: { fillColor: [51, 65, 85] },
     });
 
-    // Resumo de produtos
     let y = (doc as any).lastAutoTable?.finalY || 90;
     doc.setFontSize(12);
     doc.text("Produtos Vendidos", 14, y + 10);
@@ -198,7 +280,6 @@ export default function AcertoEntregador() {
       headStyles: { fillColor: [51, 65, 85] },
     });
 
-    // Lista de entregas
     y = (doc as any).lastAutoTable?.finalY || 140;
     doc.setFontSize(12);
     doc.text("Entregas Detalhadas", 14, y + 10);
@@ -216,7 +297,6 @@ export default function AcertoEntregador() {
       headStyles: { fillColor: [51, 65, 85] },
     });
 
-    // Despesas
     if (despesas.length > 0) {
       y = (doc as any).lastAutoTable?.finalY || 180;
       doc.setFontSize(12);
@@ -235,7 +315,6 @@ export default function AcertoEntregador() {
       });
     }
 
-    // Assinatura
     y = (doc as any).lastAutoTable?.finalY || 220;
     doc.setFontSize(9);
     doc.text("_____________________________", 14, y + 25);
@@ -351,7 +430,6 @@ export default function AcertoEntregador() {
 
             {/* Formas de pagamento + Resumo de produtos */}
             <div className="grid gap-4 lg:grid-cols-2">
-              {/* Formas de Pagamento */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -402,7 +480,6 @@ export default function AcertoEntregador() {
                 </CardContent>
               </Card>
 
-              {/* Resumo de Produtos */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -504,6 +581,7 @@ export default function AcertoEntregador() {
                         <TableHead className="hidden md:table-cell">Produtos</TableHead>
                         <TableHead>Pagamento</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
+                        {podeEditar && <TableHead className="w-10" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -518,6 +596,13 @@ export default function AcertoEntregador() {
                             <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{itensStr}</TableCell>
                             <TableCell><Badge variant="outline" className="text-xs">{paymentLabels[e.forma_pagamento || ""] || e.forma_pagamento || "—"}</Badge></TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(Number(e.valor_total || 0))}</TableCell>
+                            {podeEditar && (
+                              <TableCell>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(e)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
@@ -529,6 +614,74 @@ export default function AcertoEntregador() {
           </>
         )}
       </div>
+
+      {/* Dialog de edição */}
+      <Dialog open={!!editingEntrega} onOpenChange={(open) => !open && setEditingEntrega(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Entrega</DialogTitle>
+          </DialogHeader>
+          {editingEntrega && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm">Forma de Pagamento</Label>
+                <Select
+                  value={editingEntrega.forma_pagamento}
+                  onValueChange={(v) => setEditingEntrega({ ...editingEntrega, forma_pagamento: v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {formasPagamento.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Produtos</Label>
+                {editingEntrega.itens.map((item, index) => (
+                  <div key={item.id} className="grid grid-cols-[1fr_80px_100px] gap-2 items-center p-2 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium truncate">{item.nome}</span>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={item.quantidade}
+                        onChange={(e) => updateEditItem(index, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Preço (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={item.preco_unitario}
+                        onChange={(e) => updateEditItem(index, "preco_unitario", Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 border-t border-border text-sm">
+                  <span className="font-medium">Novo total:</span>
+                  <span className="font-bold">
+                    {formatCurrency(editingEntrega.itens.reduce((a, i) => a + i.quantidade * i.preco_unitario, 0))}
+                  </span>
+                </div>
+              </div>
+
+              <Button onClick={salvarEdicao} disabled={isSavingEdit} className="w-full gap-2">
+                {isSavingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {isSavingEdit ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
