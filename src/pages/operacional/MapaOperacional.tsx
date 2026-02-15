@@ -21,6 +21,23 @@ export default function MapaOperacional() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+
+  // Buscar coordenadas da unidade para centralizar o mapa
+  useEffect(() => {
+    const fetchUnidadeCoords = async () => {
+      if (!unidadeAtual?.id) return;
+      const { data } = await supabase
+        .from("unidades")
+        .select("latitude, longitude")
+        .eq("id", unidadeAtual.id)
+        .single();
+      if (data?.latitude && data?.longitude) {
+        setMapCenter([data.latitude, data.longitude]);
+      }
+    };
+    fetchUnidadeCoords();
+  }, [unidadeAtual]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -182,6 +199,7 @@ export default function MapaOperacional() {
                   selectedEntregador={selectedEntregador}
                   onSelectEntregador={setSelectedEntregador}
                   showPercurso={showPercurso}
+                  defaultCenter={mapCenter || undefined}
                 />
               </div>
             </CardContent>

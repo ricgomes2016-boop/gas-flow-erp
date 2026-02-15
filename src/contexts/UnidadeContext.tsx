@@ -15,6 +15,8 @@ export interface Unidade {
   estado: string | null;
   cep: string | null;
   ativo: boolean;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface UnidadeContextType {
