@@ -44,6 +44,7 @@ import { useNavigate } from "react-router-dom";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { geocodeAddress, type GeocodingResult } from "@/lib/geocoding";
 import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
+import { useRegrasCadastro } from "@/hooks/useRegrasCadastro";
 
 interface Cliente {
   id: string;
@@ -92,6 +93,7 @@ export default function CadastroClientesCad() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
+  const { regras } = useRegrasCadastro();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -384,10 +386,37 @@ export default function CadastroClientesCad() {
       return;
     }
 
-    if (!formData.telefone.trim()) {
+    if (regras.telefone_obrigatorio && !formData.telefone.trim()) {
       toast({
         title: "Campo obrigatório",
         description: "O telefone é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (regras.email_obrigatorio && !formData.email.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O e-mail é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (regras.cpf_obrigatorio && !formData.cpf.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O CPF/CNPJ é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (regras.endereco_obrigatorio && !formData.endereco.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O endereço é obrigatório.",
         variant: "destructive",
       });
       return;

@@ -601,6 +601,7 @@ export type Database = {
           id: string
           mensagem_cupom: string | null
           nome_empresa: string
+          regras_cadastro: Json
           telefone: string | null
           updated_at: string
         }
@@ -611,6 +612,7 @@ export type Database = {
           id?: string
           mensagem_cupom?: string | null
           nome_empresa?: string
+          regras_cadastro?: Json
           telefone?: string | null
           updated_at?: string
         }
@@ -621,6 +623,7 @@ export type Database = {
           id?: string
           mensagem_cupom?: string | null
           nome_empresa?: string
+          regras_cadastro?: Json
           telefone?: string | null
           updated_at?: string
         }

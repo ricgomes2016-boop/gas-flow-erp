@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Building, CreditCard, Bell, Shield, Printer, Users, Loader2 } from "lucide-react";
+import { Building, CreditCard, Bell, Shield, Printer, Users, Loader2, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface EmpresaConfig {
@@ -20,8 +21,17 @@ interface EmpresaConfig {
   mensagem_cupom: string;
 }
 
+interface RegrasCadastro {
+  telefone_obrigatorio: boolean;
+  canal_venda_obrigatorio: boolean;
+  email_obrigatorio: boolean;
+  endereco_obrigatorio: boolean;
+  cpf_obrigatorio: boolean;
+}
+
 export default function Configuracoes() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig>({
     id: "",
     nome_empresa: "",
@@ -30,8 +40,16 @@ export default function Configuracoes() {
     endereco: "",
     mensagem_cupom: "",
   });
+  const [regras, setRegras] = useState<RegrasCadastro>({
+    telefone_obrigatorio: true,
+    canal_venda_obrigatorio: false,
+    email_obrigatorio: false,
+    endereco_obrigatorio: false,
+    cpf_obrigatorio: false,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingRegras, setIsSavingRegras] = useState(false);
 
   useEffect(() => {
     fetchEmpresaConfig();
@@ -56,6 +74,10 @@ export default function Configuracoes() {
           endereco: data.endereco || "",
           mensagem_cupom: data.mensagem_cupom || "",
         });
+        if (data.regras_cadastro) {
+          const r = data.regras_cadastro as Record<string, boolean>;
+          setRegras(prev => ({ ...prev, ...r }));
+        }
       }
     } catch (error: any) {
       console.error("Erro ao carregar configurações:", error);
@@ -119,6 +141,32 @@ export default function Configuracoes() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveRegras = async () => {
+    setIsSavingRegras(true);
+    try {
+      if (empresaConfig.id) {
+        const { error } = await supabase
+          .from("configuracoes_empresa")
+          .update({ regras_cadastro: regras } as any)
+          .eq("id", empresaConfig.id);
+        if (error) throw error;
+      }
+      queryClient.invalidateQueries({ queryKey: ["regras_cadastro"] });
+      toast({
+        title: "Regras salvas!",
+        description: "As regras de cadastro foram atualizadas.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao salvar",
+        description: error.message || "Não foi possível salvar as regras.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingRegras(false);
     }
   };
 
@@ -203,6 +251,97 @@ export default function Configuracoes() {
                   <Button onClick={handleSaveEmpresa} disabled={isSaving}>
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Salvar Alterações
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Regras de Cadastro */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-primary" />
+                <CardTitle>Regras de Cadastro</CardTitle>
+              </div>
+              <CardDescription>
+                Defina quais campos são obrigatórios nos formulários
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Telefone obrigatório</p>
+                      <p className="text-sm text-muted-foreground">
+                        Exigir telefone no cadastro de clientes
+                      </p>
+                    </div>
+                    <Switch
+                      checked={regras.telefone_obrigatorio}
+                      onCheckedChange={(v) => setRegras(prev => ({ ...prev, telefone_obrigatorio: v }))}
+                    />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Canal de venda obrigatório</p>
+                      <p className="text-sm text-muted-foreground">
+                        Exigir canal de venda ao registrar pedido
+                      </p>
+                    </div>
+                    <Switch
+                      checked={regras.canal_venda_obrigatorio}
+                      onCheckedChange={(v) => setRegras(prev => ({ ...prev, canal_venda_obrigatorio: v }))}
+                    />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">CPF/CNPJ obrigatório</p>
+                      <p className="text-sm text-muted-foreground">
+                        Exigir CPF ou CNPJ no cadastro de clientes
+                      </p>
+                    </div>
+                    <Switch
+                      checked={regras.cpf_obrigatorio}
+                      onCheckedChange={(v) => setRegras(prev => ({ ...prev, cpf_obrigatorio: v }))}
+                    />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">E-mail obrigatório</p>
+                      <p className="text-sm text-muted-foreground">
+                        Exigir e-mail no cadastro de clientes
+                      </p>
+                    </div>
+                    <Switch
+                      checked={regras.email_obrigatorio}
+                      onCheckedChange={(v) => setRegras(prev => ({ ...prev, email_obrigatorio: v }))}
+                    />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Endereço obrigatório</p>
+                      <p className="text-sm text-muted-foreground">
+                        Exigir endereço no cadastro de clientes
+                      </p>
+                    </div>
+                    <Switch
+                      checked={regras.endereco_obrigatorio}
+                      onCheckedChange={(v) => setRegras(prev => ({ ...prev, endereco_obrigatorio: v }))}
+                    />
+                  </div>
+                  <Button onClick={handleSaveRegras} disabled={isSavingRegras} className="w-full mt-2">
+                    {isSavingRegras && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Salvar Regras
                   </Button>
                 </>
               )}
