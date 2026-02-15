@@ -161,7 +161,7 @@ const menuItems: MenuItem[] = [
 export function MobileNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
@@ -202,7 +202,7 @@ export function MobileNav() {
           </div>
 
           {/* Menu */}
-          <nav className="p-2 space-y-1">
+          <nav className="p-2 pb-32 space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
 
@@ -277,8 +277,11 @@ export function MobileNav() {
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border">
+          {/* User info + Logout */}
+          <div className="fixed bottom-0 left-0 w-72 bg-sidebar p-4 border-t border-sidebar-border space-y-2">
+            <p className="text-xs text-muted-foreground px-1">
+              Logado como <span className="font-medium text-sidebar-foreground">{profile?.full_name || "Administrador"}</span>
+            </p>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
