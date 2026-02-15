@@ -205,9 +205,14 @@ export default function ValeGasEmissao() {
   });
 
   const { data: produtos = [] } = useQuery({
-    queryKey: ["produtos-vale"],
+    queryKey: ["produtos-vale-gas"],
     queryFn: async () => {
-      const { data } = await supabase.from("produtos").select("id, nome, preco").eq("ativo", true).order("nome");
+      const { data } = await supabase
+        .from("produtos")
+        .select("id, nome, preco")
+        .eq("ativo", true)
+        .in("categoria", ["gas", "agua"])
+        .order("nome");
       return data || [];
     },
   });
