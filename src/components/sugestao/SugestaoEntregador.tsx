@@ -1,101 +1,100 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, MapPin, Truck, Clock, Check, RefreshCw, User } from "lucide-react";
+import { Sparkles, MapPin, Truck, Check, RefreshCw, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { haversineDistance } from "@/lib/haversine";
+import { geocodeAddress } from "@/lib/geocoding";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
-// Mock data de entregadores com localização
-const entregadoresDisponiveis = [
-  {
-    id: 1,
-    nome: "Carlos Souza",
-    status: "em_rota",
-    lat: -23.5605,
-    lng: -46.6433,
-    entregasPendentes: 2,
-    distanciaKm: 0,
-  },
-  {
-    id: 2,
-    nome: "Roberto Lima",
-    status: "disponivel",
-    lat: -23.5505,
-    lng: -46.6333,
-    entregasPendentes: 0,
-    distanciaKm: 0,
-  },
-  {
-    id: 3,
-    nome: "Fernando Alves",
-    status: "em_rota",
-    lat: -23.5405,
-    lng: -46.6533,
-    entregasPendentes: 1,
-    distanciaKm: 0,
-  },
-  {
-    id: 4,
-    nome: "Pedro Santos",
-    status: "disponivel",
-    lat: -23.5555,
-    lng: -46.6383,
-    entregasPendentes: 0,
-    distanciaKm: 0,
-  },
-];
-
-// Função para calcular distância entre dois pontos (Haversine formula)
-function calcularDistancia(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Raio da Terra em km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+interface EntregadorReal {
+  id: string;
+  nome: string;
+  status: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  entregasPendentes: number;
+  distanciaKm: number;
 }
-
-// Mock coordenadas de endereços
-const enderecosCoordenadas: Record<string, { lat: number; lng: number }> = {
-  "Rua das Flores, 123": { lat: -23.5655, lng: -46.6483 },
-  "Av. Brasil, 456": { lat: -23.5555, lng: -46.6383 },
-  "Rua São Paulo, 789": { lat: -23.5355, lng: -46.6583 },
-  "Rua do Comércio, 789": { lat: -23.5455, lng: -46.6433 },
-  "Rua Nova, 321": { lat: -23.5705, lng: -46.6533 },
-};
 
 interface SugestaoEntregadorProps {
   endereco?: string;
-  onSelecionar?: (entregadorId: number, entregadorNome: string) => void;
+  onSelecionar?: (entregadorId: number | string, entregadorNome: string) => void;
   compact?: boolean;
 }
 
 export function SugestaoEntregador({ endereco, onSelecionar, compact = false }: SugestaoEntregadorProps) {
   const [isCalculando, setIsCalculando] = useState(false);
+  const { unidadeAtual } = useUnidade();
   const [sugestao, setSugestao] = useState<{
-    entregador: typeof entregadoresDisponiveis[0] | null;
+    entregador: EntregadorReal | null;
     distancia: number;
     motivo: string;
   } | null>(null);
 
-  const calcularMelhorEntregador = () => {
+  const calcularMelhorEntregador = async () => {
+    if (!endereco) return;
     setIsCalculando(true);
-    
-    // Simular delay de cálculo
-    setTimeout(() => {
-      // Obter coordenadas do endereço
-      const coords = endereco 
-        ? enderecosCoordenadas[endereco] || { lat: -23.5505, lng: -46.6333 }
-        : { lat: -23.5505, lng: -46.6333 };
+    setSugestao(null);
 
-      // Calcular distância para cada entregador
-      const entregadoresComDistancia = entregadoresDisponiveis
-        .filter(e => e.status === "disponivel" || e.status === "em_rota")
-        .map(e => ({
-          ...e,
-          distanciaKm: calcularDistancia(e.lat, e.lng, coords.lat, coords.lng)
+    try {
+      // 1. Geocode the delivery address
+      const coords = await geocodeAddress(endereco);
+      if (!coords) {
+        setSugestao({ entregador: null, distancia: 0, motivo: "Não foi possível localizar o endereço." });
+        setIsCalculando(false);
+        return;
+      }
+
+      // 2. Fetch real entregadores with coordinates
+      let query = supabase
+        .from("entregadores")
+        .select("id, nome, status, latitude, longitude")
+        .eq("ativo", true)
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data: entregadores, error } = await query;
+
+      if (error || !entregadores || entregadores.length === 0) {
+        setSugestao({ entregador: null, distancia: 0, motivo: "Nenhum entregador com localização disponível." });
+        setIsCalculando(false);
+        return;
+      }
+
+      // 3. Count pending deliveries per driver
+      const { data: pedidosPendentes } = await supabase
+        .from("pedidos")
+        .select("entregador_id")
+        .in("status", ["pendente", "confirmado", "em_rota"])
+        .not("entregador_id", "is", null);
+
+      const pendentesMap = new Map<string, number>();
+      (pedidosPendentes || []).forEach((p) => {
+        if (p.entregador_id) {
+          pendentesMap.set(p.entregador_id, (pendentesMap.get(p.entregador_id) || 0) + 1);
+        }
+      });
+
+      // 4. Calculate distances using Haversine
+      const entregadoresComDistancia: EntregadorReal[] = entregadores
+        .filter((e) => e.latitude != null && e.longitude != null)
+        .map((e) => ({
+          id: e.id,
+          nome: e.nome,
+          status: e.status,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          entregasPendentes: pendentesMap.get(e.id) || 0,
+          distanciaKm: haversineDistance(
+            coords.latitude, coords.longitude,
+            e.latitude!, e.longitude!
+          ),
         }))
         .sort((a, b) => a.distanciaKm - b.distanciaKm);
 
@@ -105,14 +104,19 @@ export function SugestaoEntregador({ endereco, onSelecionar, compact = false }: 
         setSugestao({
           entregador: melhor,
           distancia: melhor.distanciaKm,
-          motivo: melhor.status === "disponivel" 
-            ? "Mais próximo e disponível" 
-            : `Mais próximo (${melhor.entregasPendentes} entregas pendentes)`
+          motivo: melhor.status === "disponivel"
+            ? "Mais próximo e disponível"
+            : `Mais próximo (${melhor.entregasPendentes} entregas pendentes)`,
         });
+      } else {
+        setSugestao({ entregador: null, distancia: 0, motivo: "Nenhum entregador encontrado com localização." });
       }
-
+    } catch (err) {
+      console.error("Erro ao calcular sugestão:", err);
+      setSugestao({ entregador: null, distancia: 0, motivo: "Erro ao calcular sugestão." });
+    } finally {
       setIsCalculando(false);
-    }, 800);
+    }
   };
 
   if (!sugestao && !isCalculando) {
@@ -126,24 +130,18 @@ export function SugestaoEntregador({ endereco, onSelecionar, compact = false }: 
             <div className="flex-1">
               <p className="font-medium text-sm">Sugestão de Entregador por IA</p>
               <p className="text-xs text-muted-foreground">
-                {endereco 
+                {endereco
                   ? `Calcular melhor entregador para: ${endereco.substring(0, 30)}...`
                   : "Preencha o endereço para receber sugestão"}
               </p>
             </div>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={calcularMelhorEntregador}
               disabled={!endereco || isCalculando}
             >
-              {isCalculando ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-1" />
-                  Sugerir
-                </>
-              )}
+              <Sparkles className="h-4 w-4 mr-1" />
+              Sugerir
             </Button>
           </div>
         </CardContent>
@@ -181,7 +179,7 @@ export function SugestaoEntregador({ endereco, onSelecionar, compact = false }: 
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="font-medium text-sm">Sugestão da IA</p>
+                <p className="font-medium text-sm">Sugestão Inteligente</p>
                 <Badge variant="secondary" className="text-[10px]">
                   Proximidade
                 </Badge>
@@ -195,7 +193,9 @@ export function SugestaoEntregador({ endereco, onSelecionar, compact = false }: 
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
-                      {sugestao.distancia.toFixed(1)} km
+                      {sugestao.distancia < 1
+                        ? `${(sugestao.distancia * 1000).toFixed(0)} m`
+                        : `${sugestao.distancia.toFixed(1)} km`}
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
@@ -211,22 +211,44 @@ export function SugestaoEntregador({ endereco, onSelecionar, compact = false }: 
             </div>
             <div className="flex flex-col gap-2">
               {onSelecionar && (
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={() => onSelecionar(sugestao.entregador!.id, sugestao.entregador!.nome)}
                 >
                   <Check className="h-4 w-4 mr-1" />
                   Atribuir
                 </Button>
               )}
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="ghost"
                 onClick={() => setSugestao(null)}
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // No suggestion found
+  if (sugestao && !sugestao.entregador) {
+    return (
+      <Card className="border-muted">
+        <CardContent className={compact ? "p-3" : "pt-4"}>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm">Sem sugestão disponível</p>
+              <p className="text-xs text-muted-foreground">{sugestao.motivo}</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setSugestao(null)}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
