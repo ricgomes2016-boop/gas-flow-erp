@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -6,7 +6,6 @@ import {
   Settings2,
   Users,
   Package,
-  
   CreditCard,
   Truck,
   HardHat,
@@ -34,6 +33,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSidebarContext } from "@/contexts/SidebarContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUnidade } from "@/contexts/UnidadeContext";
 import { useState } from "react";
 
 interface MenuItem {
@@ -169,7 +170,10 @@ const menuItems: MenuItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { collapsed, toggle } = useSidebarContext();
+  const { signOut, profile } = useAuth();
+  const { unidades, unidadeAtual, setUnidadeAtual } = useUnidade();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const toggleSubmenu = (label: string) => {
@@ -186,6 +190,14 @@ export function Sidebar() {
 
   const isSubmenuActive = (submenu?: { label: string; path: string }[]) =>
     submenu?.some((item) => location.pathname === item.path);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const userName = profile?.full_name || "Administrador";
+  const userInitial = userName.charAt(0).toUpperCase();
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -224,15 +236,26 @@ export function Sidebar() {
         {/* Store Selector */}
         {!collapsed && (
           <div className="border-b border-sidebar-border p-3">
-            <Select defaultValue="matriz">
+            <Select
+              value={unidadeAtual?.id || ""}
+              onValueChange={(val) => {
+                const u = unidades.find((u) => u.id === val);
+                if (u) setUnidadeAtual(u);
+              }}
+            >
               <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground">
                 <Store className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Selecione a loja" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="matriz">Matriz</SelectItem>
-                <SelectItem value="filial1">Filial 1</SelectItem>
-                <SelectItem value="filial2">Filial 2</SelectItem>
+                {unidades.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.nome}
+                  </SelectItem>
+                ))}
+                {unidades.length === 0 && (
+                  <SelectItem value="__none" disabled>Nenhuma unidade</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -248,7 +271,7 @@ export function Sidebar() {
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>Matriz</p>
+                <p>{unidadeAtual?.nome || "Selecionar loja"}</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -319,7 +342,6 @@ export function Sidebar() {
               // Expanded mode
               return (
                 <div key={item.label}>
-                  {/* Menu Item */}
                   {item.path ? (
                     <Link
                       to={item.path}
@@ -393,7 +415,10 @@ export function Sidebar() {
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="flex h-10 w-10 items-center justify-center rounded-lg mx-auto text-destructive transition-colors hover:bg-destructive/10">
+                <button
+                  onClick={handleSignOut}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg mx-auto text-destructive transition-colors hover:bg-destructive/10"
+                >
                   <LogOut className="h-5 w-5" />
                 </button>
               </TooltipTrigger>
@@ -402,7 +427,10 @@ export function Sidebar() {
               </TooltipContent>
             </Tooltip>
           ) : (
-            <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">
+            <button
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
               <LogOut className="h-5 w-5 flex-shrink-0" />
               <span>Sair</span>
             </button>
@@ -415,7 +443,7 @@ export function Sidebar() {
             <div className="rounded-lg bg-sidebar-accent p-3">
               <p className="text-xs text-sidebar-foreground/70">Logado como</p>
               <p className="text-sm font-medium text-sidebar-foreground">
-                Administrador
+                {userName}
               </p>
             </div>
           </div>
@@ -427,12 +455,12 @@ export function Sidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-accent mx-auto cursor-pointer">
-                  <span className="text-sm font-bold text-sidebar-foreground">A</span>
+                  <span className="text-sm font-bold text-sidebar-foreground">{userInitial}</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">
                 <p className="text-xs text-muted-foreground">Logado como</p>
-                <p className="font-medium">Administrador</p>
+                <p className="font-medium">{userName}</p>
               </TooltipContent>
             </Tooltip>
           </div>
