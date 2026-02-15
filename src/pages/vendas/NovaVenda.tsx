@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff } from "lucide-react";
+import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
@@ -69,7 +70,38 @@ export default function NovaVenda() {
   const [aiCommand, setAiCommand] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [photoLoading, setPhotoLoading] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch dynamic sales channels
+  const { data: canaisVenda = [] } = useQuery({
+    queryKey: ["canais-venda"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("canais_venda")
+        .select("id, nome, tipo")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fixed channels + dynamic ones
+  const fixedChannels = [
+    { value: "telefone", label: "📞 Telefone" },
+    { value: "whatsapp", label: "💬 WhatsApp" },
+    { value: "portaria", label: "🏢 Portaria" },
+    { value: "balcao", label: "🏪 Balcão" },
+  ];
+
+  const dynamicChannels = canaisVenda
+    .filter((c) => !fixedChannels.some((f) => f.value === c.nome.toLowerCase()))
+    .map((c) => ({ value: c.nome, label: `🏷️ ${c.nome}` }));
+
+  const allChannels = [...fixedChannels, ...dynamicChannels];
 
   // Voice recognition
   const startListening = () => {
@@ -252,7 +284,169 @@ export default function NovaVenda() {
     }
   };
 
+  // Photo OCR handler
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxWidth = 1600;
+          const scale = Math.min(1, maxWidth / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoSales = async (file: File) => {
+    setPhotoLoading(true);
+    try {
+      const imageData = await compressImage(file);
+
+      const { data, error } = await supabase.functions.invoke("parse-sales-photo", {
+        body: { image: imageData },
+      });
+
+      if (error) throw error;
+
+      const vendas = data.vendas || [data];
+      if (!vendas.length) {
+        toast({ title: "Nenhuma venda encontrada", description: "Não foi possível identificar vendas na imagem.", variant: "destructive" });
+        return;
+      }
+
+      let successCount = 0;
+      for (const venda of vendas) {
+        try {
+          let clienteId = venda.cliente_id;
+          if (!clienteId && venda.cliente_nome) {
+            const { data: found } = await supabase
+              .from("clientes")
+              .select("id")
+              .ilike("nome", `%${venda.cliente_nome}%`)
+              .limit(1)
+              .single();
+
+            if (found) {
+              clienteId = found.id;
+            } else {
+              const { data: created } = await supabase
+                .from("clientes")
+                .insert({
+                  nome: venda.cliente_nome,
+                  endereco: venda.endereco || null,
+                  bairro: venda.bairro || null,
+                  cep: venda.cep || null,
+                  cidade: venda.cidade || null,
+                  telefone: venda.cliente_telefone || null,
+                  ativo: true,
+                })
+                .select("id")
+                .single();
+              if (created) clienteId = created.id;
+            }
+          }
+
+          const enderecoCompleto = [
+            venda.endereco,
+            venda.numero && `Nº ${venda.numero}`,
+            venda.complemento,
+            venda.bairro,
+          ].filter(Boolean).join(", ");
+
+          const valorTotal = (venda.itens || []).reduce((a: number, i: any) => a + (i.quantidade || 1) * i.preco_unitario, 0);
+
+          const { data: pedido, error: pedidoError } = await supabase
+            .from("pedidos")
+            .insert({
+              cliente_id: clienteId,
+              endereco_entrega: enderecoCompleto,
+              valor_total: valorTotal,
+              forma_pagamento: venda.forma_pagamento || null,
+              canal_venda: venda.canal_venda || "telefone",
+              observacoes: venda.observacoes || null,
+              status: "pendente",
+              unidade_id: unidadeAtual?.id,
+            })
+            .select("id")
+            .single();
+
+          if (pedidoError) throw pedidoError;
+
+          if (venda.itens?.length) {
+            const itensInsert = venda.itens.map((item: any) => ({
+              pedido_id: pedido.id,
+              produto_id: item.produto_id,
+              quantidade: item.quantidade || 1,
+              preco_unitario: item.preco_unitario,
+            }));
+            await supabase.from("pedido_itens").insert(itensInsert);
+          }
+
+          for (const item of (venda.itens || [])) {
+            const { data: produto } = await supabase
+              .from("produtos")
+              .select("id, estoque, categoria, tipo_botijao, botijao_par_id")
+              .eq("id", item.produto_id)
+              .single();
+
+            if (produto) {
+              const novoEstoque = Math.max(0, (produto.estoque || 0) - (item.quantidade || 1));
+              await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", item.produto_id);
+
+              if (produto.categoria === "gas" && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
+                const { data: produtoVazio } = await supabase
+                  .from("produtos")
+                  .select("id, estoque")
+                  .eq("id", produto.botijao_par_id)
+                  .single();
+                if (produtoVazio) {
+                  await supabase.from("produtos")
+                    .update({ estoque: (produtoVazio.estoque || 0) + (item.quantidade || 1) })
+                    .eq("id", produtoVazio.id);
+                }
+              }
+            }
+          }
+
+          successCount++;
+        } catch (err: any) {
+          console.error(`Erro ao lançar venda para ${venda.cliente_nome}:`, err);
+        }
+      }
+
+      toast({
+        title: `${successCount} venda(s) lançada(s)!`,
+        description: `${successCount} de ${vendas.length} vendas foram criadas com sucesso a partir da foto.`,
+      });
+
+      if (successCount > 0) {
+        navigate("/vendas/pedidos");
+      }
+    } catch (error: any) {
+      console.error("Erro OCR:", error);
+      toast({
+        title: "Erro ao processar foto",
+        description: error.message || "Não foi possível interpretar a anotação.",
+        variant: "destructive",
+      });
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
   const totalVenda = itens.reduce((acc, item) => acc + item.total, 0);
+
 
   const handleSelecionarEntregador = (id: string, nome: string) => {
     setEntregador({ id, nome });
@@ -430,6 +624,49 @@ export default function NovaVenda() {
                 {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </Button>
               <Button
+                variant="outline"
+                size="icon"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={aiLoading || photoLoading}
+                className="shrink-0"
+                title="Lançar vendas por foto"
+              >
+                {photoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={aiLoading || photoLoading}
+                className="shrink-0"
+                title="Tirar foto da anotação"
+              >
+                {photoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              </Button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePhotoSales(file);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePhotoSales(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
                 id="ai-send-btn"
                 onClick={handleAiCommand}
                 disabled={aiLoading || !aiCommand.trim()}
@@ -441,9 +678,11 @@ export default function NovaVenda() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2 ml-7">
-              {isListening 
-                ? "🔴 Ouvindo... Fale o comando de venda. Ex: \"Lance 1 gás para Rogério, Rua Ceará 30, bairro Centro, no crédito\""
-                : "💡 Digite ou clique no 🎤 para ditar um comando. Clientes novos são cadastrados automaticamente!"}
+              {photoLoading 
+                ? "📸 Processando foto... Identificando vendas na anotação."
+                : isListening 
+                ? "🔴 Ouvindo... Fale o comando de venda."
+                : "💡 Digite, 🎤 dite, ou 📷 tire foto de uma anotação com múltiplas vendas."}
             </p>
           </CardContent>
         </Card>
@@ -466,10 +705,9 @@ export default function NovaVenda() {
                     <Select value={canalVenda} onValueChange={setCanalVenda}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="telefone">📞 Telefone</SelectItem>
-                        <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
-                        <SelectItem value="portaria">🏢 Portaria</SelectItem>
-                        <SelectItem value="balcao">🏪 Balcão</SelectItem>
+                        {allChannels.map((ch) => (
+                          <SelectItem key={ch.value} value={ch.value}>{ch.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
