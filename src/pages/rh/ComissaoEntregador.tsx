@@ -16,23 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState, useMemo } from "react";
-
-// Comissão por canal de venda
-const COMISSAO_POR_CANAL: Record<string, number> = {
-  telefone: 1.0,
-  whatsapp: 1.0,
-  balcao: 0.5,
-  portaria: 0.5,
-  app_cliente: 1.5,
-};
-
-const CANAL_LABELS: Record<string, string> = {
-  telefone: "Disk",
-  whatsapp: "WhatsApp",
-  balcao: "Balcão/Comércio",
-  portaria: "Portaria",
-  app_cliente: "Automática",
-};
+import { ComissaoConfigEditor } from "@/components/rh/ComissaoConfigEditor";
 
 export default function ComissaoEntregador() {
   const { unidadeAtual } = useUnidade();
@@ -50,6 +34,26 @@ export default function ComissaoEntregador() {
     }
     return meses;
   }, []);
+
+  // Buscar config de comissões do banco
+  const { data: comissaoConfig = [] } = useQuery({
+    queryKey: ["comissao-config", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase.from("comissao_config").select("produto_id, canal_venda, valor");
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
+  // Map config for fast lookup: key = "produto_id|canal_venda"
+  const comissaoMap = useMemo(() => {
+    const map = new Map<string, number>();
+    comissaoConfig.forEach((c: any) => {
+      map.set(`${c.produto_id}|${c.canal_venda}`, Number(c.valor));
+    });
+    return map;
+  }, [comissaoConfig]);
 
   // Buscar entregadores
   const { data: entregadores = [] } = useQuery({
@@ -119,7 +123,7 @@ export default function ComissaoEntregador() {
       const eId = item.entregador_id;
       const canal = item.canal_venda || "balcao";
       const prodNome = item.produtos?.nome || "Produto";
-      const comissaoUnit = COMISSAO_POR_CANAL[canal] ?? 0.5;
+      const comissaoUnit = comissaoMap.get(`${item.produto_id}|${canal}`) ?? 0;
 
       if (!porEntregador.has(eId)) {
         porEntregador.set(eId, { nome: item.entregador_nome, produtos: new Map() });
@@ -146,7 +150,7 @@ export default function ComissaoEntregador() {
           const total = canalData.qtd * canalData.comissaoUnit;
           linhas.push({
             produto: prod.nome,
-            canal: CANAL_LABELS[canal] || canal,
+            canal,
             quantidade: canalData.qtd,
             comissaoUnit: canalData.comissaoUnit,
             total,
@@ -158,7 +162,7 @@ export default function ComissaoEntregador() {
 
       return { id, nome: ent.nome, linhas, totalQtd, totalComissao };
     }).sort((a, b) => b.totalComissao - a.totalComissao);
-  }, [pedidosDetalhados]);
+  }, [pedidosDetalhados, comissaoMap]);
 
   // Resumo por entregador (para cards)
   const totalComissao = dadosAgrupados.reduce((acc, e) => acc + e.totalComissao, 0);
@@ -221,7 +225,8 @@ export default function ComissaoEntregador() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end pt-5">
+          <div className="flex items-end pt-5 gap-2">
+            <ComissaoConfigEditor />
             <Button variant="outline" className="gap-2"><FileText className="h-4 w-4" />Gerar Recibo</Button>
           </div>
         </div>

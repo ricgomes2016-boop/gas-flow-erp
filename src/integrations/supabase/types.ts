@@ -375,6 +375,51 @@ export type Database = {
         }
         Relationships: []
       }
+      comissao_config: {
+        Row: {
+          canal_venda: string
+          created_at: string
+          id: string
+          produto_id: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          canal_venda: string
+          created_at?: string
+          id?: string
+          produto_id: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          canal_venda?: string
+          created_at?: string
+          id?: string
+          produto_id?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comissao_config_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comissao_config_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compra_itens: {
         Row: {
           compra_id: string
