@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { BarChart3 } from "lucide-react";
+import { format, eachDayOfInterval, startOfWeek, startOfMonth, endOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Pedido {
   id: string;
@@ -13,89 +15,78 @@ interface Pedido {
 interface VendasPorHoraChartProps {
   pedidos: Pedido[];
   isLoading: boolean;
+  periodo?: "hoje" | "semana" | "mes";
 }
 
-export function VendasPorHoraChart({ pedidos, isLoading }: VendasPorHoraChartProps) {
-  const dadosPorHora = useMemo(() => {
-    // Inicializa todas as horas do dia comercial (6h às 22h)
-    const horas: Record<number, { hora: string; vendas: number; quantidade: number }> = {};
-    for (let h = 6; h <= 22; h++) {
-      horas[h] = {
-        hora: `${h.toString().padStart(2, "0")}h`,
-        vendas: 0,
-        quantidade: 0,
-      };
-    }
+export function VendasPorHoraChart({ pedidos, isLoading, periodo = "hoje" }: VendasPorHoraChartProps) {
+  const chartData = useMemo(() => {
+    const valid = pedidos.filter((p) => p.status !== "cancelado");
 
-    // Agrupa pedidos por hora (excluindo cancelados)
-    pedidos
-      .filter((p) => p.status !== "cancelado")
-      .forEach((pedido) => {
-        const hora = new Date(pedido.created_at).getHours();
-        if (horas[hora]) {
-          horas[hora].vendas += pedido.valor_total || 0;
-          horas[hora].quantidade += 1;
+    if (periodo === "hoje") {
+      // Group by hour
+      const horas: Record<number, { label: string; vendas: number; qtd: number }> = {};
+      for (let h = 6; h <= 22; h++) {
+        horas[h] = { label: `${h.toString().padStart(2, "0")}h`, vendas: 0, qtd: 0 };
+      }
+      valid.forEach((p) => {
+        const h = new Date(p.created_at).getHours();
+        if (horas[h]) {
+          horas[h].vendas += p.valor_total || 0;
+          horas[h].qtd += 1;
+        }
+      });
+      return Object.values(horas);
+    } else {
+      // Group by day
+      const today = new Date();
+      const start = periodo === "semana" ? startOfWeek(today, { weekStartsOn: 0 }) : startOfMonth(today);
+      const days = eachDayOfInterval({ start, end: endOfDay(today) });
+      
+      const dayMap = new Map<string, { label: string; vendas: number; qtd: number }>();
+      days.forEach((d) => {
+        const key = format(d, "yyyy-MM-dd");
+        dayMap.set(key, { label: format(d, "dd/MM", { locale: ptBR }), vendas: 0, qtd: 0 });
+      });
+
+      valid.forEach((p) => {
+        const key = format(new Date(p.created_at), "yyyy-MM-dd");
+        const entry = dayMap.get(key);
+        if (entry) {
+          entry.vendas += p.valor_total || 0;
+          entry.qtd += 1;
         }
       });
 
-    return Object.values(horas);
-  }, [pedidos]);
+      return Array.from(dayMap.values());
+    }
+  }, [pedidos, periodo]);
 
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  };
+  const title = periodo === "hoje" ? "Vendas por Hora" : periodo === "semana" ? "Vendas por Dia (Semana)" : "Vendas por Dia (Mês)";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-base">
           <BarChart3 className="h-5 w-5" />
-          Vendas por Hora
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center h-[250px]">
+          <div className="flex items-center justify-center h-[220px]">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={dadosPorHora} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="hora" 
-                tick={{ fontSize: 11 }} 
-                tickLine={false}
-                axisLine={false}
-                className="fill-muted-foreground"
-              />
-              <YAxis 
-                tick={{ fontSize: 11 }} 
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatCurrency}
-                width={70}
-                className="fill-muted-foreground"
-              />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={periodo === "mes" ? 2 : 0} />
+              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `R$${v}`} width={55} />
               <Tooltip
-                formatter={(value: number, name: string) => [
-                  formatCurrency(value),
-                  name === "vendas" ? "Total" : name,
-                ]}
-                labelFormatter={(label) => `Horário: ${label}`}
-                contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  color: "hsl(var(--popover-foreground))",
-                }}
+                formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Vendas"]}
+                contentStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
               />
-              <Bar 
-                dataKey="vendas" 
-                fill="hsl(var(--primary))" 
-                radius={[4, 4, 0, 0]}
-                name="vendas"
-              />
+              <Bar dataKey="vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
