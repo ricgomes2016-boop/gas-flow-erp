@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Produto {
   id: string;
@@ -80,16 +81,22 @@ export default function Produtos() {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
   const [form, setForm] = useState<ProdutoForm>(initialForm);
+  const { unidadeAtual } = useUnidade();
 
-  // Buscar produtos do Supabase
+  // Buscar produtos do Supabase filtrados por unidade
   const { data: produtos = [], isLoading } = useQuery({
-    queryKey: ["produtos"],
+    queryKey: ["produtos", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("produtos")
         .select("*")
         .order("nome", { ascending: true });
 
+      if (unidadeAtual?.id) {
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Produto[];
     },
@@ -115,6 +122,7 @@ export default function Produtos() {
           tipo_botijao: isBotijaoOuAgua ? "cheio" : tipoBotijao,
           image_url: dados.image_url || null,
           ativo: true,
+          unidade_id: unidadeAtual?.id || null,
         })
         .select()
         .single();
@@ -134,6 +142,7 @@ export default function Produtos() {
             tipo_botijao: "vazio",
             botijao_par_id: produtoCheio.id,
             ativo: true,
+            unidade_id: unidadeAtual?.id || null,
           })
           .select()
           .single();
