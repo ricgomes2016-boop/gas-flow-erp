@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   Flame,
+  QrCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,6 +23,7 @@ const menuItems = [
   { path: "/parceiro", icon: Home, label: "Início" },
   { path: "/parceiro/vender", icon: ShoppingCart, label: "Vender Vale" },
   { path: "/parceiro/vales", icon: List, label: "Meus Vales" },
+  { path: "/parceiro/qrcode", icon: QrCode, label: "Meu QR Code" },
 ];
 
 export function ParceiroLayout({ children, title }: ParceiroLayoutProps) {
