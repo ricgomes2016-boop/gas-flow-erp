@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
 import { supabase } from "@/integrations/supabase/client";
+import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const formasPagamento = [
@@ -132,20 +133,23 @@ export default function FinalizarEntrega() {
     ));
   };
 
-  const validarValeGas = (codigo: string) => {
+  const validarValeGas = async (codigo: string) => {
     setValidandoCodigo(true);
-    setTimeout(() => {
-      const padraoValido = /^VG-\d{4}-\d{6}$/.test(codigo) || codigo.length > 5;
-      if (padraoValido) {
-        const valeSemulado = { parceiro: "Supergás Parceiros", codigo, valor: 120.0, valido: true };
-        setValeGasLido(valeSemulado);
-        toast({ title: "Vale Gás validado!", description: `Parceiro: ${valeSemulado.parceiro} - Valor: R$ ${valeSemulado.valor.toFixed(2)}` });
+    try {
+      const result = await validarValeGasNoBanco(codigo);
+      if (result.valido) {
+        setValeGasLido({ parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valido: true });
+        toast({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor: R$ ${result.valor.toFixed(2)}` });
       } else {
         setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
-        toast({ title: "Vale Gás inválido", description: "O código informado não é válido.", variant: "destructive" });
+        toast({ title: "Vale Gás inválido", description: result.erro || "Código não encontrado.", variant: "destructive" });
       }
+    } catch {
+      setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
+      toast({ title: "Erro na validação", description: "Não foi possível validar o vale.", variant: "destructive" });
+    } finally {
       setValidandoCodigo(false);
-    }, 1000);
+    }
   };
 
   const handleQRCodeScan = (decodedText: string) => validarValeGas(decodedText);
