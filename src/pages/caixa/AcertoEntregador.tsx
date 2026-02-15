@@ -31,6 +31,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
 import { useToast } from "@/hooks/use-toast";
+import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
 
 const formatCurrency = (v: number) =>
   `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -173,23 +174,27 @@ export default function AcertoEntregador() {
     setValeGasCodigoInput("");
   };
 
-  const validarValeGasAcerto = (codigo: string) => {
+  const validarValeGasAcerto = async (codigo: string) => {
     setValidandoValeGas(true);
-    setTimeout(() => {
-      const padraoValido = /^VG-\d{4}-\d{6}$/.test(codigo) || codigo.length > 5;
-      if (padraoValido) {
-        const vale = { parceiro: "Supergás Parceiros", codigo, valor: 120.0, valido: true };
+    try {
+      const result = await validarValeGasNoBanco(codigo);
+      if (result.valido) {
+        const vale = { parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valido: true, valeId: result.valeId };
         setValeGasValidado(vale);
         if (editingEntrega) {
           setEditingEntrega({ ...editingEntrega, vale_gas_codigo: codigo });
         }
-        toastHook({ title: "Vale Gás validado!", description: `Parceiro: ${vale.parceiro} - Valor: R$ ${vale.valor.toFixed(2)}` });
+        toastHook({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor: R$ ${result.valor.toFixed(2)}` });
       } else {
         setValeGasValidado({ parceiro: "", codigo, valor: 0, valido: false });
-        toastHook({ title: "Vale Gás inválido", description: "O código informado não é válido.", variant: "destructive" });
+        toastHook({ title: "Vale Gás inválido", description: result.erro || "Código não encontrado.", variant: "destructive" });
       }
+    } catch {
+      setValeGasValidado({ parceiro: "", codigo, valor: 0, valido: false });
+      toastHook({ title: "Erro na validação", description: "Não foi possível validar o vale.", variant: "destructive" });
+    } finally {
       setValidandoValeGas(false);
-    }, 1000);
+    }
   };
 
   const handleQRScanAcerto = (decodedText: string) => validarValeGasAcerto(decodedText);
@@ -229,6 +234,30 @@ export default function AcertoEntregador() {
         .update({ forma_pagamento: editingEntrega.forma_pagamento, valor_total: novoTotal })
         .eq("id", editingEntrega.id);
       if (error) throw error;
+
+      // Se tem vale gás validado, vincular ao cliente do pedido
+      if (valeGasValidado?.valido && (valeGasValidado as any)?.valeId) {
+        // Buscar dados do cliente no pedido
+        const { data: pedidoData } = await supabase
+          .from("pedidos")
+          .select("cliente_id, clientes(nome, telefone, endereco, bairro)")
+          .eq("id", editingEntrega.id)
+          .single();
+
+        const clienteInfo = pedidoData?.clientes as any;
+        await (supabase as any)
+          .from("vale_gas")
+          .update({
+            status: "utilizado",
+            data_utilizacao: new Date().toISOString(),
+            cliente_id: pedidoData?.cliente_id || null,
+            cliente_nome: clienteInfo?.nome || null,
+            consumidor_nome: clienteInfo?.nome || null,
+            consumidor_telefone: clienteInfo?.telefone || null,
+            venda_id: editingEntrega.id,
+          })
+          .eq("id", (valeGasValidado as any).valeId);
+      }
 
       toast.success("Entrega atualizada com sucesso!");
       setEditingEntrega(null);
