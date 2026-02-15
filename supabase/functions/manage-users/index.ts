@@ -61,13 +61,15 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      const { data: roles } = await supabaseAdmin
-        .from("user_roles")
-        .select("*");
+      const [{ data: roles }, { data: userUnidades }] = await Promise.all([
+        supabaseAdmin.from("user_roles").select("*"),
+        supabaseAdmin.from("user_unidades").select("*"),
+      ]);
 
       const usersWithRoles = profiles?.map((p: any) => ({
         ...p,
         roles: roles?.filter((r: any) => r.user_id === p.user_id).map((r: any) => r.role) || [],
+        unidade_ids: userUnidades?.filter((uu: any) => uu.user_id === p.user_id).map((uu: any) => uu.unidade_id) || [],
       }));
 
       return new Response(JSON.stringify({ users: usersWithRoles }), {
@@ -77,7 +79,7 @@ Deno.serve(async (req) => {
 
     // CREATE user
     if (action === "create") {
-      const { email, password, full_name, phone, role } = params;
+      const { email, password, full_name, phone, role, unidade_ids } = params;
 
       if (!email || !password || !full_name || !role) {
         return new Response(JSON.stringify({ error: "Campos obrigatórios: email, password, full_name, role" }), {
@@ -96,7 +98,6 @@ Deno.serve(async (req) => {
       if (createError) throw createError;
 
       if (newUser.user) {
-        // Wait briefly for the trigger to create profile/role
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         if (phone) {
@@ -115,6 +116,15 @@ Deno.serve(async (req) => {
         await supabaseAdmin
           .from("user_roles")
           .insert({ user_id: newUser.user.id, role });
+
+        // Assign unidades if provided
+        if (unidade_ids && Array.isArray(unidade_ids) && unidade_ids.length > 0) {
+          const unidadeRows = unidade_ids.map((uid: string) => ({
+            user_id: newUser.user!.id,
+            unidade_id: uid,
+          }));
+          await supabaseAdmin.from("user_unidades").insert(unidadeRows);
+        }
       }
 
       return new Response(JSON.stringify({ success: true, user_id: newUser.user?.id }), {
@@ -122,9 +132,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // UPDATE user (profile + role)
+    // UPDATE user (profile + role + unidades)
     if (action === "update") {
-      const { user_id, full_name, phone, role } = params;
+      const { user_id, full_name, phone, role, unidade_ids } = params;
 
       if (!user_id) {
         return new Response(JSON.stringify({ error: "user_id obrigatório" }), {
@@ -146,20 +156,36 @@ Deno.serve(async (req) => {
         if (profileError) throw profileError;
       }
 
-      // Update auth user metadata if name changed
       if (full_name !== undefined) {
         await supabaseAdmin.auth.admin.updateUserById(user_id, {
           user_metadata: { full_name },
         });
       }
 
-      // Update role if provided
       if (role) {
         const { error: roleError } = await supabaseAdmin
           .from("user_roles")
           .update({ role })
           .eq("user_id", user_id);
         if (roleError) throw roleError;
+      }
+
+      // Update unidades assignment
+      if (unidade_ids !== undefined && Array.isArray(unidade_ids)) {
+        // Delete existing assignments
+        await supabaseAdmin
+          .from("user_unidades")
+          .delete()
+          .eq("user_id", user_id);
+
+        // Insert new assignments
+        if (unidade_ids.length > 0) {
+          const unidadeRows = unidade_ids.map((uid: string) => ({
+            user_id,
+            unidade_id: uid,
+          }));
+          await supabaseAdmin.from("user_unidades").insert(unidadeRows);
+        }
       }
 
       return new Response(JSON.stringify({ success: true }), {

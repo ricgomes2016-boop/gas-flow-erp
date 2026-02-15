@@ -18,6 +18,7 @@ import {
 import { Truck, Plus, Search, Edit, Trash2, Phone, LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Entregador {
   id: string;
@@ -44,15 +45,22 @@ export default function Entregadores() {
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const { unidadeAtual } = useUnidade();
   const [form, setForm] = useState({
     nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "",
   });
 
   const fetchEntregadores = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("entregadores")
       .select("*")
       .order("nome");
+
+    if (unidadeAtual?.id) {
+      query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    }
+
+    const { data, error } = await query;
     if (error) { console.error(error); return; }
     setEntregadores((data || []).filter(e => e.ativo !== false));
     setLoading(false);
@@ -80,12 +88,12 @@ export default function Entregadores() {
   useEffect(() => { 
     fetchEntregadores(); 
     fetchUsers();
-  }, []);
+  }, [unidadeAtual?.id]);
 
   const handleSave = async () => {
     if (!form.nome.trim()) { toast.error("Nome é obrigatório"); return; }
 
-    const payload = {
+    const payload: any = {
       nome: form.nome,
       cpf: form.cpf || null,
       cnh: form.cnh || null,
@@ -93,6 +101,9 @@ export default function Entregadores() {
       email: form.email || null,
       user_id: form.user_id || null,
     };
+    if (!editId && unidadeAtual?.id) {
+      payload.unidade_id = unidadeAtual.id;
+    }
 
     if (editId) {
       const { error } = await supabase.from("entregadores").update(payload).eq("id", editId);
