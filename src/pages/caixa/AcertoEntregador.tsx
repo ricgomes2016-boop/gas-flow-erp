@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   User, Package, Wallet, Download, CreditCard, Banknote, Receipt, Minus, Pencil, Loader2, Save,
+  QrCode, Keyboard, CheckCircle, AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,6 +29,8 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
+import { useToast } from "@/hooks/use-toast";
 
 const formatCurrency = (v: number) =>
   `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -53,12 +56,14 @@ const formasPagamento = [
 interface EditingEntrega {
   id: string;
   forma_pagamento: string;
+  vale_gas_codigo: string;
   itens: { id: string; nome: string; quantidade: number; preco_unitario: number }[];
 }
 
 export default function AcertoEntregador() {
   const { unidadeAtual } = useUnidade();
   const { hasAnyRole } = useAuth();
+  const { toast: toastHook } = useToast();
   const queryClient = useQueryClient();
   const hoje = format(new Date(), "yyyy-MM-dd");
 
@@ -68,6 +73,10 @@ export default function AcertoEntregador() {
   const [buscar, setBuscar] = useState(false);
   const [editingEntrega, setEditingEntrega] = useState<EditingEntrega | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [valeGasModoManual, setValeGasModoManual] = useState(true);
+  const [valeGasCodigoInput, setValeGasCodigoInput] = useState("");
+  const [validandoValeGas, setValidandoValeGas] = useState(false);
+  const [valeGasValidado, setValeGasValidado] = useState<{ parceiro: string; codigo: string; valor: number; valido: boolean } | null>(null);
 
   const podeEditar = hasAnyRole(["admin", "gestor"]);
 
@@ -152,6 +161,7 @@ export default function AcertoEntregador() {
     setEditingEntrega({
       id: entrega.id,
       forma_pagamento: entrega.forma_pagamento || "",
+      vale_gas_codigo: "",
       itens: (entrega.pedido_itens || []).map((i: any) => ({
         id: i.id,
         nome: i.produtos?.nome || "Produto",
@@ -159,7 +169,30 @@ export default function AcertoEntregador() {
         preco_unitario: Number(i.preco_unitario),
       })),
     });
+    setValeGasValidado(null);
+    setValeGasCodigoInput("");
   };
+
+  const validarValeGasAcerto = (codigo: string) => {
+    setValidandoValeGas(true);
+    setTimeout(() => {
+      const padraoValido = /^VG-\d{4}-\d{6}$/.test(codigo) || codigo.length > 5;
+      if (padraoValido) {
+        const vale = { parceiro: "Supergás Parceiros", codigo, valor: 120.0, valido: true };
+        setValeGasValidado(vale);
+        if (editingEntrega) {
+          setEditingEntrega({ ...editingEntrega, vale_gas_codigo: codigo });
+        }
+        toastHook({ title: "Vale Gás validado!", description: `Parceiro: ${vale.parceiro} - Valor: R$ ${vale.valor.toFixed(2)}` });
+      } else {
+        setValeGasValidado({ parceiro: "", codigo, valor: 0, valido: false });
+        toastHook({ title: "Vale Gás inválido", description: "O código informado não é válido.", variant: "destructive" });
+      }
+      setValidandoValeGas(false);
+    }, 1000);
+  };
+
+  const handleQRScanAcerto = (decodedText: string) => validarValeGasAcerto(decodedText);
 
   const updateEditItem = (index: number, field: "quantidade" | "preco_unitario", value: number) => {
     if (!editingEntrega) return;
@@ -627,7 +660,11 @@ export default function AcertoEntregador() {
                 <Label className="text-sm">Forma de Pagamento</Label>
                 <Select
                   value={editingEntrega.forma_pagamento}
-                  onValueChange={(v) => setEditingEntrega({ ...editingEntrega, forma_pagamento: v })}
+                  onValueChange={(v) => {
+                    setEditingEntrega({ ...editingEntrega, forma_pagamento: v, vale_gas_codigo: "" });
+                    setValeGasValidado(null);
+                    setValeGasCodigoInput("");
+                  }}
                 >
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
@@ -637,6 +674,95 @@ export default function AcertoEntregador() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Vale Gás - código/QR quando selecionado */}
+              {editingEntrega.forma_pagamento === "Vale Gás" && (
+                <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <QrCode className="h-4 w-4 text-primary" /> Validar Vale Gás
+                  </Label>
+
+                  {!valeGasValidado ? (
+                    <>
+                      <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                        <Button
+                          variant={valeGasModoManual ? "default" : "ghost"}
+                          size="sm"
+                          className={`flex-1 ${valeGasModoManual ? "gradient-primary text-white" : ""}`}
+                          onClick={() => setValeGasModoManual(true)}
+                        >
+                          <Keyboard className="h-4 w-4 mr-2" />Digitar
+                        </Button>
+                        <Button
+                          variant={!valeGasModoManual ? "default" : "ghost"}
+                          size="sm"
+                          className={`flex-1 ${!valeGasModoManual ? "gradient-primary text-white" : ""}`}
+                          onClick={() => setValeGasModoManual(false)}
+                        >
+                          <QrCode className="h-4 w-4 mr-2" />Câmera
+                        </Button>
+                      </div>
+
+                      {valeGasModoManual ? (
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Ex: VG-2024-001234"
+                            value={valeGasCodigoInput}
+                            onChange={(e) => setValeGasCodigoInput(e.target.value)}
+                            className="font-mono"
+                          />
+                          <p className="text-xs text-muted-foreground">Digite o código impresso no vale</p>
+                          <Button
+                            onClick={() => { if (valeGasCodigoInput.trim()) validarValeGasAcerto(valeGasCodigoInput.trim()); }}
+                            disabled={!valeGasCodigoInput.trim() || validandoValeGas}
+                            className="w-full"
+                            size="sm"
+                          >
+                            {validandoValeGas ? "Validando..." : "Validar Código"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <QRCodeScanner
+                          onScan={handleQRScanAcerto}
+                          onError={(err) => toastHook({ title: "Erro na câmera", description: err, variant: "destructive" })}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      {valeGasValidado.valido ? (
+                        <div className="p-3 bg-success/10 rounded-lg border border-success/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="h-4 w-4 text-success" />
+                            <span className="font-semibold text-success text-sm">Vale Gás Válido</span>
+                          </div>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between"><span className="text-muted-foreground">Parceiro:</span><span className="font-medium">{valeGasValidado.parceiro}</span></div>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Código:</span><span className="font-mono">{valeGasValidado.codigo}</span></div>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Valor:</span><span className="font-bold">R$ {valeGasValidado.valor.toFixed(2)}</span></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/30">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-destructive" />
+                            <span className="font-semibold text-destructive text-sm">Vale Gás Inválido</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Código: {valeGasValidado.codigo}</p>
+                        </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setValeGasValidado(null); setValeGasCodigoInput(""); }}
+                        className="w-full"
+                      >
+                        Tentar outro código
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label className="text-sm">Produtos</Label>
