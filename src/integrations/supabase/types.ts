@@ -230,6 +230,68 @@ export type Database = {
           },
         ]
       }
+      caixa_sessoes: {
+        Row: {
+          aberto_em: string
+          created_at: string
+          data: string
+          diferenca: number | null
+          fechado_em: string | null
+          id: string
+          observacoes_abertura: string | null
+          observacoes_fechamento: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          usuario_abertura_id: string
+          usuario_fechamento_id: string | null
+          valor_abertura: number
+          valor_fechamento: number | null
+        }
+        Insert: {
+          aberto_em?: string
+          created_at?: string
+          data?: string
+          diferenca?: number | null
+          fechado_em?: string | null
+          id?: string
+          observacoes_abertura?: string | null
+          observacoes_fechamento?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          usuario_abertura_id: string
+          usuario_fechamento_id?: string | null
+          valor_abertura?: number
+          valor_fechamento?: number | null
+        }
+        Update: {
+          aberto_em?: string
+          created_at?: string
+          data?: string
+          diferenca?: number | null
+          fechado_em?: string | null
+          id?: string
+          observacoes_abertura?: string | null
+          observacoes_fechamento?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          usuario_abertura_id?: string
+          usuario_fechamento_id?: string | null
+          valor_abertura?: number
+          valor_fechamento?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caixa_sessoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campanhas: {
         Row: {
           alcance: number
