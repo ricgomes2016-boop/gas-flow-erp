@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Truck, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Entregador {
   id: string;
@@ -27,15 +28,22 @@ interface DeliveryPersonSelectProps {
 export function DeliveryPersonSelect({ value, onChange, endereco }: DeliveryPersonSelectProps) {
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [loading, setLoading] = useState(true);
+  const { unidadeAtual } = useUnidade();
 
   useEffect(() => {
     const fetchEntregadores = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("entregadores")
           .select("id, nome, status")
           .eq("ativo", true)
           .order("nome");
+
+        if (unidadeAtual?.id) {
+          query = query.eq("unidade_id", unidadeAtual.id);
+        }
+
+        const { data, error } = await query;
 
         if (!error && data) {
           setEntregadores(data);
@@ -48,7 +56,7 @@ export function DeliveryPersonSelect({ value, onChange, endereco }: DeliveryPers
     };
 
     fetchEntregadores();
-  }, []);
+  }, [unidadeAtual?.id]);
 
   const handleSelect = (id: string) => {
     const entregador = entregadores.find((e) => e.id === id);
@@ -58,7 +66,6 @@ export function DeliveryPersonSelect({ value, onChange, endereco }: DeliveryPers
   };
 
   const handleSugestao = (id: number, nome: string) => {
-    // Convert mock ID to real ID if exists, otherwise use first available
     const entregador = entregadores.find((e) => e.nome === nome) || entregadores[0];
     if (entregador) {
       onChange(entregador.id, entregador.nome);
@@ -103,7 +110,6 @@ export function DeliveryPersonSelect({ value, onChange, endereco }: DeliveryPers
           </SelectContent>
         </Select>
 
-        {/* Sugestão automática */}
         {endereco && endereco.length > 10 && (
           <div className="pt-2">
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">

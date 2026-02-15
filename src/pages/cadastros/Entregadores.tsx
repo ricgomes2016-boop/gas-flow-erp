@@ -57,7 +57,7 @@ export default function Entregadores() {
       .order("nome");
 
     if (unidadeAtual?.id) {
-      query = query.eq("unidade_id", unidadeAtual.id);
+      query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     }
 
     const { data, error } = await query;

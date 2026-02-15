@@ -57,9 +57,11 @@ export default function ComissaoEntregador() {
 
   // Buscar entregadores
   const { data: entregadores = [] } = useQuery({
-    queryKey: ["entregadores-comissao"],
+    queryKey: ["entregadores-comissao", unidadeAtual?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome");
+      let query = supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome");
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query;
       return data || [];
     },
   });
