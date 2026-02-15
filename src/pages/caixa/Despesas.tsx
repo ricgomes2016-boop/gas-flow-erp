@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Receipt, Plus, Wallet, TrendingDown, CalendarIcon, Fuel, UtensilsCrossed, Wrench, MoreHorizontal, DollarSign } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Receipt, Plus, Wallet, TrendingDown, CalendarIcon, Fuel, UtensilsCrossed, Wrench, MoreHorizontal, DollarSign, Camera, ImageIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -51,13 +54,52 @@ const categoriaColors: Record<string, string> = {
   "Outros": "bg-muted text-muted-foreground",
 };
 
+// Map edge function categories to form categories
+const mapCategoria = (cat: string): string => {
+  const map: Record<string, string> = {
+    "Frota": "Combustível",
+    "Utilidades": "Manutenção",
+    "Infraestrutura": "Manutenção",
+    "Fornecedores": "Outros",
+    "RH": "Outros",
+    "Compras": "Outros",
+  };
+  return map[cat] || cat;
+};
+
+const compressImage = (file: File, maxWidth = 1600, quality = 0.8): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ratio = Math.min(maxWidth / img.width, 1);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject("Canvas error");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function Despesas() {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [dataSelecionada, setDataSelecionada] = useState<Date>(new Date());
   const { unidadeAtual } = useUnidade();
   const [form, setForm] = useState({ descricao: "", categoria: "", valor: "", responsavel: "", observacoes: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDespesas = async () => {
     setLoading(true);
@@ -72,6 +114,48 @@ export default function Despesas() {
   };
 
   useEffect(() => { fetchDespesas(); }, [unidadeAtual, dataSelecionada]);
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    try {
+      const base64 = await compressImage(file);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Faça login primeiro"); return; }
+
+      const response = await supabase.functions.invoke("parse-expense-photo", {
+        body: { imageBase64: base64 },
+      });
+
+      if (response.error) throw response.error;
+
+      const result = response.data;
+      if (result?.despesas?.length > 0) {
+        const d = result.despesas[0];
+        setForm({
+          descricao: d.descricao || "",
+          categoria: mapCategoria(d.categoria || ""),
+          valor: d.valor ? String(d.valor) : "",
+          responsavel: d.fornecedor || "",
+          observacoes: d.observacoes || "",
+        });
+        setDialogOpen(true);
+        toast.success("Dados extraídos da foto!");
+      } else {
+        toast.error("Não foi possível extrair dados da imagem");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao processar a foto");
+    } finally {
+      setScanning(false);
+      // Reset inputs
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     if (!form.descricao || !form.valor) { toast.error("Preencha os campos"); return; }
@@ -104,6 +188,10 @@ export default function Despesas() {
   return (
     <MainLayout>
       <Header title="Despesas" subtitle="Controle de saídas e sangrias" />
+      {/* Hidden file inputs */}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoCapture} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+
       <div className="p-6 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Popover>
@@ -117,28 +205,46 @@ export default function Despesas() {
               <Calendar mode="single" selected={dataSelecionada} onSelect={(d) => d && setDataSelecionada(d)} locale={ptBR} initialFocus className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Despesa</Button></DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Registrar Nova Despesa</DialogTitle></DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div><Label>Descrição *</Label><Input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
-                <div><Label>Categoria</Label>
-                  <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Combustível">Combustível</SelectItem><SelectItem value="Alimentação">Alimentação</SelectItem>
-                      <SelectItem value="Manutenção">Manutenção</SelectItem><SelectItem value="Outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={scanning}>
+                  {scanning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
+                  {scanning ? "Processando..." : "Foto Despesa"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="h-4 w-4 mr-2" />Tirar Foto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                  <ImageIcon className="h-4 w-4 mr-2" />Escolher Imagem
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Despesa</Button></DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Registrar Nova Despesa</DialogTitle></DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div><Label>Descrição *</Label><Input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
+                  <div><Label>Categoria</Label>
+                    <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Combustível">Combustível</SelectItem><SelectItem value="Alimentação">Alimentação</SelectItem>
+                        <SelectItem value="Manutenção">Manutenção</SelectItem><SelectItem value="Outros">Outros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Valor *</Label><Input type="number" step="0.01" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></div>
+                  <div><Label>Responsável</Label><Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} /></div>
+                  <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} /></div>
+                  <div className="flex justify-end gap-2 pt-4"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Registrar</Button></div>
                 </div>
-                <div><Label>Valor *</Label><Input type="number" step="0.01" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></div>
-                <div><Label>Responsável</Label><Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} /></div>
-                <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} /></div>
-                <div className="flex justify-end gap-2 pt-4"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={handleSubmit}>Registrar</Button></div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Cards resumo */}
@@ -180,7 +286,7 @@ export default function Despesas() {
           </Card>
         )}
 
-        {/* Tabela de despesas */}
+        {/* Tabela */}
         <Card>
           <CardHeader><CardTitle>Despesas do Dia</CardTitle></CardHeader>
           <CardContent>
