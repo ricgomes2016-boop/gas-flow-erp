@@ -41,18 +41,23 @@ export function ComissaoConfigEditor() {
     }
   }, [unidades, unidadeAtual]);
 
-  // Fetch products
+  // Fetch products filtered by selected store, exclude "Vazio"
   const { data: produtos = [] } = useQuery({
-    queryKey: ["produtos-comissao-config"],
+    queryKey: ["produtos-comissao-config", selectedUnidadeId],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("produtos")
         .select("id, nome, categoria, tipo_botijao")
         .eq("ativo", true)
+        .not("tipo_botijao", "eq", "vazio")
         .order("nome");
+      if (selectedUnidadeId) {
+        query = query.eq("unidade_id", selectedUnidadeId);
+      }
+      const { data } = await query;
       return data || [];
     },
-    enabled: open,
+    enabled: open && !!selectedUnidadeId,
   });
 
   // Fetch active sales channels
