@@ -373,7 +373,6 @@ export default function RelatorioVendas() {
             <TabsTrigger value="entregador" className="gap-2"><Users className="h-4 w-4" />Por Entregador</TabsTrigger>
             <TabsTrigger value="entregador-canal" className="gap-2"><FileSpreadsheet className="h-4 w-4" />Entregador x Canal</TabsTrigger>
             <TabsTrigger value="canal" className="gap-2"><Megaphone className="h-4 w-4" />Por Canal</TabsTrigger>
-            <TabsTrigger value="canal" className="gap-2"><Megaphone className="h-4 w-4" />Por Canal</TabsTrigger>
           </TabsList>
 
           {/* Tab Pedidos */}
