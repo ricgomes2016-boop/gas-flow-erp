@@ -123,9 +123,9 @@ export default function FinalizarEntrega() {
     fetchPedido();
   }, [id, toast]);
 
-  const totalItens = pedido?.pedido_itens.reduce(
-    (acc, item) => acc + item.quantidade * Number(item.preco_unitario), 0
-  ) || 0;
+  const totalItens = (pedido?.pedido_itens || []).reduce(
+    (acc, item) => acc + (item.quantidade || 0) * Number(item.preco_unitario || 0), 0
+  );
 
   const totalPagamentos = pagamentos.reduce((acc, p) => acc + p.valor, 0);
   const diferenca = totalItens - totalPagamentos;

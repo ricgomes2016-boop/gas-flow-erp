@@ -9,6 +9,7 @@ import { ValeGasProvider } from "@/contexts/ValeGasContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UnidadeProvider } from "@/contexts/UnidadeContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Vendas from "./pages/Vendas";
 import NotFound from "./pages/NotFound";
@@ -147,6 +148,7 @@ const App = () => (
                 <ValeGasProvider>
                   <Toaster />
                   <Sonner />
+                <ErrorBoundary>
                 <Routes>
                   {/* Auth - Pública */}
                   <Route path="/auth" element={<Auth />} />
@@ -608,6 +610,7 @@ const App = () => (
                   
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </ErrorBoundary>
               </ValeGasProvider>
             </ClienteProvider>
           </DeliveryNotificationProvider>
