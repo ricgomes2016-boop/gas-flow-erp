@@ -1987,6 +1987,381 @@ export type Database = {
           },
         ]
       }
+      vale_gas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          codigo: string
+          consumidor_endereco: string | null
+          consumidor_nome: string | null
+          consumidor_telefone: string | null
+          created_at: string
+          data_utilizacao: string | null
+          descricao: string | null
+          entregador_id: string | null
+          entregador_nome: string | null
+          id: string
+          lote_id: string
+          numero: number
+          parceiro_id: string
+          produto_id: string | null
+          produto_nome: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          venda_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          codigo: string
+          consumidor_endereco?: string | null
+          consumidor_nome?: string | null
+          consumidor_telefone?: string | null
+          created_at?: string
+          data_utilizacao?: string | null
+          descricao?: string | null
+          entregador_id?: string | null
+          entregador_nome?: string | null
+          id?: string
+          lote_id: string
+          numero: number
+          parceiro_id: string
+          produto_id?: string | null
+          produto_nome?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor: number
+          venda_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          codigo?: string
+          consumidor_endereco?: string | null
+          consumidor_nome?: string | null
+          consumidor_telefone?: string | null
+          created_at?: string
+          data_utilizacao?: string | null
+          descricao?: string | null
+          entregador_id?: string | null
+          entregador_nome?: string | null
+          id?: string
+          lote_id?: string
+          numero?: number
+          parceiro_id?: string
+          produto_id?: string | null
+          produto_nome?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vale_gas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "vale_gas_lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_parceiro_id_fkey"
+            columns: ["parceiro_id"]
+            isOneToOne: false
+            referencedRelation: "vale_gas_parceiros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vale_gas_acerto_vales: {
+        Row: {
+          acerto_id: string
+          created_at: string
+          id: string
+          vale_id: string
+        }
+        Insert: {
+          acerto_id: string
+          created_at?: string
+          id?: string
+          vale_id: string
+        }
+        Update: {
+          acerto_id?: string
+          created_at?: string
+          id?: string
+          vale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vale_gas_acerto_vales_acerto_id_fkey"
+            columns: ["acerto_id"]
+            isOneToOne: false
+            referencedRelation: "vale_gas_acertos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_acerto_vales_vale_id_fkey"
+            columns: ["vale_id"]
+            isOneToOne: false
+            referencedRelation: "vale_gas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vale_gas_acertos: {
+        Row: {
+          created_at: string
+          data_acerto: string
+          data_pagamento: string | null
+          forma_pagamento: string | null
+          id: string
+          observacao: string | null
+          parceiro_id: string
+          parceiro_nome: string
+          quantidade: number
+          status_pagamento: string
+          unidade_id: string | null
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          data_acerto?: string
+          data_pagamento?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          observacao?: string | null
+          parceiro_id: string
+          parceiro_nome: string
+          quantidade: number
+          status_pagamento?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_total: number
+        }
+        Update: {
+          created_at?: string
+          data_acerto?: string
+          data_pagamento?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          observacao?: string | null
+          parceiro_id?: string
+          parceiro_nome?: string
+          quantidade?: number
+          status_pagamento?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vale_gas_acertos_parceiro_id_fkey"
+            columns: ["parceiro_id"]
+            isOneToOne: false
+            referencedRelation: "vale_gas_parceiros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_acertos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vale_gas_lotes: {
+        Row: {
+          cancelado: boolean
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          data_vencimento_pagamento: string | null
+          descricao: string | null
+          gerar_conta_receber: boolean | null
+          id: string
+          numero_final: number
+          numero_inicial: number
+          observacao: string | null
+          parceiro_id: string
+          produto_id: string | null
+          produto_nome: string | null
+          quantidade: number
+          status_pagamento: string
+          unidade_id: string | null
+          updated_at: string
+          valor_pago: number
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          cancelado?: boolean
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_vencimento_pagamento?: string | null
+          descricao?: string | null
+          gerar_conta_receber?: boolean | null
+          id?: string
+          numero_final: number
+          numero_inicial: number
+          observacao?: string | null
+          parceiro_id: string
+          produto_id?: string | null
+          produto_nome?: string | null
+          quantidade: number
+          status_pagamento?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_pago?: number
+          valor_total: number
+          valor_unitario: number
+        }
+        Update: {
+          cancelado?: boolean
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_vencimento_pagamento?: string | null
+          descricao?: string | null
+          gerar_conta_receber?: boolean | null
+          id?: string
+          numero_final?: number
+          numero_inicial?: number
+          observacao?: string | null
+          parceiro_id?: string
+          produto_id?: string | null
+          produto_nome?: string | null
+          quantidade?: number
+          status_pagamento?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_pago?: number
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vale_gas_lotes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_lotes_parceiro_id_fkey"
+            columns: ["parceiro_id"]
+            isOneToOne: false
+            referencedRelation: "vale_gas_parceiros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_lotes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vale_gas_lotes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vale_gas_parceiros: {
+        Row: {
+          ativo: boolean
+          cnpj: string | null
+          created_at: string
+          email: string | null
+          endereco: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vale_gas_parceiros_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vales_funcionario: {
         Row: {
           created_at: string
