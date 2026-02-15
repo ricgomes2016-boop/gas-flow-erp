@@ -188,16 +188,16 @@ export function MobileNav() {
           <Menu className="h-6 w-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0 border-none">
-        <div className="bg-slate-900 h-full overflow-y-auto">
+      <SheetContent side="left" className="w-72 p-0 border-r border-sidebar-border">
+        <div className="bg-sidebar h-full overflow-y-auto">
           {/* Header */}
-          <div className="flex items-center gap-3 p-4 border-b border-slate-700">
-            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-              <Flame className="h-6 w-6 text-white" />
+          <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
+            <div className="h-10 w-10 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
+              <Flame className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h2 className="font-bold text-white text-lg">Gas Express25</h2>
-              <p className="text-xs text-slate-400">Gestão de Gás</p>
+              <h2 className="font-bold text-sidebar-foreground text-lg">Gas Express25</h2>
+              <p className="text-xs text-sidebar-foreground/60">Gestão de Gás</p>
             </div>
           </div>
 
@@ -221,8 +221,8 @@ export function MobileNav() {
                         className={cn(
                           "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors",
                           hasActiveItem
-                            ? "bg-amber-500/20 text-amber-400"
-                            : "text-slate-300 hover:bg-slate-800"
+                            ? "bg-sidebar-accent text-sidebar-primary"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -246,8 +246,8 @@ export function MobileNav() {
                           className={cn(
                             "block px-3 py-2 rounded-md text-sm transition-colors",
                             isActive(sub.path)
-                              ? "bg-amber-500 text-white"
-                              : "text-slate-400 hover:text-white hover:bg-slate-800"
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                           )}
                         >
                           {sub.label}
@@ -266,8 +266,8 @@ export function MobileNav() {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                     isActive(item.path!)
-                      ? "bg-amber-500 text-white"
-                      : "text-slate-300 hover:bg-slate-800"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent"
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -278,10 +278,10 @@ export function MobileNav() {
           </nav>
 
           {/* Logout */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border">
             <Button
               variant="ghost"
-              className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+              className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleSignOut}
             >
               <LogOut className="h-5 w-5" />
