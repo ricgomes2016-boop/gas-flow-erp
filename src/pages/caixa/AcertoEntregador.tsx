@@ -48,13 +48,19 @@ export default function AcertoEntregador() {
 
   // Entregadores
   const { data: entregadores = [] } = useQuery({
-    queryKey: ["entregadores-ativos"],
+    queryKey: ["entregadores-ativos", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("entregadores")
         .select("id, nome")
         .eq("ativo", true)
         .order("nome");
+
+      if (unidadeAtual?.id) {
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
