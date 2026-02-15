@@ -10,6 +10,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { UnidadeProvider } from "@/contexts/UnidadeContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
+import Vendas from "./pages/Vendas";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 
@@ -157,6 +158,11 @@ const App = () => (
                   } />
                   
                   {/* Vendas - Operacional+ */}
+                  <Route path="/vendas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
+                      <Vendas />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/vendas/nova" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
                       <NovaVenda />
