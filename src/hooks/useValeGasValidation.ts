@@ -5,55 +5,72 @@ export interface ValeGasValidationResult {
   parceiro: string;
   codigo: string;
   valor: number;
+  valorVenda: number;
   valeId?: string;
   erro?: string;
 }
 
 /**
  * Validates a Vale Gás code against the database.
- * Used by both the delivery app and the admin settlement screens.
+ * Accepts either the full code (VG-2026-00001) or just the number (1).
+ * Returns both valor (cost) and valorVenda (what the customer paid to the partner).
  */
 export async function validarValeGasNoBanco(codigo: string): Promise<ValeGasValidationResult> {
+  const fail = (parceiro: string, cod: string, valor: number, erro: string): ValeGasValidationResult => ({
+    valido: false, parceiro, codigo: cod, valor, valorVenda: 0, erro,
+  });
+
   try {
-    // Try finding by code first
-    let query = (supabase as any).from("vale_gas").select(`
-      id, numero, codigo, valor, status,
+    const trimmed = codigo.trim();
+    const numInput = parseInt(trimmed);
+    const isNumericOnly = !isNaN(numInput) && String(numInput) === trimmed;
+
+    const selectFields = `
+      id, numero, codigo, valor, valor_venda, status,
       vale_gas_parceiros:parceiro_id (nome)
-    `).eq("codigo", codigo).maybeSingle();
+    `;
 
-    let { data, error } = await query;
+    let data: any = null;
+    let error: any = null;
 
-    // If not found by code, try by number
-    if (!data && !error) {
-      const num = parseInt(codigo);
-      if (!isNaN(num)) {
-        const res = await (supabase as any).from("vale_gas").select(`
-          id, numero, codigo, valor, status,
-          vale_gas_parceiros:parceiro_id (nome)
-        `).eq("numero", num).maybeSingle();
-        data = res.data;
-        error = res.error;
-      }
+    // If user typed just a number, search by numero first
+    if (isNumericOnly) {
+      const res = await (supabase as any).from("vale_gas").select(selectFields).eq("numero", numInput).maybeSingle();
+      data = res.data;
+      error = res.error;
     }
 
-    if (error) return { valido: false, parceiro: "", codigo, valor: 0, erro: error.message };
-    if (!data) return { valido: false, parceiro: "", codigo, valor: 0, erro: "Vale não encontrado" };
+    // Fallback: search by codigo field
+    if (!data && !error) {
+      const res = await (supabase as any).from("vale_gas").select(selectFields).eq("codigo", trimmed).maybeSingle();
+      data = res.data;
+      error = res.error;
+    }
+
+    if (error) return fail("", trimmed, 0, error.message);
+    if (!data) return fail("", trimmed, 0, "Vale não encontrado");
+
+    const parceiro = data.vale_gas_parceiros?.nome || "Parceiro";
+    const cod = data.codigo;
+    const valor = Number(data.valor) || 0;
+    const valorVenda = Number(data.valor_venda) || valor;
 
     if (data.status === "utilizado") {
-      return { valido: false, parceiro: data.vale_gas_parceiros?.nome || "", codigo: data.codigo, valor: Number(data.valor), erro: "Vale já foi utilizado" };
+      return fail(parceiro, cod, valor, "Vale já foi utilizado");
     }
     if (data.status === "cancelado") {
-      return { valido: false, parceiro: data.vale_gas_parceiros?.nome || "", codigo: data.codigo, valor: Number(data.valor), erro: "Vale cancelado" };
+      return fail(parceiro, cod, valor, "Vale cancelado");
     }
 
     return {
       valido: true,
-      parceiro: data.vale_gas_parceiros?.nome || "Parceiro",
-      codigo: data.codigo,
-      valor: Number(data.valor),
+      parceiro,
+      codigo: cod,
+      valor,
+      valorVenda,
       valeId: data.id,
     };
   } catch (err: any) {
-    return { valido: false, parceiro: "", codigo, valor: 0, erro: err.message };
+    return fail("", codigo, 0, err.message);
   }
 }

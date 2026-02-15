@@ -65,7 +65,7 @@ export default function FinalizarEntrega() {
   const [codigoManual, setCodigoManual] = useState("");
   const [validandoCodigo, setValidandoCodigo] = useState(false);
   const [valeGasLido, setValeGasLido] = useState<{
-    parceiro: string; codigo: string; valor: number; valido: boolean; valeId?: string;
+    parceiro: string; codigo: string; valor: number; valorVenda: number; valido: boolean; valeId?: string;
   } | null>(null);
   // Editable items state
   const [editableItens, setEditableItens] = useState<PedidoItem[]>([]);
@@ -138,14 +138,14 @@ export default function FinalizarEntrega() {
     try {
       const result = await validarValeGasNoBanco(codigo);
       if (result.valido) {
-        setValeGasLido({ parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valido: true, valeId: result.valeId });
-        toast({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor: R$ ${result.valor.toFixed(2)}` });
+        setValeGasLido({ parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valorVenda: result.valorVenda, valido: true, valeId: result.valeId });
+        toast({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor de venda: R$ ${result.valorVenda.toFixed(2)}` });
       } else {
-        setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
+        setValeGasLido({ parceiro: "", codigo, valor: 0, valorVenda: 0, valido: false });
         toast({ title: "Vale Gás inválido", description: result.erro || "Código não encontrado.", variant: "destructive" });
       }
     } catch {
-      setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
+      setValeGasLido({ parceiro: "", codigo, valor: 0, valorVenda: 0, valido: false });
       toast({ title: "Erro na validação", description: "Não foi possível validar o vale.", variant: "destructive" });
     } finally {
       setValidandoCodigo(false);
@@ -162,7 +162,7 @@ export default function FinalizarEntrega() {
     if (valeGasLido) {
       setPagamentos((prev) => [
         ...prev,
-        { forma: "Vale Gás", valor: valeGasLido.valor, valeGasInfo: { parceiro: valeGasLido.parceiro, codigo: valeGasLido.codigo, valido: valeGasLido.valido, valeId: valeGasLido.valeId } },
+        { forma: "Vale Gás", valor: valeGasLido.valorVenda, valeGasInfo: { parceiro: valeGasLido.parceiro, codigo: valeGasLido.codigo, valido: valeGasLido.valido, valeId: valeGasLido.valeId } },
       ]);
       setValeGasLido(null);
       setDialogQRAberto(false);
@@ -372,9 +372,9 @@ export default function FinalizarEntrega() {
                           {modoEntradaManual ? (
                             <div className="space-y-4">
                               <div>
-                                <Label>Código do Vale Gás</Label>
-                                <Input placeholder="Ex: VG-2024-001234" value={codigoManual} onChange={(e) => setCodigoManual(e.target.value)} className="font-mono" />
-                                <p className="text-xs text-muted-foreground mt-1">Digite o código impresso no vale</p>
+                              <Label>Código ou Número do Vale Gás</Label>
+                                <Input placeholder="Ex: 1 ou VG-2026-00001" value={codigoManual} onChange={(e) => setCodigoManual(e.target.value)} className="font-mono" />
+                                <p className="text-xs text-muted-foreground mt-1">Digite apenas o número (ex: 1) ou o código completo</p>
                               </div>
                               <Button onClick={validarCodigoManual} disabled={!codigoManual.trim() || validandoCodigo} className="w-full gradient-primary text-white">
                                 {validandoCodigo ? "Validando..." : "Validar Código"}
@@ -395,7 +395,7 @@ export default function FinalizarEntrega() {
                               <div className="space-y-2 text-sm">
                                 <div className="flex justify-between"><span className="text-muted-foreground">Parceiro:</span><span className="font-medium">{valeGasLido.parceiro}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Código:</span><span className="font-mono">{valeGasLido.codigo}</span></div>
-                                <div className="flex justify-between"><span className="text-muted-foreground">Valor:</span><span className="font-bold text-lg">R$ {valeGasLido.valor.toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Valor:</span><span className="font-bold text-lg">R$ {valeGasLido.valorVenda.toFixed(2)}</span></div>
                               </div>
                             </div>
                           ) : (
