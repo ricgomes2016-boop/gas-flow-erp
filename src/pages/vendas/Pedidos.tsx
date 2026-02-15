@@ -35,6 +35,7 @@ import { StatusDropdown } from "@/components/pedidos/StatusDropdown";
 import { usePedidos } from "@/hooks/usePedidos";
 import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
 import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Entregador {
   id: string;
@@ -77,19 +78,27 @@ export default function Pedidos() {
   const [senhaExclusao, setSenhaExclusao] = useState("");
   const [senhaErro, setSenhaErro] = useState("");
 
+  const { unidadeAtual } = useUnidade();
+
   useEffect(() => {
     const fetchEntregadores = async () => {
       setLoadingEntregadores(true);
-      const { data } = await supabase
+      let query = supabase
         .from("entregadores")
         .select("id, nome, status")
         .eq("ativo", true)
         .order("nome");
+
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data } = await query;
       if (data) setEntregadores(data);
       setLoadingEntregadores(false);
     };
     fetchEntregadores();
-  }, []);
+  }, [unidadeAtual?.id]);
 
   // Reset page when filters change
   useEffect(() => { setPaginaAtual(1); }, [filtroStatus, filtroEntregador, busca, dataInicio, dataFim]);
