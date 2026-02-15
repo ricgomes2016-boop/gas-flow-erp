@@ -760,11 +760,7 @@ export default function CadastroClientesCad() {
     <MainLayout>
       <Header title="Cadastro de Clientes" subtitle="Gerencie os clientes da revenda" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Cadastro de Clientes</h1>
-            <p className="text-muted-foreground">Gerencie todos os clientes da revenda</p>
-          </div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex gap-2">
             <input
               ref={photoInputRef}
@@ -800,10 +796,6 @@ export default function CadastroClientesCad() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button className="gap-2" onClick={openCreateModal}>
-              <Plus className="h-4 w-4" />
-              Novo Cliente
-            </Button>
             <Button className="gap-2" onClick={openCreateModal}>
               <Plus className="h-4 w-4" />
               Novo Cliente
@@ -974,52 +966,80 @@ export default function CadastroClientesCad() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>CPF</TableHead>
                     <TableHead>Telefone</TableHead>
+                    <TableHead>Endereço</TableHead>
+                    <TableHead>Nº</TableHead>
+                    <TableHead>Bairro</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredClientes.map((cliente) => (
-                    <TableRow key={cliente.id}>
-                      <TableCell className="font-medium">{cliente.nome}</TableCell>
-                      <TableCell className="text-sm">{cliente.cpf || "-"}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          {cliente.telefone || "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{cliente.tipo || "Não especificado"}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={cliente.ativo ? "default" : "destructive"}>
-                          {cliente.ativo ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEditModal(cliente)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleStatus(cliente)}
-                          >
-                            {cliente.ativo ? (
-                              <X className="h-4 w-4 text-destructive" />
-                            ) : (
-                              <Check className="h-4 w-4 text-success" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredClientes.map((cliente) => {
+                    // Separar endereço e número
+                    let rua = cliente.endereco || "";
+                    let num = (cliente as any).numero || "";
+                    if (!num && rua) {
+                      const match = rua.match(/^(.+?),\s*(?:Nº\s*)?(\d+\w*)(?:\s*[-,]\s*(.+))?$/);
+                      if (match) {
+                        rua = match[1].trim();
+                        num = match[2].trim();
+                      }
+                    }
+                    return (
+                      <TableRow key={cliente.id}>
+                        <TableCell className="font-medium">{cliente.nome}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm">{cliente.telefone || "-"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 max-w-[200px]">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm truncate">{rua || "-"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{num || "-"}</TableCell>
+                        <TableCell>
+                          {cliente.bairro ? (
+                            <Badge variant="secondary">{cliente.bairro}</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{cliente.tipo || "N/E"}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={cliente.ativo ? "default" : "destructive"}>
+                            {cliente.ativo ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditModal(cliente)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleToggleStatus(cliente)}
+                            >
+                              {cliente.ativo ? (
+                                <X className="h-4 w-4 text-destructive" />
+                              ) : (
+                                <Check className="h-4 w-4 text-success" />
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

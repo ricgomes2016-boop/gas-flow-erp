@@ -3,94 +3,99 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Plus, Search, Phone, MapPin, Edit, Trash2, Map, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { geocodeAddress } from "@/lib/geocoding";
-import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
-import type { GeocodingResult } from "@/lib/geocoding";
-
-interface Cliente {
-  id: number;
-  nome: string;
-  telefone: string;
-  endereco: string;
-  bairro: string;
-  ultimaCompra: string;
-  totalCompras: number;
-  latitude?: number | null;
-  longitude?: number | null;
-}
-
-const clientesIniciais: Cliente[] = [
-  { id: 1, nome: "Maria Silva", telefone: "(11) 99999-1111", endereco: "Rua das Flores, 123", bairro: "Centro", ultimaCompra: "05/02/2026", totalCompras: 15 },
-  { id: 2, nome: "João Santos", telefone: "(11) 99999-2222", endereco: "Av. Brasil, 456", bairro: "Jardim América", ultimaCompra: "04/02/2026", totalCompras: 8 },
-  { id: 3, nome: "Ana Oliveira", telefone: "(11) 99999-3333", endereco: "Rua São Paulo, 789", bairro: "Vila Nova", ultimaCompra: "03/02/2026", totalCompras: 22 },
-  { id: 4, nome: "Carlos Ferreira", telefone: "(11) 99999-4444", endereco: "Rua Minas Gerais, 321", bairro: "Centro", ultimaCompra: "02/02/2026", totalCompras: 5 },
-  { id: 5, nome: "Lucia Costa", telefone: "(11) 99999-5555", endereco: "Av. Paulista, 1000", bairro: "Consolação", ultimaCompra: "01/02/2026", totalCompras: 12 },
-];
+import { useClientes, type ClienteDB, type ClienteForm } from "@/hooks/useClientes";
+import { ClienteTable } from "@/components/clientes/ClienteTable";
+import { ClienteFormDialog } from "@/components/clientes/ClienteFormDialog";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Clientes() {
-  const [clientes, setClientes] = useState<Cliente[]>(clientesIniciais);
-  const [busca, setBusca] = useState("");
+  const {
+    clientes, loading, busca, setBusca, filtroBairro, setFiltroBairro,
+    bairros, page, setPage, totalPages, totalCount,
+    salvarCliente, excluirCliente, emptyForm, fetchClientes,
+  } = useClientes();
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [mapPickerOpen, setMapPickerOpen] = useState(false);
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const [novoCliente, setNovoCliente] = useState({
-    nome: "", telefone: "", endereco: "", bairro: "",
-    latitude: null as number | null, longitude: null as number | null,
-  });
+  const [editData, setEditData] = useState<{ form: ClienteForm; id?: string }>({ form: emptyForm });
 
-  const clientesFiltrados = clientes.filter(
-    (cliente) =>
-      cliente.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      cliente.telefone.includes(busca) ||
-      cliente.bairro.toLowerCase().includes(busca.toLowerCase())
-  );
-
-  const handleAdicionarCliente = () => {
-    const novo: Cliente = {
-      id: clientes.length + 1,
-      ...novoCliente,
-      ultimaCompra: "-",
-      totalCompras: 0,
-    };
-    setClientes([...clientes, novo]);
-    setNovoCliente({ nome: "", telefone: "", endereco: "", bairro: "", latitude: null, longitude: null });
-    setDialogOpen(false);
+  const handleNovo = () => {
+    setEditData({ form: emptyForm });
+    setDialogOpen(true);
   };
 
-  const handleAddressBlur = async () => {
-    const addr = [novoCliente.endereco, novoCliente.bairro].filter(Boolean).join(", ");
-    if (addr.length < 5) return;
-    setIsGeocoding(true);
-    const result = await geocodeAddress(addr);
-    if (result) {
-      setNovoCliente((prev) => ({
-        ...prev,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        bairro: prev.bairro || result.bairro || "",
-      }));
-    }
-    setIsGeocoding(false);
+  const handleEdit = (c: ClienteDB) => {
+    setEditData({
+      form: {
+        nome: c.nome,
+        telefone: c.telefone || "",
+        email: c.email || "",
+        cpf: c.cpf || "",
+        endereco: c.endereco || "",
+        numero: c.numero || "",
+        bairro: c.bairro || "",
+        cidade: c.cidade || "",
+        cep: c.cep || "",
+        tipo: c.tipo || "residencial",
+        latitude: c.latitude,
+        longitude: c.longitude,
+      },
+      id: c.id,
+    });
+    setDialogOpen(true);
   };
 
-  const handleMapConfirm = (result: GeocodingResult) => {
-    setNovoCliente((prev) => ({
-      ...prev,
-      latitude: result.latitude,
-      longitude: result.longitude,
-      endereco: result.endereco || prev.endereco,
-      bairro: result.bairro || prev.bairro,
+  const exportExcel = () => {
+    const rows = clientes.map((c) => ({
+      Nome: c.nome,
+      Telefone: c.telefone || "",
+      Email: c.email || "",
+      CPF: c.cpf || "",
+      Endereço: c.endereco || "",
+      Número: c.numero || "",
+      Bairro: c.bairro || "",
+      Cidade: c.cidade || "",
+      CEP: c.cep || "",
+      Tipo: c.tipo || "",
+      Pedidos: c.total_pedidos || 0,
     }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+    XLSX.writeFile(wb, "clientes.xlsx");
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Lista de Clientes", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Total: ${totalCount} clientes`, 14, 28);
+
+    autoTable(doc, {
+      startY: 34,
+      head: [["Nome", "Telefone", "Endereço", "Nº", "Bairro", "Pedidos"]],
+      body: clientes.map((c) => [
+        c.nome,
+        c.telefone || "-",
+        c.endereco || "-",
+        c.numero || "-",
+        c.bairro || "-",
+        String(c.total_pedidos || 0),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save("clientes.pdf");
   };
 
   return (
@@ -99,155 +104,98 @@ export default function Clientes() {
       <div className="p-6">
         <Card>
           <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Badge variant="outline" className="text-xs">
-                  {clientesFiltrados.length} cliente{clientesFiltrados.length !== 1 ? "s" : ""}
+                  {totalCount} cliente{totalCount !== 1 ? "s" : ""}
                 </Badge>
+                <Select value={filtroBairro} onValueChange={setFiltroBairro}>
+                  <SelectTrigger className="w-40 h-9 text-xs">
+                    <SelectValue placeholder="Filtrar bairro" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os bairros</SelectItem>
+                    {bairros.map((b) => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar por nome, telefone ou bairro..."
+                    placeholder="Buscar cliente..."
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
-                    className="w-72 pl-9"
+                    className="w-60 pl-9 h-9"
                   />
                 </div>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo Cliente
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="mr-1.5 h-4 w-4" />
+                      Exportar
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Cliente</DialogTitle>
-                      <DialogDescription>Preencha os dados do novo cliente</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="nome">Nome</Label>
-                        <Input id="nome" value={novoCliente.nome} onChange={(e) => setNovoCliente({ ...novoCliente, nome: e.target.value })} />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="telefone">Telefone</Label>
-                        <Input id="telefone" value={novoCliente.telefone} onChange={(e) => setNovoCliente({ ...novoCliente, telefone: e.target.value })} />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="endereco">Endereço</Label>
-                        <div className="flex gap-1">
-                          <div className="relative flex-1">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              id="endereco"
-                              placeholder="Rua, Avenida..."
-                              value={novoCliente.endereco}
-                              onChange={(e) => setNovoCliente({ ...novoCliente, endereco: e.target.value })}
-                              onBlur={handleAddressBlur}
-                              className="pl-10"
-                            />
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="shrink-0"
-                            onClick={() => setMapPickerOpen(true)}
-                            title="Selecionar no mapa"
-                          >
-                            {isGeocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Map className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                        {novoCliente.latitude && novoCliente.longitude && (
-                          <p className="text-[10px] text-muted-foreground">
-                            📍 {novoCliente.latitude.toFixed(5)}, {novoCliente.longitude.toFixed(5)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="bairro">Bairro</Label>
-                        <Input id="bairro" value={novoCliente.bairro} onChange={(e) => setNovoCliente({ ...novoCliente, bairro: e.target.value })} />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                      <Button onClick={handleAdicionarCliente}>Salvar</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={exportExcel}>Excel (.xlsx)</DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportPDF}>PDF</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button size="sm" onClick={handleNovo}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Novo Cliente
+                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead>Bairro</TableHead>
-                    <TableHead>Última Compra</TableHead>
-                    <TableHead className="text-center">Compras</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {clientesFiltrados.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        Nenhum cliente encontrado.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    clientesFiltrados.map((cliente) => (
-                      <TableRow key={cliente.id}>
-                        <TableCell className="font-medium">{cliente.nome}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm">{cliente.telefone}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 max-w-xs">
-                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm truncate">{cliente.endereco}</span>
-                            {cliente.latitude && <span className="text-[10px] text-muted-foreground">📍</span>}
-                          </div>
-                        </TableCell>
-                        <TableCell><Badge variant="secondary">{cliente.bairro}</Badge></TableCell>
-                        <TableCell className="text-sm">{cliente.ultimaCompra}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline">{cliente.totalCompras}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            <ClienteTable
+              clientes={clientes}
+              loading={loading}
+              onEdit={handleEdit}
+              onDelete={excluirCliente}
+            />
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Página {page} de {totalPages}
+                </p>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={page <= 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <MapPickerDialog
-        open={mapPickerOpen}
-        onOpenChange={setMapPickerOpen}
-        initialPosition={
-          novoCliente.latitude && novoCliente.longitude
-            ? { lat: novoCliente.latitude, lng: novoCliente.longitude }
-            : null
-        }
-        onConfirm={handleMapConfirm}
+      <ClienteFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialData={editData.form}
+        editId={editData.id}
+        onSave={salvarCliente}
       />
     </MainLayout>
   );
