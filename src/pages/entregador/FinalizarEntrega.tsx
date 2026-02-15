@@ -28,7 +28,7 @@ const formasPagamento = [
 interface Pagamento {
   forma: string;
   valor: number;
-  valeGasInfo?: { parceiro: string; codigo: string; valido: boolean };
+  valeGasInfo?: { parceiro: string; codigo: string; valido: boolean; valeId?: string };
 }
 
 interface PedidoItem {
@@ -65,7 +65,7 @@ export default function FinalizarEntrega() {
   const [codigoManual, setCodigoManual] = useState("");
   const [validandoCodigo, setValidandoCodigo] = useState(false);
   const [valeGasLido, setValeGasLido] = useState<{
-    parceiro: string; codigo: string; valor: number; valido: boolean;
+    parceiro: string; codigo: string; valor: number; valido: boolean; valeId?: string;
   } | null>(null);
   // Editable items state
   const [editableItens, setEditableItens] = useState<PedidoItem[]>([]);
@@ -138,7 +138,7 @@ export default function FinalizarEntrega() {
     try {
       const result = await validarValeGasNoBanco(codigo);
       if (result.valido) {
-        setValeGasLido({ parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valido: true });
+        setValeGasLido({ parceiro: result.parceiro, codigo: result.codigo, valor: result.valor, valido: true, valeId: result.valeId });
         toast({ title: "Vale Gás validado!", description: `Parceiro: ${result.parceiro} - Valor: R$ ${result.valor.toFixed(2)}` });
       } else {
         setValeGasLido({ parceiro: "", codigo, valor: 0, valido: false });
@@ -162,7 +162,7 @@ export default function FinalizarEntrega() {
     if (valeGasLido) {
       setPagamentos((prev) => [
         ...prev,
-        { forma: "Vale Gás", valor: valeGasLido.valor, valeGasInfo: { parceiro: valeGasLido.parceiro, codigo: valeGasLido.codigo, valido: valeGasLido.valido } },
+        { forma: "Vale Gás", valor: valeGasLido.valor, valeGasInfo: { parceiro: valeGasLido.parceiro, codigo: valeGasLido.codigo, valido: valeGasLido.valido, valeId: valeGasLido.valeId } },
       ]);
       setValeGasLido(null);
       setDialogQRAberto(false);
@@ -193,6 +193,37 @@ export default function FinalizarEntrega() {
         .update({ status: "entregue", forma_pagamento: formaStr, valor_total: totalItens })
         .eq("id", id);
       if (error) throw error;
+
+      // Vincular vales gás utilizados ao cliente e pedido
+      const valeGasPagamentos = pagamentos.filter(p => p.forma === "Vale Gás" && p.valeGasInfo?.valeId);
+      if (valeGasPagamentos.length > 0) {
+        const clienteNomeAtual = pedido?.clientes?.nome || null;
+        const clienteIdAtual = (pedido as any)?.cliente_id || null;
+
+        // Buscar entregador_id do pedido
+        const { data: pedidoData } = await supabase
+          .from("pedidos")
+          .select("entregador_id, cliente_id")
+          .eq("id", id)
+          .single();
+
+        for (const pag of valeGasPagamentos) {
+          await (supabase as any)
+            .from("vale_gas")
+            .update({
+              status: "utilizado",
+              data_utilizacao: new Date().toISOString(),
+              cliente_id: pedidoData?.cliente_id || clienteIdAtual,
+              cliente_nome: clienteNomeAtual,
+              consumidor_nome: clienteNomeAtual,
+              consumidor_endereco: pedido?.endereco_entrega || null,
+              consumidor_telefone: pedido?.clientes?.telefone || null,
+              entregador_id: pedidoData?.entregador_id || null,
+              venda_id: id,
+            })
+            .eq("id", pag.valeGasInfo!.valeId);
+        }
+      }
 
       toast({ title: "Entrega finalizada!", description: "Os dados foram salvos com sucesso." });
       navigate("/entregador/entregas");
