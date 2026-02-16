@@ -361,53 +361,55 @@ export default function Pedidos() {
         {/* Filters - #6 added entregador filter */}
         <Card>
           <CardContent className="pt-4 md:pt-6">
-            <div className="flex flex-col md:flex-row flex-wrap gap-3 md:gap-4 md:items-end">
-              <div className="flex-1 min-w-[180px]">
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Buscar cliente, endereço, ID..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  className="h-9"
+                  className="h-9 pl-9"
                 />
               </div>
-              <div className="flex gap-2 items-center">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Início</label>
-                  <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-[130px] h-9 text-xs" />
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex gap-2 items-center">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Início</label>
+                    <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-[125px] sm:w-[140px] h-9 text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Fim</label>
+                    <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-[125px] sm:w-[140px] h-9 text-xs" />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Fim</label>
-                  <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-[130px] h-9 text-xs" />
-                </div>
+                <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                  <SelectTrigger className="w-[120px] sm:w-[140px] h-9 text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos Status</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_rota">Em Rota</SelectItem>
+                    <SelectItem value="entregue">Entregue</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filtroEntregador} onValueChange={setFiltroEntregador}>
+                  <SelectTrigger className="w-[130px] sm:w-[160px] h-9 text-xs">
+                    <SelectValue placeholder="Entregador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos Entregadores</SelectItem>
+                    <SelectItem value="sem_entregador">Sem entregador</SelectItem>
+                    {entregadoresNoPeriodo.map((nome) => (
+                      <SelectItem key={nome} value={nome}>{nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" className="h-9" onClick={() => { setBusca(""); setDataInicio(hoje); setDataFim(hoje); setFiltroStatus("todos"); setFiltroEntregador("todos"); }}>
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> Limpar
+                </Button>
               </div>
-              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                <SelectTrigger className="w-[140px] h-9 text-xs">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos Status</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="em_rota">Em Rota</SelectItem>
-                  <SelectItem value="entregue">Entregue</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* #6 - Filtro por entregador */}
-              <Select value={filtroEntregador} onValueChange={setFiltroEntregador}>
-                <SelectTrigger className="w-[160px] h-9 text-xs">
-                  <SelectValue placeholder="Entregador" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos Entregadores</SelectItem>
-                  <SelectItem value="sem_entregador">Sem entregador</SelectItem>
-                  {entregadoresNoPeriodo.map((nome) => (
-                    <SelectItem key={nome} value={nome}>{nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" className="h-9" onClick={() => { setBusca(""); setDataInicio(hoje); setDataFim(hoje); setFiltroStatus("todos"); setFiltroEntregador("todos"); }}>
-                <RefreshCw className="h-3.5 w-3.5 mr-1" /> Limpar
-              </Button>
             </div>
           </CardContent>
         </Card>

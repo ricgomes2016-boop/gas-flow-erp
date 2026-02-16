@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from "date-fns";
 
 type Period = "hoje" | "semana" | "mes";
 
@@ -45,7 +45,6 @@ export default function Dashboard() {
         return q;
       };
 
-      // Current period orders
       const { data: pedidos } = await baseFilter(
         supabase.from("pedidos").select("valor_total, status")
           .gte("created_at", start.toISOString()).lte("created_at", end.toISOString())
@@ -57,7 +56,6 @@ export default function Dashboard() {
       const pendentes = (pedidos || []).filter((p: any) => p.status === "pendente" || p.status === "em_rota").length;
       const ticketMedio = valid.length > 0 ? vendasPeriodo / valid.length : 0;
 
-      // Yesterday comparison (only for "hoje")
       let trendVendas: { value: number; isPositive: boolean } | undefined;
       let trendPedidos: { value: number; isPositive: boolean } | undefined;
 
@@ -84,7 +82,6 @@ export default function Dashboard() {
         }
       }
 
-      // Active clients
       const { count: clientesAtivos } = await supabase
         .from("clientes").select("id", { count: "exact", head: true }).eq("ativo", true);
 
@@ -105,9 +102,9 @@ export default function Dashboard() {
   return (
     <MainLayout>
       <Header title="Dashboard" subtitle="Bem-vindo ao GásPro - Sua revenda de gás" />
-      <div className="p-6 space-y-6">
-        {/* Filtro de período (#8) */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+        {/* Filtro de período */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
             <TabsList>
               <TabsTrigger value="hoje">Hoje</TabsTrigger>
@@ -117,11 +114,11 @@ export default function Dashboard() {
           </Tabs>
         </div>
 
-        {/* Alertas de estoque crítico (#6) */}
+        {/* Alertas de estoque crítico */}
         <StockAlerts />
 
-        {/* Cards com comparativo (#1) e Ticket Médio (#3) */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {/* Cards com comparativo e Ticket Médio */}
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
             title={`Vendas ${periodLabel}`}
             value={`R$ ${(stats?.vendasPeriodo ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -145,24 +142,24 @@ export default function Dashboard() {
           <StatCard title="Clientes Ativos" value={stats?.clientesAtivos ?? 0} icon={Users} />
         </div>
 
-        {/* Atalhos rápidos (#4) */}
+        {/* Atalhos rápidos */}
         <QuickActions />
 
-        {/* Gráfico vendas/hora (#2) + Meta diária (#7) */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        {/* Gráfico vendas/hora + Meta diária */}
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <SalesChart />
           </div>
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <DailySalesGoal />
             <DeliveryDriverStatus />
           </div>
         </div>
 
         {/* Vendas recentes + Estoque + Entregas */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
           <RecentSales />
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <StockOverview />
             <DeliveriesMap />
           </div>
