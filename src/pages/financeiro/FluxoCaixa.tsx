@@ -81,7 +81,7 @@ export default function FluxoCaixa() {
   return (
     <MainLayout>
       <Header title="Fluxo de Caixa" subtitle="Entradas e saídas em tempo real" />
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center justify-between">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Movimentação</Button></DialogTrigger>
@@ -112,11 +112,11 @@ export default function FluxoCaixa() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saldo 7 dias</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">R$ {(totalEntradas - totalSaidas).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Entradas Hoje</CardTitle><TrendingUp className="h-4 w-4 text-success" /></CardHeader><CardContent><div className="text-2xl font-bold text-success">R$ {entradaHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saídas Hoje</CardTitle><TrendingDown className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">R$ {saidaHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saldo do Dia</CardTitle><DollarSign className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-2xl font-bold text-primary">R$ {(entradaHoje - saidaHoje).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-xs sm:text-sm font-medium">Saldo 7 dias</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-lg sm:text-2xl font-bold">R$ {(totalEntradas - totalSaidas).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-xs sm:text-sm font-medium">Entradas Hoje</CardTitle><TrendingUp className="h-4 w-4 text-success" /></CardHeader><CardContent><div className="text-lg sm:text-2xl font-bold text-success">R$ {entradaHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-xs sm:text-sm font-medium">Saídas Hoje</CardTitle><TrendingDown className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-lg sm:text-2xl font-bold text-destructive">R$ {saidaHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
+          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-xs sm:text-sm font-medium">Saldo do Dia</CardTitle><DollarSign className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-lg sm:text-2xl font-bold text-primary">R$ {(entradaHoje - saidaHoje).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent></Card>
         </div>
 
         <Card>
@@ -140,19 +140,19 @@ export default function FluxoCaixa() {
             {loading ? <p className="text-center py-6 text-muted-foreground">Carregando...</p> : movs.length === 0 ? <p className="text-center py-6 text-muted-foreground">Nenhuma movimentação encontrada</p> : (
               <div className="space-y-4">
                 {movs.slice(0, 20).map(mov => (
-                  <div key={mov.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-full ${mov.tipo === "entrada" ? "bg-success/10" : "bg-destructive/10"}`}>
+                  <div key={mov.id} className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-muted/50 gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2 rounded-full shrink-0 ${mov.tipo === "entrada" ? "bg-success/10" : "bg-destructive/10"}`}>
                         {mov.tipo === "entrada" ? <ArrowUpRight className="h-4 w-4 text-success" /> : <ArrowDownRight className="h-4 w-4 text-destructive" />}
                       </div>
-                      <div>
-                        <p className="font-medium">{mov.descricao}</p>
-                        <p className="text-sm text-muted-foreground">{format(new Date(mov.created_at), "dd/MM/yyyy HH:mm")}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{mov.descricao}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(mov.created_at), "dd/MM/yyyy HH:mm")}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <Badge variant="outline">{mov.categoria || "—"}</Badge>
-                      <span className={`font-bold ${mov.tipo === "entrada" ? "text-success" : "text-destructive"}`}>
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                      <Badge variant="outline" className="hidden sm:inline-flex text-xs">{mov.categoria || "—"}</Badge>
+                      <span className={`font-bold text-sm whitespace-nowrap ${mov.tipo === "entrada" ? "text-success" : "text-destructive"}`}>
                         {mov.tipo === "entrada" ? "+" : "-"} R$ {Number(mov.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
