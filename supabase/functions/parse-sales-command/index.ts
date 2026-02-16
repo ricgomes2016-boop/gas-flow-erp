@@ -145,7 +145,7 @@ Retorne APENAS um JSON válido neste formato:
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "Erro ao processar comando. Tente novamente." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
