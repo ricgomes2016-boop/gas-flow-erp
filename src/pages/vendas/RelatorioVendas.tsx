@@ -82,7 +82,9 @@ export default function RelatorioVendas() {
     queryKey: ["canais-venda", unidadeAtual?.id],
     queryFn: async () => {
       let query = supabase.from("canais_venda").select("id, nome").eq("ativo", true);
-      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      if (unidadeAtual?.id) {
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      }
       const { data } = await query;
       return data || [];
     },
