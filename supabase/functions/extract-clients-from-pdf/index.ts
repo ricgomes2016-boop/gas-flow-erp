@@ -3,7 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -78,6 +79,7 @@ Retorne APENAS um JSON válido no formato:
   ]
 }`;
 
+    // Use inline_data with proper PDF mime type for Gemini
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -107,7 +109,53 @@ Retorne APENAS um JSON válido no formato:
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI API error:", errorText);
-      throw new Error("Erro ao processar PDF com IA");
+      
+      // If PDF format fails, try converting first pages as images approach
+      // Fallback: send as plain text extraction request
+      console.log("Trying fallback approach - treating PDF content as text");
+      
+      const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { 
+                  type: "text", 
+                  text: `${prompt}\n\nO conteúdo do PDF está codificado em base64 abaixo. Decodifique e extraia os dados:\n\n${pdf_base64.substring(0, 50000)}` 
+                },
+              ],
+            },
+          ],
+          temperature: 0.1,
+        }),
+      });
+
+      if (!fallbackResponse.ok) {
+        const fallbackError = await fallbackResponse.text();
+        console.error("Fallback AI API error:", fallbackError);
+        throw new Error("Erro ao processar PDF com IA");
+      }
+
+      const fallbackData = await fallbackResponse.json();
+      const fallbackContent = fallbackData.choices?.[0]?.message?.content || "";
+      const fallbackJsonMatch = fallbackContent.match(/\{[\s\S]*\}/);
+      
+      if (!fallbackJsonMatch) {
+        throw new Error("Não foi possível extrair dados do PDF");
+      }
+
+      const fallbackParsed = JSON.parse(fallbackJsonMatch[0]);
+      return new Response(
+        JSON.stringify(fallbackParsed),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const aiData = await response.json();
