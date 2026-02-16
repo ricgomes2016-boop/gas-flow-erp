@@ -107,9 +107,10 @@ export default function Estoque() {
 
       let movQuery = supabase
         .from("movimentacoes_estoque")
-        .select("produto_id, tipo, quantidade, created_at")
+        .select("produto_id, tipo, quantidade, created_at, observacoes")
         .gte("created_at", inicioStr)
-        .lte("created_at", fimStr);
+        .lte("created_at", fimStr)
+        .not("observacoes", "like", "%Baixa automática por venda%");
 
       if (unidadeAtual?.id) {
         movQuery = movQuery.eq("unidade_id", unidadeAtual.id);
