@@ -60,6 +60,7 @@ const RankingClientes = lazy(() => import("./pages/clientes/RankingClientes"));
 
 // Estoque
 const Estoque = lazy(() => import("./pages/Estoque"));
+const Entregas = lazy(() => import("./pages/Entregas"));
 const Compras = lazy(() => import("./pages/estoque/Compras"));
 const Comodatos = lazy(() => import("./pages/estoque/Comodatos"));
 const EstoqueRota = lazy(() => import("./pages/estoque/EstoqueRota"));
@@ -357,6 +358,13 @@ const App = () => (
                   <Route path="/estoque/mcmm" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <MCMM />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Entregas - Monitoramento */}
+                  <Route path="/entregas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Entregas />
                     </ProtectedRoute>
                   } />
                   
