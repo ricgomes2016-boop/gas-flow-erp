@@ -33,7 +33,7 @@ export default function AprovarDespesas() {
   const fetchDespesas = async () => {
     setLoading(true);
     let query = supabase.from("movimentacoes_caixa").select("*").eq("tipo", "saida").order("created_at", { ascending: false }).limit(50);
-    if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+    if (unidadeAtual?.id) query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     const { data, error } = await query;
     if (error) console.error(error);
     else setDespesas((data as Despesa[]) || []);

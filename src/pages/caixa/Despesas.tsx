@@ -106,7 +106,7 @@ export default function Despesas() {
     const inicio = startOfDay(dataSelecionada).toISOString();
     const fim = endOfDay(dataSelecionada).toISOString();
     let query = supabase.from("movimentacoes_caixa").select("*").eq("tipo", "saida").gte("created_at", inicio).lte("created_at", fim).order("created_at", { ascending: false });
-    if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+    if (unidadeAtual?.id) query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     const { data, error } = await query;
     if (error) console.error(error);
     else setDespesas((data as Despesa[]) || []);
