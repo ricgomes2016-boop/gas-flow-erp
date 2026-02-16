@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-const UPDATE_INTERVAL_MS = 30_000; // 30 seconds
+const UPDATE_INTERVAL_MS = 15_000; // 15 seconds
 
 export function useGeoTracking() {
   const { user } = useAuth();
