@@ -413,53 +413,90 @@ export default function PDV() {
 
           {/* Right: Summary */}
           <Card className="flex flex-col">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Resumo</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              <div className="flex-1 space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Itens</span>
-                  <span className="font-medium">{totalItens}</span>
-                </div>
-                
-                <Separator />
-
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-5xl font-bold text-primary">
+            <CardContent className="p-4 lg:p-6 flex flex-col lg:flex-1">
+              {/* Mobile: compact horizontal layout */}
+              <div className="flex items-center justify-between lg:hidden mb-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total ({totalItens} itens)</p>
+                  <p className="text-2xl font-bold text-primary">
                     R$ {total.toFixed(2)}
                   </p>
                 </div>
-              </div>
-
-              <div className="space-y-2 mt-auto">
                 <Button
-                  className="w-full h-14 text-lg"
-                  size="lg"
+                  className="h-12 px-6 text-base"
                   disabled={itens.length === 0}
                   onClick={() => setPaymentOpen(true)}
                 >
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  Finalizar (F12)
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Finalizar
                 </Button>
+              </div>
+              <div className="flex gap-2 lg:hidden">
                 <Button
                   variant="outline"
-                  className="w-full"
+                  size="sm"
+                  className="flex-1"
                   onClick={clearCart}
                   disabled={itens.length === 0}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="h-4 w-4 mr-1" />
                   Limpar
                 </Button>
                 <Button
                   variant="ghost"
-                  className="w-full text-muted-foreground"
+                  size="sm"
+                  className="flex-1 text-muted-foreground"
                   onClick={() => navigate("/vendas")}
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
+                  <XCircle className="h-4 w-4 mr-1" />
                   Cancelar
                 </Button>
+              </div>
+
+              {/* Desktop: original vertical layout */}
+              <div className="hidden lg:flex lg:flex-col lg:flex-1">
+                <CardTitle className="text-base mb-4">Resumo</CardTitle>
+                <div className="flex-1 space-y-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Itens</span>
+                    <span className="font-medium">{totalItens}</span>
+                  </div>
+                  <Separator />
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">Total</p>
+                    <p className="text-5xl font-bold text-primary">
+                      R$ {total.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2 mt-auto">
+                  <Button
+                    className="w-full h-14 text-lg"
+                    size="lg"
+                    disabled={itens.length === 0}
+                    onClick={() => setPaymentOpen(true)}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Finalizar (F12)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={clearCart}
+                    disabled={itens.length === 0}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Limpar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-muted-foreground"
+                    onClick={() => navigate("/vendas")}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancelar
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
