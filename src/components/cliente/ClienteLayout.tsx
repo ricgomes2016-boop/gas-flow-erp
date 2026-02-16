@@ -57,7 +57,7 @@ export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutPro
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
-            <span className="font-bold text-lg">Nacional Gás</span>
+            <span className="font-bold text-lg">Gás Fácil</span>
           </div>
           
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -71,7 +71,7 @@ export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutPro
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
-                    <span className="font-bold text-lg">Nacional Gás</span>
+                    <span className="font-bold text-lg">Gás Fácil</span>
                   </div>
                   <Button 
                     variant="ghost" 
