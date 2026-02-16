@@ -486,7 +486,7 @@ export default function Pedidos() {
         )}
 
         {/* Table - #3 responsive with hidden columns on mobile */}
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Pedidos ({pedidosFiltrados.length})</CardTitle>
@@ -496,7 +496,7 @@ export default function Pedidos() {
               </span>
             </div>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent className="overflow-x-auto max-w-full p-0 md:p-6">
             {isLoading ? (
               <div className="space-y-3">
                 {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -505,7 +505,8 @@ export default function Pedidos() {
               <div className="text-center py-8 text-muted-foreground"><p>Nenhum pedido encontrado.</p></div>
             ) : (
               <>
-                <Table>
+              <div className="overflow-x-auto min-w-0">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       {/* #7 - Checkbox column */}
@@ -598,24 +599,25 @@ export default function Pedidos() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
 
-                {/* #4 - Pagination controls */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      {(paginaAtual - 1) * ITEMS_PER_PAGE + 1}–{Math.min(paginaAtual * ITEMS_PER_PAGE, pedidosFiltrados.length)} de {pedidosFiltrados.length}
-                    </p>
-                    <div className="flex gap-1">
-                      <Button variant="outline" size="icon" className="h-8 w-8" disabled={paginaAtual === 1} onClick={() => setPaginaAtual((p) => p - 1)}>
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8" disabled={paginaAtual === totalPages} onClick={() => setPaginaAtual((p) => p + 1)}>
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+              {/* #4 - Pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t px-3 md:px-6 pb-3 md:pb-0">
+                  <p className="text-xs text-muted-foreground">
+                    {(paginaAtual - 1) * ITEMS_PER_PAGE + 1}–{Math.min(paginaAtual * ITEMS_PER_PAGE, pedidosFiltrados.length)} de {pedidosFiltrados.length}
+                  </p>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="icon" className="h-8 w-8" disabled={paginaAtual === 1} onClick={() => setPaginaAtual((p) => p - 1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8" disabled={paginaAtual === totalPages} onClick={() => setPaginaAtual((p) => p + 1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
-                )}
-              </>
+                </div>
+              )}
+            </>
             )}
           </CardContent>
         </Card>
