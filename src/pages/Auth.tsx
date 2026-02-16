@@ -108,7 +108,7 @@ export default function Auth() {
               <Flame className="h-10 w-10 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">GásControl</CardTitle>
+          <CardTitle className="text-2xl font-bold">Gás Fácil</CardTitle>
           <CardDescription>
             Sistema de gestão para distribuidoras de gás
           </CardDescription>
