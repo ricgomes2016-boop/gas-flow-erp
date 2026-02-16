@@ -91,20 +91,7 @@ export function DeliveryNotificationProvider({ children }: { children: ReactNode
     setMockIndex((prev) => prev + 1);
   }, [addDelivery, mockIndex, nextId]);
 
-  // Simular entregas chegando periodicamente (para demonstração)
-  useEffect(() => {
-    // Apenas simula se as notificações estiverem ativadas
-    if (permission !== "granted") return;
-
-    const interval = setInterval(() => {
-      // 20% de chance de receber uma nova entrega a cada 30 segundos
-      if (Math.random() < 0.2) {
-        simulateNewDelivery();
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [permission, simulateNewDelivery]);
+  // Simulação automática desativada - entregas reais virão do banco de dados
 
   return (
     <DeliveryNotificationContext.Provider
