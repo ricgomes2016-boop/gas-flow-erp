@@ -188,9 +188,17 @@ export default function FinalizarEntrega() {
       }
 
       const formaStr = pagamentos.map(p => p.forma).join(", ");
+      
+      // Se houver pagamento com Vale Gás, usar o nome do parceiro como canal de venda
+      const valeGasPag = pagamentos.find(p => p.forma === "Vale Gás" && p.valeGasInfo?.parceiro);
+      const updateData: any = { status: "entregue", forma_pagamento: formaStr, valor_total: totalItens };
+      if (valeGasPag) {
+        updateData.canal_venda = valeGasPag.valeGasInfo!.parceiro;
+      }
+      
       const { error } = await supabase
         .from("pedidos")
-        .update({ status: "entregue", forma_pagamento: formaStr, valor_total: totalItens })
+        .update(updateData)
         .eq("id", id);
       if (error) throw error;
 
