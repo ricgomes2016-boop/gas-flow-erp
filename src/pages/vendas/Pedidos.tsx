@@ -518,7 +518,7 @@ export default function Pedidos() {
                       </TableHead>
                       <TableHead>Pedido</TableHead>
                       <TableHead>Cliente</TableHead>
-                      <TableHead className="hidden lg:table-cell">Endereço</TableHead>
+                      <TableHead className="hidden md:table-cell">Endereço</TableHead>
                       <TableHead className="hidden md:table-cell">Produtos</TableHead>
                       <TableHead className="hidden sm:table-cell">Entregador</TableHead>
                       <TableHead>Valor</TableHead>
@@ -542,7 +542,7 @@ export default function Pedidos() {
                           </Button>
                         </TableCell>
                         <TableCell className="font-medium text-sm max-w-[120px] truncate">{pedido.cliente}</TableCell>
-                        <TableCell className="hidden lg:table-cell max-w-[180px] truncate text-muted-foreground text-xs">{pedido.endereco}</TableCell>
+                        <TableCell className="hidden md:table-cell max-w-[200px] truncate text-muted-foreground text-xs" title={pedido.endereco}>{pedido.endereco}</TableCell>
                         <TableCell className="hidden md:table-cell max-w-[130px] truncate text-xs">{pedido.produtos}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           {pedido.entregador ? (
