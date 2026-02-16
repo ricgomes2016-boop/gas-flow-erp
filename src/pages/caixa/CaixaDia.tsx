@@ -322,7 +322,7 @@ export default function CaixaDia() {
   return (
     <MainLayout>
       <Header title="Caixa do Dia" subtitle="Controle de movimentações financeiras" />
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Top bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Popover>

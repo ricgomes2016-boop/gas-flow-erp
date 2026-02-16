@@ -235,50 +235,50 @@ export default function Estoque() {
   return (
     <MainLayout>
       <Header title="Estoque" subtitle="Controle de estoque do dia" />
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Summary cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
           <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-lg bg-primary/10 p-3">
-                <Package className="h-6 w-6 text-primary" />
+            <CardContent className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+              <div className="rounded-lg bg-primary/10 p-2 sm:p-3">
+                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Cheios</p>
-                <p className="text-2xl font-bold">{getTotalCheios()}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Cheios</p>
+                <p className="text-lg sm:text-2xl font-bold">{getTotalCheios()}</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-lg bg-muted p-3">
-                <Package className="h-6 w-6 text-muted-foreground" />
+            <CardContent className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+              <div className="rounded-lg bg-muted p-2 sm:p-3">
+                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Vazios</p>
-                <p className="text-2xl font-bold">{getTotalVazios()}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Vazios</p>
+                <p className="text-lg sm:text-2xl font-bold">{getTotalVazios()}</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-lg bg-accent p-3">
-                <ArrowUpDown className="h-6 w-6 text-accent-foreground" />
+            <CardContent className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+              <div className="rounded-lg bg-accent p-2 sm:p-3">
+                <ArrowUpDown className="h-5 w-5 sm:h-6 sm:w-6 text-accent-foreground" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Vendas Período</p>
-                <p className="text-2xl font-bold">{totalVendas}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Vendas Período</p>
+                <p className="text-lg sm:text-2xl font-bold">{totalVendas}</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="rounded-lg bg-destructive/10 p-3">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
+            <CardContent className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+              <div className="rounded-lg bg-destructive/10 p-2 sm:p-3">
+                <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Valor Estoque</p>
-                <p className="text-2xl font-bold">R$ {getValorEstoque().toLocaleString("pt-BR")}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Valor Estoque</p>
+                <p className="text-lg sm:text-2xl font-bold">R$ {getValorEstoque().toLocaleString("pt-BR")}</p>
               </div>
             </CardContent>
           </Card>
