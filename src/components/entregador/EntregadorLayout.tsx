@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationToggle } from "./NotificationToggle";
+import { useGeoTracking } from "@/hooks/useGeoTracking";
 
 interface EntregadorLayoutProps {
   children: ReactNode;
@@ -33,6 +34,9 @@ const menuItems = [
 export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Track driver GPS and update DB every 30s
+  useGeoTracking();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
