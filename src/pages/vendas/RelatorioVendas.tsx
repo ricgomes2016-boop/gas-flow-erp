@@ -364,11 +364,12 @@ export default function RelatorioVendas() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="telefone">Telefone</SelectItem>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="portaria">Portaria</SelectItem>
-                    <SelectItem value="balcao">Balcão</SelectItem>
-                    <SelectItem value="Entregador">Entregador</SelectItem>
+                    {["telefone", "whatsapp", "portaria", "balcao", "Entregador"].map((c) => (
+                      <SelectItem key={c} value={c}>{canalLabels[c] || c}</SelectItem>
+                    ))}
+                    {canaisVenda.filter(c => !["telefone", "whatsapp", "portaria", "balcao", "Entregador"].includes(c.nome)).map((c) => (
+                      <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
