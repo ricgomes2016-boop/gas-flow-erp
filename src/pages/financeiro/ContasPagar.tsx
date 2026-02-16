@@ -23,8 +23,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -60,6 +62,10 @@ export default function ContasPagar() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroFornecedor, setFiltroFornecedor] = useState("todos");
+  const [filtroCategoria, setFiltroCategoria] = useState("todos");
+  const [agrupar, setAgrupar] = useState(false);
+  const [resumoOpen, setResumoOpen] = useState(false);
   const { unidadeAtual } = useUnidade();
 
   // Photo AI states
@@ -383,6 +389,10 @@ export default function ContasPagar() {
 
   const hoje = new Date().toISOString().split("T")[0];
 
+  // Unique fornecedores and categorias for filter dropdowns
+  const fornecedoresUnicos = [...new Set(contas.map(c => c.fornecedor))].sort();
+  const categoriasUnicas = [...new Set(contas.map(c => c.categoria).filter(Boolean))].sort() as string[];
+
   const filtered = contas.filter(c => {
     const matchSearch = c.fornecedor.toLowerCase().includes(search.toLowerCase()) ||
       c.descricao.toLowerCase().includes(search.toLowerCase());
@@ -391,12 +401,49 @@ export default function ContasPagar() {
     const vencida = c.status === "pendente" && c.vencimento < hoje;
     const statusAtual = c.status === "paga" ? "paga" : vencida ? "vencida" : "pendente";
     const matchStatus = filtroStatus === "todos" || statusAtual === filtroStatus;
-    return matchSearch && matchDataIni && matchDataFim && matchStatus;
+    const matchFornecedor = filtroFornecedor === "todos" || c.fornecedor === filtroFornecedor;
+    const matchCategoria = filtroCategoria === "todos" || (c.categoria || "") === filtroCategoria;
+    return matchSearch && matchDataIni && matchDataFim && matchStatus && matchFornecedor && matchCategoria;
   });
 
   const totalPendente = filtered.filter(c => c.status === "pendente" && c.vencimento >= hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalVencido = filtered.filter(c => c.status === "pendente" && c.vencimento < hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalPago = filtered.filter(c => c.status === "paga").reduce((a, c) => a + Number(c.valor), 0);
+
+  // Resumo por fornecedor (pendentes only)
+  const resumoPorFornecedor = (() => {
+    const pendentes = contas.filter(c => c.status === "pendente");
+    const grouped: Record<string, { total: number; count: number; vencidas: number }> = {};
+    pendentes.forEach(c => {
+      if (!grouped[c.fornecedor]) grouped[c.fornecedor] = { total: 0, count: 0, vencidas: 0 };
+      grouped[c.fornecedor].total += Number(c.valor);
+      grouped[c.fornecedor].count++;
+      if (c.vencimento < hoje) grouped[c.fornecedor].vencidas++;
+    });
+    return Object.entries(grouped)
+      .map(([fornecedor, data]) => ({ fornecedor, ...data }))
+      .sort((a, b) => b.total - a.total);
+  })();
+
+  const totalAberto = totalPendente + totalVencido;
+
+  // Grouped data for table
+  const groupedFiltered = (() => {
+    if (!agrupar) return null;
+    const groups: Record<string, ContaPagar[]> = {};
+    filtered.forEach(c => {
+      const key = c.fornecedor;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  })();
+
+  const hasActiveFilters = dataInicial || dataFinal || filtroStatus !== "todos" || filtroFornecedor !== "todos" || filtroCategoria !== "todos";
+  const clearAllFilters = () => {
+    setDataInicial(""); setDataFinal(""); setFiltroStatus("todos");
+    setFiltroFornecedor("todos"); setFiltroCategoria("todos");
+  };
 
   const exportToExcel = () => {
     const data = filtered.map(c => ({
@@ -508,6 +555,52 @@ export default function ContasPagar() {
           <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-xs sm:text-sm font-medium">Pagas</CardTitle><CheckCircle2 className="h-4 w-4 text-success" /></CardHeader><CardContent><div className="text-lg sm:text-2xl font-bold text-success">R$ {totalPago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div><p className="text-xs text-muted-foreground hidden sm:block">Quitadas</p></CardContent></Card>
         </div>
 
+        {/* Resumo por Fornecedor */}
+        {resumoPorFornecedor.length > 0 && (
+          <Collapsible open={resumoOpen} onOpenChange={setResumoOpen}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle className="text-sm">Resumo por Fornecedor</CardTitle>
+                      <Badge variant="secondary" className="text-xs">{resumoPorFornecedor.length}</Badge>
+                    </div>
+                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${resumoOpen ? "rotate-90" : ""}`} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <div className="space-y-3">
+                    {resumoPorFornecedor.map(item => {
+                      const percent = totalAberto > 0 ? (item.total / totalAberto) * 100 : 0;
+                      return (
+                        <button
+                          key={item.fornecedor}
+                          className="w-full text-left"
+                          onClick={() => { setFiltroFornecedor(item.fornecedor); setFiltroStatus("todos"); setResumoOpen(false); }}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{item.fornecedor}</span>
+                              <span className="text-xs text-muted-foreground">{item.count} conta{item.count > 1 ? "s" : ""}</span>
+                              {item.vencidas > 0 && <Badge variant="destructive" className="text-xs py-0">{item.vencidas} vencida{item.vencidas > 1 ? "s" : ""}</Badge>}
+                            </div>
+                            <span className="text-sm font-bold">R$ {item.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <Progress value={percent} className="h-1.5" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-4">
@@ -518,14 +611,26 @@ export default function ContasPagar() {
                   <Input placeholder="Buscar conta..." className="pl-10 w-[250px]" value={search} onChange={e => setSearch(e.target.value)} />
                 </div>
               </div>
-              <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Data Inicial</Label>
-                  <Input type="date" className="w-[160px]" value={dataInicial} onChange={e => setDataInicial(e.target.value)} />
+                  <Label className="text-xs text-muted-foreground">Fornecedor</Label>
+                  <Select value={filtroFornecedor} onValueChange={setFiltroFornecedor}>
+                    <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      {fornecedoresUnicos.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Data Final</Label>
-                  <Input type="date" className="w-[160px]" value={dataFinal} onChange={e => setDataFinal(e.target.value)} />
+                  <Label className="text-xs text-muted-foreground">Categoria</Label>
+                  <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
+                    <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas</SelectItem>
+                      {categoriasUnicas.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Status</Label>
@@ -539,8 +644,22 @@ export default function ContasPagar() {
                     </SelectContent>
                   </Select>
                 </div>
-                {(dataInicial || dataFinal || filtroStatus !== "todos") && (
-                  <Button variant="ghost" size="sm" onClick={() => { setDataInicial(""); setDataFinal(""); setFiltroStatus("todos"); }}>Limpar filtros</Button>
+                <div>
+                  <Label className="text-xs text-muted-foreground">De</Label>
+                  <Input type="date" className="w-[145px]" value={dataInicial} onChange={e => setDataInicial(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Até</Label>
+                  <Input type="date" className="w-[145px]" value={dataFinal} onChange={e => setDataFinal(e.target.value)} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="agrupar" checked={agrupar} onCheckedChange={(v) => setAgrupar(!!v)} />
+                  <Label htmlFor="agrupar" className="text-xs cursor-pointer">Agrupar</Label>
+                </div>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={clearAllFilters}>
+                    <X className="h-3 w-3" />Limpar
+                  </Button>
                 )}
                 <div className="flex gap-2 ml-auto">
                   <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
@@ -551,49 +670,93 @@ export default function ContasPagar() {
                   </Button>
                 </div>
               </div>
+              {hasActiveFilters && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Filter className="h-3 w-3" />
+                  <span>{filtered.length} de {contas.length} contas</span>
+                  {filtroFornecedor !== "todos" && <Badge variant="secondary" className="text-xs gap-1 py-0">{filtroFornecedor}<button onClick={() => setFiltroFornecedor("todos")}><X className="h-3 w-3" /></button></Badge>}
+                  {filtroCategoria !== "todos" && <Badge variant="secondary" className="text-xs gap-1 py-0">{filtroCategoria}<button onClick={() => setFiltroCategoria("todos")}><X className="h-3 w-3" /></button></Badge>}
+                  {filtroStatus !== "todos" && <Badge variant="secondary" className="text-xs gap-1 py-0">{filtroStatus}<button onClick={() => setFiltroStatus("todos")}><X className="h-3 w-3" /></button></Badge>}
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
             {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : filtered.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</p> : (
               <Table>
                 <TableHeader><TableRow>
-                  <TableHead>Fornecedor</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
+                  <TableHead>Fornecedor</TableHead><TableHead className="hidden sm:table-cell">Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {filtered.map(conta => {
-                    const vencida = conta.status === "pendente" && conta.vencimento < hoje;
-                    const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
-                    return (
-                      <TableRow key={conta.id}>
-                        <TableCell className="font-medium">{conta.fornecedor}</TableCell>
-                        <TableCell>{conta.descricao}</TableCell>
-                        <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
-                        <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {conta.status !== "paga" && (
-                                <DropdownMenuItem onClick={() => openPagarDialog(conta)}>
-                                  <DollarSign className="h-4 w-4 mr-2" />Pagar
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem onClick={() => handleEdit(conta)}>
-                                <Pencil className="h-4 w-4 mr-2" />Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" />Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {agrupar && groupedFiltered ? (
+                    groupedFiltered.map(([fornecedor, items]) => {
+                      const groupTotal = items.reduce((s, c) => s + Number(c.valor), 0);
+                      return (
+                        <>
+                          <TableRow key={`group-${fornecedor}`} className="bg-muted/40 hover:bg-muted/60">
+                            <TableCell colSpan={4} className="font-semibold">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                {fornecedor}
+                                <Badge variant="outline" className="text-xs">{items.length}</Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-bold">R$ {groupTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                            <TableCell colSpan={2} />
+                          </TableRow>
+                          {items.map(conta => {
+                            const vencida = conta.status === "pendente" && conta.vencimento < hoje;
+                            const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
+                            return (
+                              <TableRow key={conta.id}>
+                                <TableCell className="pl-10 text-muted-foreground text-sm">{conta.fornecedor}</TableCell>
+                                <TableCell className="hidden sm:table-cell">{conta.descricao}</TableCell>
+                                <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
+                                <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                                <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                                <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
+                                      <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </>
+                      );
+                    })
+                  ) : (
+                    filtered.map(conta => {
+                      const vencida = conta.status === "pendente" && conta.vencimento < hoje;
+                      const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
+                      return (
+                        <TableRow key={conta.id}>
+                          <TableCell className="font-medium">{conta.fornecedor}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{conta.descricao}</TableCell>
+                          <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
+                          <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                          <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
+                                <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             )}
