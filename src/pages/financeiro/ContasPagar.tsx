@@ -23,7 +23,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X, Mic, MicOff, AudioLines } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -77,6 +77,13 @@ export default function ContasPagar() {
   }>>([]);
   const [reviewMode, setReviewMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice command states
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceText, setVoiceText] = useState("");
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
+  const [voiceDialogOpen, setVoiceDialogOpen] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   // Consolidation states
   const [unificarDialogOpen, setUnificarDialogOpen] = useState(false);
@@ -176,6 +183,96 @@ export default function ContasPagar() {
 
   const removeExtracted = (idx: number) => {
     setExtractedExpenses(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Voice command handlers
+  const startVoiceListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Seu navegador não suporta reconhecimento de voz");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setVoiceListening(true);
+      setVoiceText("");
+      setVoiceDialogOpen(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setVoiceText(transcript);
+    };
+
+    recognition.onend = () => {
+      setVoiceListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      setVoiceListening(false);
+      if (event.error === "not-allowed") {
+        toast.error("Permissão de microfone negada");
+      } else if (event.error !== "aborted") {
+        toast.error("Erro no reconhecimento de voz");
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const stopVoiceListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setVoiceListening(false);
+  };
+
+  const processVoiceCommand = async () => {
+    if (!voiceText.trim()) {
+      toast.error("Nenhum texto capturado");
+      return;
+    }
+
+    setVoiceProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-expense-voice", {
+        body: { text: voiceText },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const despesas = data?.despesas || [data];
+      setExtractedExpenses(despesas.map((d: any) => ({
+        fornecedor: d.fornecedor || "",
+        descricao: d.descricao || "",
+        valor: d.valor || 0,
+        vencimento: d.vencimento || "",
+        categoria: d.categoria || "Outros",
+        observacoes: d.observacoes || null,
+      })));
+      setReviewMode(true);
+      setVoiceDialogOpen(false);
+      setPhotoDialogOpen(true);
+      toast.success(`${despesas.length} despesa(s) identificada(s) por voz!`);
+    } catch (err: any) {
+      console.error("Erro ao processar comando de voz:", err);
+      toast.error("Erro ao interpretar o comando de voz");
+    } finally {
+      setVoiceProcessing(false);
+    }
   };
 
   const fetchContas = async () => {
@@ -537,6 +634,15 @@ export default function ContasPagar() {
           <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => fileInputRef.current?.click()}>
             <Camera className="h-4 w-4" />
             <span className="hidden sm:inline">Foto com IA</span><span className="sm:hidden">Foto IA</span>
+          </Button>
+          <Button
+            variant={voiceListening ? "destructive" : "outline"}
+            className="gap-2 flex-1 sm:flex-none"
+            onClick={voiceListening ? stopVoiceListening : startVoiceListening}
+          >
+            {voiceListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            <span className="hidden sm:inline">{voiceListening ? "Parar" : "Voz"}</span>
+            <span className="sm:hidden">{voiceListening ? "Parar" : "Voz"}</span>
           </Button>
           {fornecedoresComMultiplas.length > 0 && (
             <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={openUnificarDialog}>
@@ -921,6 +1027,61 @@ export default function ContasPagar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Voice Command Dialog */}
+      <Dialog open={voiceDialogOpen} onOpenChange={(open) => { if (!voiceProcessing) { setVoiceDialogOpen(open); if (!open) { stopVoiceListening(); setVoiceText(""); } } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AudioLines className="h-5 w-5" />
+              Comando de Voz
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-col items-center gap-4">
+              {voiceListening ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center animate-pulse">
+                      <Mic className="h-8 w-8 text-destructive" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Ouvindo... Fale a despesa</p>
+                  <Button variant="destructive" size="sm" onClick={stopVoiceListening}>
+                    <MicOff className="h-4 w-4 mr-2" /> Parar
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={startVoiceListening} disabled={voiceProcessing}>
+                  <Mic className="h-4 w-4 mr-2" /> Gravar novamente
+                </Button>
+              )}
+            </div>
+
+            {voiceText && (
+              <div className="space-y-2">
+                <Label>Texto capturado:</Label>
+                <div className="p-3 bg-muted rounded-lg text-sm min-h-[60px]">
+                  {voiceText}
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Exemplo: "Conta de luz da Enel, duzentos e cinquenta reais, vence dia 20"
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setVoiceDialogOpen(false); stopVoiceListening(); setVoiceText(""); }} disabled={voiceProcessing}>
+                Cancelar
+              </Button>
+              <Button onClick={processVoiceCommand} disabled={!voiceText.trim() || voiceProcessing || voiceListening}>
+                {voiceProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando...</> : "Interpretar com IA"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Photo AI Dialog */}
       <Dialog open={photoDialogOpen} onOpenChange={(open) => { if (!photoProcessing) { setPhotoDialogOpen(open); if (!open) { setPhotoPreview(null); setExtractedExpenses([]); setReviewMode(false); } } }}>
