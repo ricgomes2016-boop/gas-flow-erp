@@ -18,11 +18,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
+import { atualizarEstoqueVenda } from "@/services/estoqueService";
 
 import { BarcodeScanner } from "@/components/pdv/BarcodeScanner";
 import { PDVProductList, PDVItem } from "@/components/pdv/PDVProductList";
 import { PDVPayment } from "@/components/pdv/PDVPayment";
 import { PDVQuickProducts } from "@/components/pdv/PDVQuickProducts";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Produto {
   id: string;
@@ -37,6 +39,7 @@ interface Produto {
 export default function PDV() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [itens, setItens] = useState<PDVItem[]>([]);
@@ -86,13 +89,19 @@ export default function PDV() {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("produtos")
         .select("id, nome, preco, estoque, categoria, tipo_botijao, botijao_par_id")
         .eq("ativo", true)
         .or("tipo_botijao.is.null,tipo_botijao.neq.vazio")
         .ilike("nome", `%${term}%`)
         .limit(8);
+
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         setSearchResults(data);
@@ -222,6 +231,7 @@ export default function PDV() {
           canal_venda: "portaria",
           status: "entregue", // PDV is immediate
           endereco_entrega: "Retirada no local",
+          unidade_id: unidadeAtual?.id || null,
         })
         .select("id")
         .single();
@@ -239,38 +249,14 @@ export default function PDV() {
       const { error: itensError } = await supabase.from("pedido_itens").insert(itensInsert);
       if (itensError) throw itensError;
 
-      // Update stock
-      for (const item of itens) {
-        const { data: produto } = await supabase
-          .from("produtos")
-          .select("id, estoque, categoria, tipo_botijao, botijao_par_id")
-          .eq("id", item.produto_id)
-          .single();
-
-        if (produto) {
-          const novoEstoque = Math.max(0, (produto.estoque || 0) - item.quantidade);
-          await supabase
-            .from("produtos")
-            .update({ estoque: novoEstoque })
-            .eq("id", item.produto_id);
-
-          // If gas, increment empty cylinder
-          if (produto.categoria === "gas" && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
-            const { data: produtoVazio } = await supabase
-              .from("produtos")
-              .select("id, estoque")
-              .eq("id", produto.botijao_par_id)
-              .single();
-
-            if (produtoVazio) {
-              await supabase
-                .from("produtos")
-                .update({ estoque: (produtoVazio.estoque || 0) + item.quantidade })
-                .eq("id", produtoVazio.id);
-            }
-          }
-        }
-      }
+      // Update stock using shared service
+      await atualizarEstoqueVenda(
+        itens.map((item) => ({
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+        })),
+        unidadeAtual?.id
+      );
 
       // Get company config for receipt
       let empresaConfig: EmpresaConfig | undefined;
@@ -341,7 +327,9 @@ export default function PDV() {
             </div>
             <div>
               <h1 className="text-xl font-bold">PDV - Portaria</h1>
-              <p className="text-xs text-muted-foreground">Venda rápida para retirada no local</p>
+              <p className="text-xs text-muted-foreground">
+                {unidadeAtual ? `Loja: ${unidadeAtual.nome}` : "Venda rápida para retirada no local"}
+              </p>
             </div>
           </div>
           <Badge variant="outline" className="text-lg px-4 py-2">
@@ -409,7 +397,7 @@ export default function PDV() {
               {/* Quick Products Grid */}
               <div className="mb-4">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Produtos Rápidos</p>
-                <PDVQuickProducts onSelectProduct={addProduct} />
+                <PDVQuickProducts onSelectProduct={addProduct} unidadeId={unidadeAtual?.id} />
               </div>
 
               <Separator className="my-2" />
