@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { format, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -33,6 +34,13 @@ interface ProdutoEstoque {
   botijao_par_id: string | null;
 }
 
+interface MovimentacaoRaw {
+  produto_id: string;
+  quantidade: number;
+  tipo?: string;
+  created_at: string;
+}
+
 interface MovimentacaoPorProduto {
   vendas: number;
   compras: number;
@@ -45,7 +53,9 @@ export default function Estoque() {
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
-  const [movimentacoes, setMovimentacoes] = useState<Record<string, MovimentacaoPorProduto>>({});
+  const [vendasRaw, setVendasRaw] = useState<MovimentacaoRaw[]>([]);
+  const [comprasRaw, setComprasRaw] = useState<MovimentacaoRaw[]>([]);
+  const [movRaw, setMovRaw] = useState<MovimentacaoRaw[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataInicio, setDataInicio] = useState<Date>(new Date());
   const [dataFim, setDataFim] = useState<Date>(new Date());
@@ -60,7 +70,6 @@ export default function Estoque() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 1. Produtos
       let prodQuery = supabase
         .from("produtos")
         .select("id, nome, tipo_botijao, estoque, preco, categoria, botijao_par_id")
@@ -71,10 +80,9 @@ export default function Estoque() {
         prodQuery = prodQuery.eq("unidade_id", unidadeAtual.id);
       }
 
-      const inicioStr = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()).toISOString();
-      const fimStr = new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59).toISOString();
+      const inicioStr = startOfDay(dataInicio).toISOString();
+      const fimStr = endOfDay(dataFim).toISOString();
 
-      // 2. Vendas (pedido_itens)
       let vendasQuery = supabase
         .from("pedido_itens")
         .select("produto_id, quantidade, pedidos!inner(created_at, status, unidade_id)")
@@ -86,7 +94,6 @@ export default function Estoque() {
         vendasQuery = vendasQuery.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`, { referencedTable: "pedidos" });
       }
 
-      // 3. Compras (compra_itens)
       let comprasQuery = supabase
         .from("compra_itens")
         .select("produto_id, quantidade, compras!inner(created_at, status, unidade_id)")
@@ -98,10 +105,9 @@ export default function Estoque() {
         comprasQuery = comprasQuery.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`, { referencedTable: "compras" });
       }
 
-      // 4. Movimentações manuais
       let movQuery = supabase
         .from("movimentacoes_estoque")
-        .select("produto_id, tipo, quantidade")
+        .select("produto_id, tipo, quantidade, created_at")
         .gte("created_at", inicioStr)
         .lte("created_at", fimStr);
 
@@ -123,30 +129,31 @@ export default function Estoque() {
 
       setProdutos(prodData || []);
 
-      // Consolidar movimentações por produto
-      const map: Record<string, MovimentacaoPorProduto> = {};
-      const getOrCreate = (id: string) => {
-        if (!map[id]) map[id] = { vendas: 0, compras: 0, entradas_manuais: 0, saidas_manuais: 0, avarias: 0 };
-        return map[id];
-      };
+      // Normalizar vendas com created_at do pedido
+      setVendasRaw(
+        (vendasData || []).map((v: any) => ({
+          produto_id: v.produto_id,
+          quantidade: v.quantidade,
+          created_at: v.pedidos?.created_at || "",
+        }))
+      );
 
-      (vendasData || []).forEach((v: any) => {
-        if (v.produto_id) getOrCreate(v.produto_id).vendas += v.quantidade;
-      });
+      setComprasRaw(
+        (comprasData || []).map((c: any) => ({
+          produto_id: c.produto_id,
+          quantidade: c.quantidade,
+          created_at: c.compras?.created_at || "",
+        }))
+      );
 
-      (comprasData || []).forEach((c: any) => {
-        if (c.produto_id) getOrCreate(c.produto_id).compras += c.quantidade;
-      });
-
-      (movData || []).forEach((m: any) => {
-        if (!m.produto_id) return;
-        const entry = getOrCreate(m.produto_id);
-        if (m.tipo === "entrada") entry.entradas_manuais += m.quantidade;
-        else if (m.tipo === "saida") entry.saidas_manuais += m.quantidade;
-        else if (m.tipo === "avaria") entry.avarias += m.quantidade;
-      });
-
-      setMovimentacoes(map);
+      setMovRaw(
+        (movData || []).map((m: any) => ({
+          produto_id: m.produto_id,
+          quantidade: m.quantidade,
+          tipo: m.tipo,
+          created_at: m.created_at,
+        }))
+      );
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       toast({ title: "Erro", description: "Não foi possível carregar o estoque.", variant: "destructive" });
@@ -159,6 +166,83 @@ export default function Estoque() {
     fetchData();
   }, [unidadeAtual?.id, dataInicio, dataFim]);
 
+  // Generate days array (newest first)
+  const diasOrdenados = useMemo(() => {
+    const start = dataInicio <= dataFim ? dataInicio : dataFim;
+    const end = dataInicio <= dataFim ? dataFim : dataInicio;
+    const days = eachDayOfInterval({ start, end });
+    return days.reverse(); // newest first
+  }, [dataInicio, dataFim]);
+
+  // Build movimentacoes per day
+  const movPorDia = useMemo(() => {
+    const result: Record<string, Record<string, MovimentacaoPorProduto>> = {};
+
+    const getDateKey = (dateStr: string) => {
+      if (!dateStr) return null;
+      return format(new Date(dateStr), "yyyy-MM-dd");
+    };
+
+    diasOrdenados.forEach((dia) => {
+      const key = format(dia, "yyyy-MM-dd");
+      result[key] = {};
+    });
+
+    const getOrCreate = (dayKey: string, prodId: string) => {
+      if (!result[dayKey]) return null;
+      if (!result[dayKey][prodId]) {
+        result[dayKey][prodId] = { vendas: 0, compras: 0, entradas_manuais: 0, saidas_manuais: 0, avarias: 0 };
+      }
+      return result[dayKey][prodId];
+    };
+
+    vendasRaw.forEach((v) => {
+      const dk = getDateKey(v.created_at);
+      if (dk && v.produto_id) {
+        const entry = getOrCreate(dk, v.produto_id);
+        if (entry) entry.vendas += v.quantidade;
+      }
+    });
+
+    comprasRaw.forEach((c) => {
+      const dk = getDateKey(c.created_at);
+      if (dk && c.produto_id) {
+        const entry = getOrCreate(dk, c.produto_id);
+        if (entry) entry.compras += c.quantidade;
+      }
+    });
+
+    movRaw.forEach((m) => {
+      const dk = getDateKey(m.created_at);
+      if (dk && m.produto_id) {
+        const entry = getOrCreate(dk, m.produto_id);
+        if (entry) {
+          if (m.tipo === "entrada") entry.entradas_manuais += m.quantidade;
+          else if (m.tipo === "saida") entry.saidas_manuais += m.quantidade;
+          else if (m.tipo === "avaria") entry.avarias += m.quantidade;
+        }
+      }
+    });
+
+    return result;
+  }, [diasOrdenados, vendasRaw, comprasRaw, movRaw]);
+
+  // Totals for summary cards (aggregate all days)
+  const movimentacoesTotal = useMemo(() => {
+    const map: Record<string, MovimentacaoPorProduto> = {};
+    Object.values(movPorDia).forEach((dayMap) => {
+      Object.entries(dayMap).forEach(([prodId, mov]) => {
+        if (!map[prodId]) map[prodId] = { vendas: 0, compras: 0, entradas_manuais: 0, saidas_manuais: 0, avarias: 0 };
+        map[prodId].vendas += mov.vendas;
+        map[prodId].compras += mov.compras;
+        map[prodId].entradas_manuais += mov.entradas_manuais;
+        map[prodId].saidas_manuais += mov.saidas_manuais;
+        map[prodId].avarias += mov.avarias;
+      });
+    });
+    return map;
+  }, [movPorDia]);
+
   const handleMovimentacao = async () => {
     const quantidade = parseInt(movForm.quantidade);
     if (!movForm.produtoId || isNaN(quantidade) || quantidade <= 0) {
@@ -170,7 +254,6 @@ export default function Estoque() {
     if (!produto) return;
 
     try {
-      // Registrar na tabela de movimentações
       const { error: movError } = await supabase
         .from("movimentacoes_estoque")
         .insert({
@@ -183,7 +266,6 @@ export default function Estoque() {
 
       if (movError) throw movError;
 
-      // Atualizar estoque do produto
       let novaQuantidade = produto.estoque;
       if (movForm.tipo === "entrada") {
         novaQuantidade += quantidade;
@@ -198,7 +280,6 @@ export default function Estoque() {
 
       if (updateError) throw updateError;
 
-      // Se é botijão, atualizar o par (cheio/vazio)
       if (produto.botijao_par_id && movForm.tipo !== "avaria") {
         const par = produtos.find((p) => p.id === produto.botijao_par_id);
         if (par) {
@@ -230,7 +311,7 @@ export default function Estoque() {
   const getTotalCheios = () => produtosGas.filter((p) => p.tipo_botijao === "cheio").reduce((acc, p) => acc + (p.estoque || 0), 0);
   const getTotalVazios = () => produtosGas.filter((p) => p.tipo_botijao === "vazio").reduce((acc, p) => acc + (p.estoque || 0), 0);
   const getValorEstoque = () => produtos.filter((p) => p.tipo_botijao !== "vazio").reduce((acc, p) => acc + (p.estoque || 0) * (p.preco || 0), 0);
-  const totalVendas = Object.values(movimentacoes).reduce((acc, m) => acc + m.vendas, 0);
+  const totalVendas = Object.values(movimentacoesTotal).reduce((acc, m) => acc + m.vendas, 0);
 
   return (
     <MainLayout>
@@ -372,14 +453,29 @@ export default function Estoque() {
           </div>
         </div>
 
-        {/* Daily stock table */}
-        <EstoqueDiaTable
-          produtos={produtos}
-          movimentacoes={movimentacoes}
-          dataInicio={dataInicio}
-          dataFim={dataFim}
-          isLoading={isLoading}
-        />
+        {/* Daily stock tables - one per day, newest first */}
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Carregando estoque...
+            </CardContent>
+          </Card>
+        ) : (
+          diasOrdenados.map((dia) => {
+            const dayKey = format(dia, "yyyy-MM-dd");
+            const dayMov = movPorDia[dayKey] || {};
+            return (
+              <EstoqueDiaTable
+                key={dayKey}
+                produtos={produtos}
+                movimentacoes={dayMov}
+                dataDia={dia}
+                isLoading={false}
+                onRefresh={fetchData}
+              />
+            );
+          })
+        )}
       </div>
     </MainLayout>
   );
