@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationToggle } from "./NotificationToggle";
 import { useGeoTracking } from "@/hooks/useGeoTracking";
+import { GpsPermissionBanner } from "./GpsPermissionBanner";
 
 interface EntregadorLayoutProps {
   children: ReactNode;
@@ -97,6 +98,7 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto pb-20">
+        <GpsPermissionBanner />
         {children}
       </main>
 
