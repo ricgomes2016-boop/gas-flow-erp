@@ -475,7 +475,8 @@ export default function NovaVenda() {
             (venda.itens || []).map((item: any) => ({
               produto_id: item.produto_id,
               quantidade: item.quantidade || 1,
-            }))
+            })),
+            unidadeAtual?.id
           );
 
           successCount++;
@@ -633,7 +634,7 @@ export default function NovaVenda() {
       await atualizarEstoqueVenda(itens.map((item) => ({
         produto_id: item.produto_id,
         quantidade: item.quantidade,
-      })));
+      })), unidadeAtual?.id);
 
       // Receipt
       let empresaConfig: EmpresaConfig | undefined;
