@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     // Find next available vale for this partner (oldest first)
     const { data: vale, error: valeError } = await supabase
       .from("vale_gas")
-      .select("id, numero, codigo, valor, produto_nome")
+      .select("id, numero, codigo, valor, valor_venda, produto_nome")
       .eq("parceiro_id", parceiroId)
       .eq("status", "disponivel")
       .order("numero", { ascending: true })
@@ -63,6 +63,9 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Use existing valor_venda if set, otherwise default to 125.00
+    const valorVendaFinal = vale.valor_venda || 125.00;
+
     // Update vale to "vendido" with consumer data
     const { error: updateError } = await supabase
       .from("vale_gas")
@@ -71,6 +74,7 @@ Deno.serve(async (req) => {
         consumidor_nome: nome.trim(),
         consumidor_cpf: cpf?.trim() || null,
         consumidor_telefone: telefone.trim(),
+        valor_venda: valorVendaFinal,
       })
       .eq("id", vale.id)
       .eq("status", "disponivel"); // double-check to prevent race conditions
@@ -88,7 +92,7 @@ Deno.serve(async (req) => {
         vale: {
           numero: vale.numero,
           codigo: vale.codigo,
-          valor: vale.valor,
+          valor: valorVendaFinal,
           produto_nome: vale.produto_nome,
         },
         parceiro: {
