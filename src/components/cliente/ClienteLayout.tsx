@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import logoImg from "@/assets/logo.png";
 
 interface ClienteLayoutProps {
   children: ReactNode;
@@ -55,8 +56,8 @@ export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutPro
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <Flame className="h-6 w-6" />
-            <span className="font-bold text-lg">GásExpress</span>
+            <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
+            <span className="font-bold text-lg">Nacional Gás</span>
           </div>
           
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -69,8 +70,8 @@ export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutPro
               <div className="bg-primary text-primary-foreground p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Flame className="h-6 w-6" />
-                    <span className="font-bold text-lg">GásExpress</span>
+                    <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
+                    <span className="font-bold text-lg">Nacional Gás</span>
                   </div>
                   <Button 
                     variant="ghost" 

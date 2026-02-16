@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationToggle } from "./NotificationToggle";
 import { useGeoTracking } from "@/hooks/useGeoTracking";
 import { GpsPermissionBanner } from "./GpsPermissionBanner";
+import logoImg from "@/assets/logo.png";
 
 interface EntregadorLayoutProps {
   children: ReactNode;
@@ -54,8 +55,8 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
               <SheetContent side="left" className="w-72 p-0 border-none">
                 <div className="gradient-dark h-full">
                   <div className="flex items-center gap-3 p-6 border-b border-white/10">
-                    <div className="h-12 w-12 rounded-full gradient-primary flex items-center justify-center shadow-glow">
-                      <Flame className="h-7 w-7 text-white" />
+                    <div className="h-12 w-12 rounded-full overflow-hidden flex items-center justify-center shadow-glow">
+                      <img src={logoImg} alt="Nacional Gás" className="h-12 w-12 object-contain" />
                     </div>
                     <div>
                       <h2 className="font-bold text-white text-lg">App Entregador</h2>
@@ -87,8 +88,8 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
                 </div>
               </SheetContent>
             </Sheet>
-            <div className="flex items-center gap-2">
-              <Flame className="h-6 w-6" />
+           <div className="flex items-center gap-2">
+              <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
               <span className="font-bold text-lg">{title || "Entregador"}</span>
             </div>
           </div>

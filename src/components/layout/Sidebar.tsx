@@ -18,6 +18,7 @@ import {
   Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import logoImg from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -210,12 +211,10 @@ export function Sidebar() {
         {/* Header */}
         <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg gradient-primary shadow-glow">
-              <Flame className="h-5 w-5 text-primary-foreground" />
-            </div>
+            <img src={logoImg} alt="Nacional Gás" className="h-9 w-9 flex-shrink-0 rounded-lg object-contain" />
             {!collapsed && (
               <span className="text-lg font-bold text-sidebar-foreground">
-                Gas Express25
+                Nacional Gás
               </span>
             )}
           </Link>
