@@ -14,6 +14,9 @@ import {
   ArrowLeft,
   CheckCircle,
   XCircle,
+  ScanBarcode,
+  CameraOff,
+  Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -342,54 +345,74 @@ export default function PDV() {
           {/* Left: Products */}
           <Card className="lg:col-span-2 flex flex-col min-h-0">
             <CardHeader className="pb-2 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    ref={searchInputRef}
-                    placeholder="Buscar produto..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      searchProdutos(e.target.value);
-                    }}
-                    className="pl-10"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && searchResults.length > 0) {
-                        addProduct(searchResults[0]);
-                      }
-                    }}
-                  />
-                  
-                  {/* Search Results Dropdown */}
-                  {showResults && searchResults.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg overflow-hidden">
-                      {searchResults.map((produto) => (
-                        <button
-                          key={produto.id}
-                          className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b last:border-0 flex justify-between items-center"
-                          onClick={() => addProduct(produto)}
-                        >
-                          <div>
-                            <p className="font-medium text-sm">{produto.nome}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Estoque: {produto.estoque ?? 0}
-                            </p>
-                          </div>
-                          <span className="font-semibold text-primary">
-                            R$ {produto.preco.toFixed(2)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      ref={searchInputRef}
+                      placeholder="Buscar produto..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        searchProdutos(e.target.value);
+                      }}
+                      className="pl-10"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && searchResults.length > 0) {
+                          addProduct(searchResults[0]);
+                        }
+                      }}
+                    />
+                    
+                    {/* Search Results Dropdown */}
+                    {showResults && searchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg overflow-hidden">
+                        {searchResults.map((produto) => (
+                          <button
+                            key={produto.id}
+                            className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b last:border-0 flex justify-between items-center"
+                            onClick={() => addProduct(produto)}
+                          >
+                            <div>
+                              <p className="font-medium text-sm">{produto.nome}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Estoque: {produto.estoque ?? 0}
+                              </p>
+                            </div>
+                            <span className="font-semibold text-primary">
+                              R$ {produto.preco.toFixed(2)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    variant={scannerActive ? "destructive" : "outline"}
+                    size="icon"
+                    onClick={() => setScannerActive(!scannerActive)}
+                    title={scannerActive ? "Fechar scanner" : "Escanear código de barras"}
+                  >
+                    {scannerActive ? <CameraOff className="h-4 w-4" /> : <ScanBarcode className="h-4 w-4" />}
+                  </Button>
                 </div>
 
-                <BarcodeScanner
-                  isActive={scannerActive}
-                  onToggle={() => setScannerActive(!scannerActive)}
-                  onScan={handleBarcodeScan}
-                />
+                {scannerActive && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                      <Zap className="h-3.5 w-3.5" />
+                      Aponte a câmera para o código de barras
+                    </div>
+                    <BarcodeScanner
+                      isActive={scannerActive}
+                      onToggle={() => setScannerActive(!scannerActive)}
+                      onScan={handleBarcodeScan}
+                      hideToggle
+                    />
+                  </div>
+                )}
               </div>
             </CardHeader>
             
