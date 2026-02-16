@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { ParceiroLayout } from "@/components/parceiro/ParceiroLayout";
 import { useParceiroDados } from "@/hooks/useParceiroDados";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,8 +24,10 @@ interface ValeEncontrado {
 
 export default function ParceiroVenderVale() {
   const { parceiro, refetchVales } = useParceiroDados();
+  const location = useLocation();
+  const valeNumeroFromState = (location.state as any)?.valeNumero || "";
   const [step, setStep] = useState<Step>("buscar");
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(valeNumeroFromState);
   const [loading, setLoading] = useState(false);
   const [vale, setVale] = useState<ValeEncontrado | null>(null);
   const [cpf, setCpf] = useState("");

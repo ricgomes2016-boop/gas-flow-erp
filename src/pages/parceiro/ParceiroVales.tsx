@@ -1,22 +1,30 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ParceiroLayout } from "@/components/parceiro/ParceiroLayout";
 import { useParceiroDados, ValeGasParceiro } from "@/hooks/useParceiroDados";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Search, Printer } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Search, Printer, QrCode, Clock, CheckCircle2, Package, ShoppingCart, Zap } from "lucide-react";
+import { toast } from "sonner";
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  disponivel: { label: "Disponível", variant: "default" },
-  vendido: { label: "Vendido", variant: "outline" },
-  utilizado: { label: "Utilizado", variant: "secondary" },
-  cancelado: { label: "Cancelado", variant: "destructive" },
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: typeof Clock }> = {
+  disponivel: { label: "Disponível", variant: "default", icon: Package },
+  vendido: { label: "Vendido", variant: "outline", icon: Clock },
+  utilizado: { label: "Utilizado", variant: "secondary", icon: CheckCircle2 },
+  cancelado: { label: "Cancelado", variant: "destructive", icon: Clock },
 };
 
-function ValeCard({ vale }: { vale: ValeGasParceiro }) {
-  const cfg = statusConfig[vale.status] || { label: vale.status, variant: "outline" as const };
+function ValeCard({ vale, onVender, onUtilizar }: { vale: ValeGasParceiro; onVender?: () => void; onUtilizar?: () => void }) {
+  const cfg = statusConfig[vale.status] || { label: vale.status, variant: "outline" as const, icon: Clock };
+  const StatusIcon = cfg.icon;
 
   const imprimirVale = () => {
     const win = window.open("", "_blank");
@@ -47,30 +55,48 @@ function ValeCard({ vale }: { vale: ValeGasParceiro }) {
   };
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">#{vale.numero}</span>
-          <Badge variant={cfg.variant} className="text-xs">{cfg.label}</Badge>
+    <div className="flex items-center justify-between p-3 rounded-lg border bg-card gap-2">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <StatusIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-sm">#{vale.numero}</span>
+            <Badge variant={cfg.variant} className="text-xs">{cfg.label}</Badge>
+            <span className="text-xs font-bold text-foreground">R$ {Number(vale.valor).toFixed(2)}</span>
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{vale.codigo}</p>
+          {vale.consumidor_nome && (
+            <p className="text-xs text-muted-foreground mt-0.5">{vale.consumidor_nome} {vale.consumidor_cpf ? `• ${vale.consumidor_cpf}` : ""}</p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground truncate">{vale.codigo}</p>
-        {vale.consumidor_nome && (
-          <p className="text-xs text-muted-foreground mt-1">{vale.consumidor_nome} {vale.consumidor_cpf ? `• ${vale.consumidor_cpf}` : ""}</p>
-        )}
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-bold whitespace-nowrap">R$ {Number(vale.valor).toFixed(2)}</span>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={imprimirVale}>
-          <Printer className="h-4 w-4" />
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={imprimirVale} title="Imprimir">
+          <QrCode className="h-4 w-4" />
         </Button>
+        {vale.status === "disponivel" && onVender && (
+          <Button size="sm" variant="outline" onClick={onVender} className="gap-1 h-8">
+            <ShoppingCart className="h-3.5 w-3.5" />
+            Vender
+          </Button>
+        )}
+        {vale.status === "vendido" && onUtilizar && (
+          <Button size="sm" onClick={onUtilizar} className="gap-1 h-8 bg-teal-600 hover:bg-teal-700 text-white">
+            <Zap className="h-3.5 w-3.5" />
+            Utilizar
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
 export default function ParceiroVales() {
-  const { vales, disponiveis, vendidos, utilizados, isLoading } = useParceiroDados();
+  const navigate = useNavigate();
+  const { vales, disponiveis, vendidos, utilizados, isLoading, refetchVales } = useParceiroDados();
   const [busca, setBusca] = useState("");
+  const [utilizarVale, setUtilizarVale] = useState<ValeGasParceiro | null>(null);
+  const [loadingUtilizar, setLoadingUtilizar] = useState(false);
 
   const filtrar = (lista: ValeGasParceiro[]) => {
     if (!busca.trim()) return lista;
@@ -82,6 +108,29 @@ export default function ParceiroVales() {
         (v.consumidor_nome || "").toLowerCase().includes(term) ||
         (v.consumidor_cpf || "").toLowerCase().includes(term)
     );
+  };
+
+  const confirmarUtilizacao = async () => {
+    if (!utilizarVale) return;
+    setLoadingUtilizar(true);
+    try {
+      const { error } = await (supabase as any).from("vale_gas").update({
+        status: "utilizado",
+        data_utilizacao: new Date().toISOString(),
+      }).eq("id", utilizarVale.id);
+      if (error) throw error;
+      toast.success(`Vale #${utilizarVale.numero} marcado como utilizado!`);
+      refetchVales();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao utilizar vale");
+    } finally {
+      setLoadingUtilizar(false);
+      setUtilizarVale(null);
+    }
+  };
+
+  const handleVender = (vale: ValeGasParceiro) => {
+    navigate("/parceiro/vender", { state: { valeNumero: vale.numero.toString() } });
   };
 
   if (isLoading) {
@@ -118,7 +167,7 @@ export default function ParceiroVales() {
             {filtrar(disponiveis).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum vale disponível.</p>
             ) : (
-              filtrar(disponiveis).map((v) => <ValeCard key={v.id} vale={v} />)
+              filtrar(disponiveis).map((v) => <ValeCard key={v.id} vale={v} onVender={() => handleVender(v)} />)
             )}
           </TabsContent>
 
@@ -126,7 +175,7 @@ export default function ParceiroVales() {
             {filtrar(vendidos).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum vale vendido.</p>
             ) : (
-              filtrar(vendidos).map((v) => <ValeCard key={v.id} vale={v} />)
+              filtrar(vendidos).map((v) => <ValeCard key={v.id} vale={v} onUtilizar={() => setUtilizarVale(v)} />)
             )}
           </TabsContent>
 
@@ -139,6 +188,25 @@ export default function ParceiroVales() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Confirmação de utilização */}
+      <AlertDialog open={!!utilizarVale} onOpenChange={(o) => !o && setUtilizarVale(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar vale como utilizado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O vale <strong>#{utilizarVale?.numero}</strong> ({utilizarVale?.consumidor_nome}) será marcado como utilizado. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loadingUtilizar}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarUtilizacao} disabled={loadingUtilizar}>
+              {loadingUtilizar ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ParceiroLayout>
   );
 }
