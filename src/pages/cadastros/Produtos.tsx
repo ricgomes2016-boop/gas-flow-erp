@@ -30,12 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Package, Plus, Search, Edit, Trash2, Flame, Droplets, Box, Loader2 } from "lucide-react";
+import { Package, Plus, Search, Edit, Trash2, Flame, Droplets, Box, Loader2, ScanBarcode, Camera, CameraOff, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { BarcodeScanner } from "@/components/pdv/BarcodeScanner";
 
 interface Produto {
   id: string;
@@ -82,6 +83,8 @@ export default function Produtos() {
   const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
   const [form, setForm] = useState<ProdutoForm>(initialForm);
   const { unidadeAtual } = useUnidade();
+  const [scannerAtivo, setScannerAtivo] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
 
   // Buscar produtos do Supabase filtrados por unidade
   const { data: produtos = [], isLoading } = useQuery({
@@ -274,7 +277,28 @@ export default function Produtos() {
   const handleNovoClick = () => {
     setEditandoProduto(null);
     setForm(initialForm);
+    setScannerAtivo(false);
+    setScanFeedback(null);
     setDialogAberto(true);
+  };
+
+  const handleBarcodeScan = (barcode: string) => {
+    setScannerAtivo(false);
+    setForm((prev) => ({ ...prev, codigo_barras: barcode }));
+
+    // Verificar se já existe produto com esse código
+    const existente = produtos.find((p) => p.codigo_barras === barcode);
+    if (existente) {
+      setScanFeedback(`⚠️ Código já cadastrado: "${existente.nome}"`);
+      toast({
+        title: "Produto já existe",
+        description: `O código ${barcode} pertence a "${existente.nome}".`,
+        variant: "destructive",
+      });
+    } else {
+      setScanFeedback(`✅ Código ${barcode} lido com sucesso!`);
+      toast({ title: "Código lido!", description: `Código de barras: ${barcode}` });
+    }
   };
 
   // Filtrar produtos
@@ -417,13 +441,52 @@ export default function Produtos() {
                     />
                   </div>
                 )}
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-3 md:col-span-2">
                   <Label>Código de Barras</Label>
-                  <Input
-                    placeholder="7891234567890"
-                    value={form.codigo_barras}
-                    onChange={(e) => setForm({ ...form, codigo_barras: e.target.value })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="7891234567890"
+                      value={form.codigo_barras}
+                      onChange={(e) => {
+                        setForm({ ...form, codigo_barras: e.target.value });
+                        setScanFeedback(null);
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant={scannerAtivo ? "destructive" : "outline"}
+                      size="icon"
+                      onClick={() => {
+                        setScannerAtivo(!scannerAtivo);
+                        setScanFeedback(null);
+                      }}
+                      title={scannerAtivo ? "Fechar scanner" : "Escanear código de barras"}
+                    >
+                      {scannerAtivo ? <CameraOff className="h-4 w-4" /> : <ScanBarcode className="h-4 w-4" />}
+                    </Button>
+                  </div>
+
+                  {scannerAtivo && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                        <Zap className="h-3.5 w-3.5" />
+                        Aponte a câmera para o código de barras
+                      </div>
+                      <BarcodeScanner
+                        onScan={handleBarcodeScan}
+                        isActive={scannerAtivo}
+                        onToggle={() => setScannerAtivo(!scannerAtivo)}
+                        hideToggle
+                      />
+                    </div>
+                  )}
+
+                  {scanFeedback && (
+                    <p className="text-xs font-medium animate-in fade-in duration-200">
+                      {scanFeedback}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Descrição</Label>
