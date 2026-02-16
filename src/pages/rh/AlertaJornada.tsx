@@ -36,10 +36,6 @@ export default function AlertaJornada() {
     <MainLayout>
       <Header title="Alerta de Jornada" subtitle="Monitoramento de irregularidades" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Alerta de Jornada</h1>
-          <p className="text-muted-foreground">Monitoramento de irregularidades trabalhistas</p>
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>

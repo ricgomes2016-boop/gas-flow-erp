@@ -157,10 +157,6 @@ export default function Horarios() {
       <Header title="Horários" subtitle="Gestão de jornadas e turnos" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Horários</h1>
-            <p className="text-muted-foreground">Gestão de jornadas e turnos de trabalho</p>
-          </div>
           <Button className="gap-2" onClick={openNew}>
             <Calendar className="h-4 w-4" />Novo Horário
           </Button>

@@ -62,10 +62,7 @@ export default function PlanejamentoAnual() {
     <MainLayout>
       <Header title="Planejamento Anual" subtitle={`Resultados ${new Date().getFullYear()}`} />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Planejamento Anual</h1>
-          <p className="text-muted-foreground">Resultados para {new Date().getFullYear()}</p>
-        </div>
+
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><Target className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">R$ {(totalRealizado / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Total Anual</p></div></div></CardContent></Card>

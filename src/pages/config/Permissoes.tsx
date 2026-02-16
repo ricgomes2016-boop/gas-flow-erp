@@ -21,10 +21,6 @@ export default function Permissoes() {
       <Header title="Permissões" subtitle="Gerencie perfis e acessos" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Permissões</h1>
-            <p className="text-muted-foreground">Gerencie perfis e acessos do sistema</p>
-          </div>
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
             Novo Perfil

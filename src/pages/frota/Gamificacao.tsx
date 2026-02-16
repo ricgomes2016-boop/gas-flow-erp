@@ -79,7 +79,7 @@ export default function Gamificacao() {
     <MainLayout>
       <Header title="Gamificação" subtitle="Ranking e conquistas dos motoristas" />
       <div className="p-6 space-y-6">
-        <div><h1 className="text-3xl font-bold text-foreground">Gamificação</h1><p className="text-muted-foreground">Ranking e conquistas dos motoristas</p></div>
+        
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Líder do Mês</CardTitle><Trophy className="h-4 w-4 text-yellow-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{ranking[0]?.nome || "-"}</div><p className="text-xs text-muted-foreground">{ranking[0]?.pontos || 0} pontos</p></CardContent></Card>

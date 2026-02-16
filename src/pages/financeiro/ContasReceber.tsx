@@ -260,10 +260,6 @@ export default function ContasReceber() {
       <Header title="Contas a Receber" subtitle="Acompanhe os recebíveis" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Contas a Receber</h1>
-            <p className="text-muted-foreground">Acompanhe todos os recebíveis</p>
-          </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Recebível</Button>

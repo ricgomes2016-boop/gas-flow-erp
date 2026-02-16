@@ -317,10 +317,6 @@ export default function RelatorioVendas() {
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Relatório de Vendas</h1>
-            <p className="text-muted-foreground">Análise detalhada por entregador e canal de venda</p>
-          </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={exportarPDF}>
               <Download className="h-4 w-4" />PDF

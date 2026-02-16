@@ -53,10 +53,6 @@ export default function Bonus() {
       <Header title="Bônus" subtitle="Gestão de bonificações extras" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Bônus</h1>
-            <p className="text-muted-foreground">Gestão de bonificações extras</p>
-          </div>
           <Button className="gap-2"><Plus className="h-4 w-4" />Novo Bônus</Button>
         </div>
 

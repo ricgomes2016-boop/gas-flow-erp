@@ -15,10 +15,6 @@ export default function CentralIndicadores() {
     <MainLayout>
       <Header title="Central de Indicadores" subtitle="Visão consolidada do negócio" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Central de Indicadores</h1>
-          <p className="text-muted-foreground">Dashboards unificados em uma única visão</p>
-        </div>
 
         <Tabs defaultValue="executivo" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">

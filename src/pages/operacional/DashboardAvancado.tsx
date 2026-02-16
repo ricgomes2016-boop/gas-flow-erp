@@ -101,10 +101,6 @@ export default function DashboardAvancado() {
     <MainLayout>
       <Header title="Dashboard Avançado" subtitle="Análises detalhadas e métricas avançadas" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard Avançado</h1>
-          <p className="text-muted-foreground">Análises detalhadas e métricas avançadas</p>
-        </div>
 
         <Tabs defaultValue="financeiro" className="space-y-6">
           <TabsList>

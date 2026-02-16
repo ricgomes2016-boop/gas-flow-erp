@@ -66,15 +66,6 @@ export default function ConselhosIA() {
       <Header title="Conselhos IA" subtitle="Insights baseados em inteligência artificial" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              Conselhos IA
-            </h1>
-            <p className="text-muted-foreground">
-              Insights e recomendações baseados em inteligência artificial
-            </p>
-          </div>
           <Button>
             <Sparkles className="h-4 w-4 mr-2" />
             Atualizar Análise

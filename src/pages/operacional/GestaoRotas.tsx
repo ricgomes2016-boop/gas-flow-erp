@@ -135,10 +135,6 @@ export default function GestaoRotas() {
       <Header title="Gestão de Rotas" subtitle="Criar e editar rotas de entrega" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Rotas de Entrega</h1>
-            <p className="text-muted-foreground">Defina as rotas e bairros atendidos</p>
-          </div>
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Rota

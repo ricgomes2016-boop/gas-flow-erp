@@ -349,10 +349,6 @@ export default function ContasPagar() {
       <Header title="Contas a Pagar" subtitle="Gerencie todas as contas" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Contas a Pagar</h1>
-            <p className="text-muted-foreground">Gerencie todas as contas e despesas</p>
-          </div>
           <div className="flex gap-2">
             <input
               ref={fileInputRef}

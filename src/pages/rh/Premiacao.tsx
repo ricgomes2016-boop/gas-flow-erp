@@ -34,10 +34,6 @@ export default function Premiacao() {
       <Header title="Premiações" subtitle="Incentivos e reconhecimento da equipe" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Premiações</h1>
-            <p className="text-muted-foreground">Incentivos e reconhecimento da equipe</p>
-          </div>
           <Button className="gap-2"><Gift className="h-4 w-4" />Nova Premiação</Button>
         </div>
 

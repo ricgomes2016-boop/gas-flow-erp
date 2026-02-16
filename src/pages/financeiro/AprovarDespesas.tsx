@@ -57,7 +57,7 @@ export default function AprovarDespesas() {
     <MainLayout>
       <Header title="Aprovar Despesas" subtitle="Analise e aprove solicitações de despesas" />
       <div className="p-6 space-y-6">
-        <div><h1 className="text-3xl font-bold text-foreground">Aprovar Despesas</h1><p className="text-muted-foreground">Analise e aprove solicitações de despesas</p></div>
+        
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Pendentes</CardTitle><Clock className="h-4 w-4 text-warning" /></CardHeader><CardContent><div className="text-2xl font-bold text-warning">{pendentes.length}</div><p className="text-xs text-muted-foreground">Aguardando aprovação</p></CardContent></Card>

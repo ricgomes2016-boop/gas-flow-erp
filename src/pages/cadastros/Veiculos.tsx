@@ -120,10 +120,6 @@ export default function Veiculos() {
       <Header title="Veículos" subtitle="Gerencie a frota de veículos" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Veículos</h1>
-            <p className="text-muted-foreground">Gerencie a frota de veículos da empresa</p>
-          </div>
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Veículo</Button>

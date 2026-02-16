@@ -167,10 +167,6 @@ export default function Entregadores() {
       <Header title="Entregadores" subtitle="Cadastro de entregadores" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Entregadores</h1>
-            <p className="text-muted-foreground">Gerencie a equipe de entregadores</p>
-          </div>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "" }); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Entregador</Button>

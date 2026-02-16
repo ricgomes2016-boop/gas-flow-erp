@@ -298,10 +298,6 @@ export default function Conciliacao() {
         />
 
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Conciliação Bancária</h1>
-            <p className="text-muted-foreground">Importe e concilie extratos OFX/CSV</p>
-          </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" className="gap-2" onClick={() => ofxInputRef.current?.click()} disabled={importing}>
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}

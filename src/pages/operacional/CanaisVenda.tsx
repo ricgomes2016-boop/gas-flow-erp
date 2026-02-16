@@ -145,12 +145,6 @@ export default function CanaisVenda() {
       <Header title="Canais de Venda" subtitle="Gerencie os canais de venda do sistema" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Canais de Venda</h1>
-            <p className="text-muted-foreground">
-              Adicione, edite ou remova canais. Parceiros de vale gás são canais dinâmicos.
-            </p>
-          </div>
           <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); else setDialogOpen(true); }}>
             <DialogTrigger asChild>
               <Button className="gap-2">

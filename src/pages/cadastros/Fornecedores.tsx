@@ -91,10 +91,6 @@ export default function Fornecedores() {
       <Header title="Fornecedores" subtitle="Gerencie seus fornecedores" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Fornecedores</h1>
-            <p className="text-muted-foreground">Gerencie seus fornecedores e parceiros</p>
-          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Fornecedor</Button>

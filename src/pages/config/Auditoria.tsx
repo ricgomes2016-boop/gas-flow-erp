@@ -19,10 +19,6 @@ export default function Auditoria() {
     <MainLayout>
       <Header title="Auditoria" subtitle="Histórico de ações do sistema" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Auditoria</h1>
-          <p className="text-muted-foreground">Histórico de ações do sistema</p>
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>

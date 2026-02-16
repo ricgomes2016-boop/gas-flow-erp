@@ -64,10 +64,6 @@ export default function ValeFuncionario() {
       <Header title="Vale Funcionário" subtitle="Controle de adiantamentos e vales" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Vale Funcionário</h1>
-            <p className="text-muted-foreground">Controle de adiantamentos e vales</p>
-          </div>
           <Button className="gap-2"><Plus className="h-4 w-4" />Novo Vale</Button>
         </div>
 

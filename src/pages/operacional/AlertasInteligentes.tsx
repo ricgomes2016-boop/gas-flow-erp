@@ -133,13 +133,6 @@ export default function AlertasInteligentes() {
       <Header title="Alertas Inteligentes" subtitle="Monitoramento proativo" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bell className="h-6 w-6 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Alertas Inteligentes</h1>
-              <p className="text-muted-foreground">Monitoramento proativo de anomalias e oportunidades</p>
-            </div>
-          </div>
           <Button onClick={analisar}><AlertTriangle className="h-4 w-4 mr-2" />Reanalisar</Button>
         </div>
 

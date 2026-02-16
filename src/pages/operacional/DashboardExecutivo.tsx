@@ -134,10 +134,6 @@ export default function DashboardExecutivo() {
       <Header title="Dashboard Executivo" subtitle="Visão geral do negócio" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard Executivo</h1>
-            <p className="text-muted-foreground">Visão geral do negócio</p>
-          </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
             {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}

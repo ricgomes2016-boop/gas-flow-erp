@@ -52,14 +52,6 @@ export default function MCMM() {
       <Header title="MCMM" subtitle="Controle de níveis de estoque" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              MCMM - Média, Consumo, Mínimo, Máximo
-            </h1>
-            <p className="text-muted-foreground">
-              Controle de níveis de estoque
-            </p>
-          </div>
           <Button>
             <Calculator className="h-4 w-4 mr-2" />
             Recalcular
