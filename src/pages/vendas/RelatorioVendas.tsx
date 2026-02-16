@@ -364,11 +364,8 @@ export default function RelatorioVendas() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
-                    {["telefone", "whatsapp", "portaria", "balcao", "Entregador"].map((c) => (
-                      <SelectItem key={c} value={c}>{canalLabels[c] || c}</SelectItem>
-                    ))}
-                    {canaisVenda.filter(c => !["telefone", "whatsapp", "portaria", "balcao", "Entregador"].includes(c.nome)).map((c) => (
-                      <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>
+                    {canaisVenda.map((c) => (
+                      <SelectItem key={c.id} value={c.nome}>{canalLabels[c.nome] || c.nome}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -447,22 +444,13 @@ export default function RelatorioVendas() {
                               <PopoverContent className="w-48 p-2 bg-popover border border-border shadow-lg z-50" align="start">
                                 <div className="space-y-1">
                                   <p className="text-xs font-medium text-muted-foreground px-1 mb-2">Trocar canal:</p>
-                                  {["telefone", "whatsapp", "portaria", "balcao", "Entregador"].map((canal) => (
-                                    <button
-                                      key={canal}
-                                      className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${pedido.canal_venda === canal ? "bg-accent font-medium" : ""}`}
-                                      onClick={() => alterarCanalVenda(pedido.id, canal)}
-                                    >
-                                      {canalLabels[canal] || canal}
-                                    </button>
-                                  ))}
-                                  {canaisVenda.filter(c => !["telefone", "whatsapp", "portaria", "balcao", "Entregador"].includes(c.nome)).map((c) => (
+                                  {canaisVenda.map((c) => (
                                     <button
                                       key={c.id}
                                       className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${pedido.canal_venda === c.nome ? "bg-accent font-medium" : ""}`}
                                       onClick={() => alterarCanalVenda(pedido.id, c.nome)}
                                     >
-                                      {c.nome}
+                                      {canalLabels[c.nome] || c.nome}
                                     </button>
                                   ))}
                                 </div>
