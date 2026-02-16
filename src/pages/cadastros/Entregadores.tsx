@@ -165,7 +165,7 @@ export default function Entregadores() {
   return (
     <MainLayout>
       <Header title="Entregadores" subtitle="Cadastro de entregadores" />
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center justify-between">
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "" }); } }}>
             <DialogTrigger asChild>
@@ -234,51 +234,51 @@ export default function Entregadores() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
+              <CardTitle className="text-xs sm:text-sm font-medium">Total</CardTitle>
               <Truck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{entregadores.length}</div></CardContent>
+            <CardContent><div className="text-xl md:text-2xl font-bold">{entregadores.length}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Disponíveis</CardTitle>
+              <CardTitle className="text-xs sm:text-sm font-medium">Disponíveis</CardTitle>
               <Truck className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{entregadores.filter(e => e.status === "disponivel" || !e.status).length}</div></CardContent>
+            <CardContent><div className="text-xl md:text-2xl font-bold">{entregadores.filter(e => e.status === "disponivel" || !e.status).length}</div></CardContent>
           </Card>
-          <Card>
+          <Card className="col-span-2 sm:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Em Rota</CardTitle>
+              <CardTitle className="text-xs sm:text-sm font-medium">Em Rota</CardTitle>
               <Truck className="h-4 w-4 text-secondary-foreground" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{entregadores.filter(e => e.status === "em_rota").length}</div></CardContent>
+            <CardContent><div className="text-xl md:text-2xl font-bold">{entregadores.filter(e => e.status === "em_rota").length}</div></CardContent>
           </Card>
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Lista de Entregadores</CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-base">Lista de Entregadores</CardTitle>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar..." className="pl-10 w-[250px]" value={search} onChange={e => setSearch(e.target.value)} />
+                <Input placeholder="Buscar..." className="pl-10 w-full sm:w-[250px] h-9" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {loading ? <p className="text-muted-foreground">Carregando...</p> : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>CPF</TableHead>
-                    <TableHead>CNH</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Vinculado</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Nome</TableHead>
+                     <TableHead className="hidden md:table-cell">CPF</TableHead>
+                     <TableHead className="hidden lg:table-cell">CNH</TableHead>
+                     <TableHead className="hidden sm:table-cell">Telefone</TableHead>
+                     <TableHead className="hidden lg:table-cell">Vinculado</TableHead>
+                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -286,14 +286,14 @@ export default function Entregadores() {
                   {filtered.map(e => {
                     const linkedUser = users.find(u => u.user_id === e.user_id);
                     return (
-                      <TableRow key={e.id}>
+                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.nome}</TableCell>
-                        <TableCell>{e.cpf || "-"}</TableCell>
-                        <TableCell>{e.cnh || "-"}</TableCell>
-                        <TableCell>{e.telefone ? <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{e.telefone}</span> : "-"}</TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">{e.cpf || "-"}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{e.cnh || "-"}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{e.telefone ? <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{e.telefone}</span> : "-"}</TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           {linkedUser ? (
-                            <Badge variant="outline" className="gap-1">
+                            <Badge variant="outline" className="gap-1 text-xs">
                               <LinkIcon className="h-3 w-3" />
                               {linkedUser.email}
                             </Badge>
@@ -301,7 +301,7 @@ export default function Entregadores() {
                             <span className="text-muted-foreground text-xs">Não vinculado</span>
                           )}
                         </TableCell>
-                        <TableCell><Badge variant={statusVariant(e.status)}>{statusLabel(e.status)}</Badge></TableCell>
+                        <TableCell><Badge variant={statusVariant(e.status)} className="text-xs">{statusLabel(e.status)}</Badge></TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(e)}><Edit className="h-4 w-4" /></Button>
