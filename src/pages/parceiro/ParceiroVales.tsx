@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Search, Printer, QrCode, Clock, CheckCircle2, Package, ShoppingCart, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { ValeGasQRCode } from "@/components/valegas/ValeGasQRCode";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: typeof Clock }> = {
   disponivel: { label: "Disponível", variant: "default", icon: Package },
@@ -22,7 +23,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   cancelado: { label: "Cancelado", variant: "destructive", icon: Clock },
 };
 
-function ValeCard({ vale, onVender, onUtilizar }: { vale: ValeGasParceiro; onVender?: () => void; onUtilizar?: () => void }) {
+function ValeCard({ vale, onVender, onUtilizar, onQRCode }: { vale: ValeGasParceiro; onVender?: () => void; onUtilizar?: () => void; onQRCode?: () => void }) {
   const cfg = statusConfig[vale.status] || { label: vale.status, variant: "outline" as const, icon: Clock };
   const StatusIcon = cfg.icon;
 
@@ -71,7 +72,7 @@ function ValeCard({ vale, onVender, onUtilizar }: { vale: ValeGasParceiro; onVen
         </div>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={imprimirVale} title="Imprimir">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onQRCode} title="QR Code">
           <QrCode className="h-4 w-4" />
         </Button>
         {vale.status === "disponivel" && onVender && (
@@ -97,6 +98,7 @@ export default function ParceiroVales() {
   const [busca, setBusca] = useState("");
   const [utilizarVale, setUtilizarVale] = useState<ValeGasParceiro | null>(null);
   const [loadingUtilizar, setLoadingUtilizar] = useState(false);
+  const [qrVale, setQrVale] = useState<ValeGasParceiro | null>(null);
 
   const filtrar = (lista: ValeGasParceiro[]) => {
     if (!busca.trim()) return lista;
@@ -167,7 +169,7 @@ export default function ParceiroVales() {
             {filtrar(disponiveis).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum vale disponível.</p>
             ) : (
-              filtrar(disponiveis).map((v) => <ValeCard key={v.id} vale={v} onVender={() => handleVender(v)} />)
+              filtrar(disponiveis).map((v) => <ValeCard key={v.id} vale={v} onVender={() => handleVender(v)} onQRCode={() => setQrVale(v)} />)
             )}
           </TabsContent>
 
@@ -175,7 +177,7 @@ export default function ParceiroVales() {
             {filtrar(vendidos).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum vale vendido.</p>
             ) : (
-              filtrar(vendidos).map((v) => <ValeCard key={v.id} vale={v} onUtilizar={() => setUtilizarVale(v)} />)
+              filtrar(vendidos).map((v) => <ValeCard key={v.id} vale={v} onUtilizar={() => setUtilizarVale(v)} onQRCode={() => setQrVale(v)} />)
             )}
           </TabsContent>
 
@@ -183,7 +185,7 @@ export default function ParceiroVales() {
             {filtrar(utilizados).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum vale utilizado.</p>
             ) : (
-              filtrar(utilizados).map((v) => <ValeCard key={v.id} vale={v} />)
+              filtrar(utilizados).map((v) => <ValeCard key={v.id} vale={v} onQRCode={() => setQrVale(v)} />)
             )}
           </TabsContent>
         </Tabs>
@@ -207,6 +209,18 @@ export default function ParceiroVales() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {qrVale && (
+        <ValeGasQRCode
+          open={!!qrVale}
+          onClose={() => setQrVale(null)}
+          vale={{
+            numero: qrVale.numero,
+            codigo: qrVale.codigo,
+            valor: Number(qrVale.valor),
+            parceiroNome: qrVale.consumidor_nome || undefined,
+          }}
+        />
+      )}
     </ParceiroLayout>
   );
 }
