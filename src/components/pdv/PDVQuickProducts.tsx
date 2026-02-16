@@ -14,22 +14,29 @@ interface Produto {
 
 interface PDVQuickProductsProps {
   onSelectProduct: (produto: Produto) => void;
+  unidadeId?: string | null;
 }
 
-export function PDVQuickProducts({ onSelectProduct }: PDVQuickProductsProps) {
+export function PDVQuickProducts({ onSelectProduct, unidadeId }: PDVQuickProductsProps) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchProdutos = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("produtos")
           .select("id, nome, preco, estoque, categoria")
           .eq("ativo", true)
           .or("tipo_botijao.is.null,tipo_botijao.neq.vazio")
           .order("nome")
           .limit(12);
+
+        if (unidadeId) {
+          query = query.eq("unidade_id", unidadeId);
+        }
+
+        const { data, error } = await query;
 
         if (!error && data) {
           setProdutos(data);
@@ -42,7 +49,7 @@ export function PDVQuickProducts({ onSelectProduct }: PDVQuickProductsProps) {
     };
 
     fetchProdutos();
-  }, []);
+  }, [unidadeId]);
 
   if (isLoading) {
     return (
