@@ -111,8 +111,8 @@ export default function RelatorioVendas() {
           clientes (nome), entregadores (nome),
           pedido_itens (quantidade, preco_unitario, produtos (nome))
         `)
-        .gte("created_at", `${dataInicio}T00:00:00`)
-        .lte("created_at", `${dataFim}T23:59:59`)
+        .gte("created_at", `${dataInicio}T00:00:00-03:00`)
+        .lte("created_at", `${dataFim}T23:59:59-03:00`)
         .order("created_at", { ascending: false });
 
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
