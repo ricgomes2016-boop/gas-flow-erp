@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
 import { DeliveryPersonSelect } from "@/components/vendas/DeliveryPersonSelect";
 import { PedidoStatus } from "@/types/pedido";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface PedidoData {
   id: string;
@@ -32,6 +33,7 @@ export default function EditarPedido() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -303,7 +305,7 @@ export default function EditarPedido() {
             />
 
             {/* Produtos */}
-            <ProductSearch itens={itens} onChange={setItens} />
+            <ProductSearch itens={itens} onChange={setItens} unidadeId={unidadeAtual?.id} />
           </div>
 
           {/* Coluna Direita - Resumo */}

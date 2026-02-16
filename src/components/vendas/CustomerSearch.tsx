@@ -274,7 +274,26 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
               }}
             />
           </div>
-          <Button variant="outline" className="mt-5" size="icon">
+          <Button
+            variant="outline"
+            className="mt-5"
+            size="icon"
+            onClick={() => {
+              onChange({
+                ...value,
+                id: null,
+                nome: "",
+                telefone: "",
+                endereco: "",
+                numero: "",
+                complemento: "",
+                bairro: "",
+                cep: "",
+                observacao: "",
+              });
+            }}
+            title="Novo cliente (limpar campos)"
+          >
             <UserPlus className="h-4 w-4" />
           </Button>
         </div>
