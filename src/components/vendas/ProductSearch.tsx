@@ -32,9 +32,10 @@ export interface ItemVenda {
 interface ProductSearchProps {
   itens: ItemVenda[];
   onChange: (itens: ItemVenda[]) => void;
+  unidadeId?: string | null;
 }
 
-export function ProductSearch({ itens, onChange }: ProductSearchProps) {
+export function ProductSearch({ itens, onChange, unidadeId }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Produto[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -59,13 +60,19 @@ export function ProductSearch({ itens, onChange }: ProductSearchProps) {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("produtos")
         .select("id, nome, preco, estoque")
         .eq("ativo", true)
         .or("tipo_botijao.is.null,tipo_botijao.neq.vazio") // Não mostrar botijões vazios
         .ilike("nome", `%${term}%`)
         .limit(8);
+
+      if (unidadeId) {
+        query = query.eq("unidade_id", unidadeId);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         setSearchResults(data);

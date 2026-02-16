@@ -32,7 +32,7 @@ export function OrderSummary({
   const pagamentoCompleto = totalPago >= total && total > 0;
 
   return (
-    <Card className="sticky top-4">
+    <Card>
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-base">
           <ShoppingCart className="h-5 w-5" />

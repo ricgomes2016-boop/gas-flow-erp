@@ -122,22 +122,38 @@ export default function EntregadorNovaVenda() {
   }, [user]);
 
   const fetchData = async () => {
+    let unidadeId: string | null = null;
+
+    if (user) {
+      const { data: entregador } = await supabase
+        .from("entregadores")
+        .select("id, unidade_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (entregador) {
+        setEntregadorId(entregador.id);
+        unidadeId = entregador.unidade_id;
+      }
+    }
+
+    let produtosQuery = supabase
+      .from("produtos")
+      .select("id, nome, preco, estoque, categoria")
+      .eq("ativo", true)
+      .or("tipo_botijao.is.null,tipo_botijao.neq.vazio")
+      .order("nome");
+
+    if (unidadeId) {
+      produtosQuery = produtosQuery.eq("unidade_id", unidadeId);
+    }
+
     const [produtosRes, clientesRes] = await Promise.all([
-      supabase.from("produtos").select("id, nome, preco, estoque, categoria").eq("ativo", true).order("nome"),
+      produtosQuery,
       supabase.from("clientes").select("id, nome, telefone, endereco, bairro, cep, cidade").eq("ativo", true).order("nome").limit(500),
     ]);
 
     if (produtosRes.data) setProdutos(produtosRes.data);
     if (clientesRes.data) setClientes(clientesRes.data);
-
-    if (user) {
-      const { data: entregador } = await supabase
-        .from("entregadores")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (entregador) setEntregadorId(entregador.id);
-    }
   };
 
   // Voice recognition

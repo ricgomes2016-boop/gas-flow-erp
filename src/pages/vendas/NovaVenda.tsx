@@ -825,11 +825,11 @@ export default function NovaVenda() {
 
             <CustomerSearch value={customer} onChange={setCustomer} />
             <DeliveryPersonSelect value={entregador.id} onChange={handleSelecionarEntregador} endereco={customer.endereco} />
-            <ProductSearch itens={itens} onChange={setItens} />
+            <ProductSearch itens={itens} onChange={setItens} unidadeId={unidadeAtual?.id} />
             <PaymentSection pagamentos={pagamentos} onChange={setPagamentos} totalVenda={totalVenda} />
           </div>
 
-          <div className="space-y-4 md:space-y-6">
+          <div className="lg:sticky lg:top-4 space-y-4 md:space-y-6 self-start">
             <OrderSummary
               itens={itens}
               pagamentos={pagamentos}
