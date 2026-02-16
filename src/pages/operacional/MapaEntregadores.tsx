@@ -1,128 +1,149 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Truck, RefreshCw, Route, History, User, Clock, Eye, EyeOff } from "lucide-react";
+import { MapPin, Truck, RefreshCw, Route, History, User, Clock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { DeliveryRoutesMap, Entregador, ClienteEntrega, PercursoPonto } from "@/components/mapa/DeliveryRoutesMap";
-
-// Mock data - entregadores com coordenadas
-const entregadoresMock: Entregador[] = [
-  {
-    id: "e1",
-    nome: "Carlos Souza",
-    status: "em_rota",
-    lat: -23.5605,
-    lng: -46.6433,
-    ultimaAtualizacao: "há 2 min",
-    entregaAtual: "João Silva",
-    veiculo: "Fiorino ABC-1234",
-    kmInicial: 45230,
-  },
-  {
-    id: "e2",
-    nome: "Roberto Lima",
-    status: "disponivel",
-    lat: -23.5505,
-    lng: -46.6333,
-    ultimaAtualizacao: "há 5 min",
-    veiculo: "Strada DEF-5678",
-    kmInicial: 62100,
-  },
-  {
-    id: "e3",
-    nome: "Fernando Alves",
-    status: "em_rota",
-    lat: -23.5405,
-    lng: -46.6533,
-    ultimaAtualizacao: "há 1 min",
-    entregaAtual: "Maria Santos",
-    veiculo: "Saveiro JKL-3456",
-    kmInicial: 15200,
-  },
-];
-
-// Mock data - clientes/entregas
-const clientesMock: ClienteEntrega[] = [
-  {
-    id: "c1",
-    cliente: "João Silva",
-    endereco: "Rua das Flores, 123 - Centro",
-    lat: -23.5655,
-    lng: -46.6483,
-    status: "em_rota",
-    entregadorId: "e1",
-    horarioPrevisto: "10:30",
-  },
-  {
-    id: "c2",
-    cliente: "Ana Oliveira",
-    endereco: "Av. Brasil, 456 - Jardim América",
-    lat: -23.5555,
-    lng: -46.6383,
-    status: "pendente",
-    horarioPrevisto: "11:00",
-  },
-  {
-    id: "c3",
-    cliente: "Maria Santos",
-    endereco: "Rua São Paulo, 789 - Vila Nova",
-    lat: -23.5355,
-    lng: -46.6583,
-    status: "em_rota",
-    entregadorId: "e3",
-    horarioPrevisto: "11:30",
-  },
-  {
-    id: "c4",
-    cliente: "Pedro Costa",
-    endereco: "Rua Minas Gerais, 321 - Consolação",
-    lat: -23.5455,
-    lng: -46.6433,
-    status: "pendente",
-    horarioPrevisto: "12:00",
-  },
-  {
-    id: "c5",
-    cliente: "Lucia Ferreira",
-    endereco: "Av. Paulista, 1000 - Bela Vista",
-    lat: -23.5705,
-    lng: -46.6533,
-    status: "pendente",
-    entregadorId: "e1",
-    horarioPrevisto: "12:30",
-  },
-];
-
-// Mock data - percurso histórico do entregador
-const percursoMock: Record<string, PercursoPonto[]> = {
-  "e1": [
-    { lat: -23.5505, lng: -46.6333, hora: "08:00" },
-    { lat: -23.5525, lng: -46.6353, hora: "08:15" },
-    { lat: -23.5555, lng: -46.6383, hora: "08:45" },
-    { lat: -23.5585, lng: -46.6413, hora: "09:20" },
-    { lat: -23.5605, lng: -46.6433, hora: "10:00" },
-  ],
-  "e3": [
-    { lat: -23.5505, lng: -46.6333, hora: "08:00" },
-    { lat: -23.5455, lng: -46.6433, hora: "08:30" },
-    { lat: -23.5405, lng: -46.6533, hora: "09:15" },
-  ],
-};
+import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 export default function MapaEntregadores() {
+  const { unidadeAtual } = useUnidade();
   const [selectedEntregador, setSelectedEntregador] = useState<string | null>(null);
   const [showPercurso, setShowPercurso] = useState(false);
-  const [tabAtiva, setTabAtiva] = useState("mapa");
+  const [loading, setLoading] = useState(true);
+  const [entregadores, setEntregadores] = useState<Entregador[]>([]);
+  const [clientes, setClientes] = useState<ClienteEntrega[]>([]);
+  const [percurso, setPercurso] = useState<PercursoPonto[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
 
-  const entregadores = entregadoresMock;
-  const clientes = clientesMock;
+  const fetchData = useCallback(async () => {
+    try {
+      // Fetch unit coords for map center
+      if (unidadeAtual?.id) {
+        const { data: unidade } = await supabase
+          .from("unidades").select("latitude, longitude").eq("id", unidadeAtual.id).single();
+        if (unidade?.latitude && unidade?.longitude) {
+          setMapCenter([unidade.latitude, unidade.longitude]);
+        }
+      }
+
+      // Fetch entregadores
+      let eq = supabase.from("entregadores").select("id, nome, status, latitude, longitude, telefone").eq("ativo", true);
+      if (unidadeAtual?.id) eq = eq.eq("unidade_id", unidadeAtual.id);
+      const { data: entregs } = await eq;
+
+      const mapped: Entregador[] = (entregs || [])
+        .filter(e => e.latitude && e.longitude)
+        .map(e => ({
+          id: e.id,
+          nome: e.nome,
+          status: (e.status || "disponivel") as "disponivel" | "em_rota" | "offline",
+          lat: e.latitude!,
+          lng: e.longitude!,
+          ultimaAtualizacao: "agora",
+        }));
+      setEntregadores(mapped);
+
+      // Fetch today's active orders
+      const hojeInicio = new Date(); hojeInicio.setHours(0, 0, 0, 0);
+      let pq = supabase.from("pedidos")
+        .select("*, clientes(nome, endereco, bairro, latitude, longitude)")
+        .gte("created_at", hojeInicio.toISOString())
+        .in("status", ["pendente", "confirmado", "em_rota"]);
+      if (unidadeAtual?.id) pq = pq.eq("unidade_id", unidadeAtual.id);
+      const { data: pedidos } = await pq;
+
+      const clientesMapa: ClienteEntrega[] = (pedidos || [])
+        .map(p => {
+          const lat = p.latitude || (p.clientes as any)?.latitude;
+          const lng = p.longitude || (p.clientes as any)?.longitude;
+          if (!lat || !lng) return null;
+          return {
+            id: p.id,
+            cliente: (p.clientes as any)?.nome || "Cliente",
+            endereco: p.endereco_entrega || (p.clientes as any)?.endereco || "",
+            lat, lng,
+            status: p.status || "pendente",
+            entregadorId: p.entregador_id || undefined,
+            horarioPrevisto: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          };
+        })
+        .filter(Boolean) as ClienteEntrega[];
+      setClientes(clientesMapa);
+    } catch (e) {
+      console.error("Erro ao carregar dados do mapa:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [unidadeAtual]);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // Fetch percurso when entregador selected
+  useEffect(() => {
+    if (!selectedEntregador || !showPercurso) {
+      setPercurso([]);
+      return;
+    }
+    const fetchPercurso = async () => {
+      // Find active route for this driver
+      const { data: rota } = await supabase
+        .from("rotas")
+        .select("id")
+        .eq("entregador_id", selectedEntregador)
+        .eq("status", "em_andamento")
+        .maybeSingle();
+      if (!rota) { setPercurso([]); return; }
+
+      const { data: historico } = await supabase
+        .from("rota_historico")
+        .select("latitude, longitude, timestamp")
+        .eq("rota_id", rota.id)
+        .order("timestamp", { ascending: true });
+
+      setPercurso(
+        (historico || []).map(h => ({
+          lat: h.latitude,
+          lng: h.longitude,
+          hora: new Date(h.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        }))
+      );
+    };
+    fetchPercurso();
+  }, [selectedEntregador, showPercurso]);
 
   const entregadorSelecionado = entregadores.find(e => e.id === selectedEntregador);
   const clientesDoEntregador = clientes.filter(c => c.entregadorId === selectedEntregador);
-  const percursoAtual = selectedEntregador ? percursoMock[selectedEntregador] || [] : [];
+
+  // Also include drivers without GPS for the list
+  const [allEntregadores, setAllEntregadores] = useState<any[]>([]);
+  useEffect(() => {
+    const fetchAll = async () => {
+      let eq = supabase.from("entregadores").select("id, nome, status, latitude, longitude").eq("ativo", true);
+      if (unidadeAtual?.id) eq = eq.eq("unidade_id", unidadeAtual.id);
+      const { data } = await eq;
+      setAllEntregadores(data || []);
+    };
+    fetchAll();
+  }, [unidadeAtual]);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Mapa dos Entregadores" subtitle="Acompanhe a localização em tempo real" />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -139,7 +160,7 @@ export default function MapaEntregadores() {
                 {showPercurso ? "Ocultar Percurso" : "Ver Percurso"}
               </Button>
             )}
-            <Button variant="outline">
+            <Button variant="outline" onClick={fetchData}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar
             </Button>
@@ -155,7 +176,7 @@ export default function MapaEntregadores() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {entregadores.filter(e => e.status === "em_rota").length}
+                  {allEntregadores.filter(e => e.status === "em_rota").length}
                 </p>
                 <p className="text-sm text-muted-foreground">Em Rota</p>
               </div>
@@ -168,7 +189,7 @@ export default function MapaEntregadores() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {entregadores.filter(e => e.status === "disponivel").length}
+                  {allEntregadores.filter(e => e.status === "disponivel").length}
                 </p>
                 <p className="text-sm text-muted-foreground">Disponíveis</p>
               </div>
@@ -190,13 +211,11 @@ export default function MapaEntregadores() {
           <Card>
             <CardContent className="flex items-center gap-4 pt-6">
               <div className="p-3 rounded-lg bg-muted">
-                <Clock className="h-6 w-6 text-muted-foreground" />
+                <MapPin className="h-6 w-6 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {clientes.filter(c => c.status === "em_rota").length}
-                </p>
-                <p className="text-sm text-muted-foreground">Em Andamento</p>
+                <p className="text-2xl font-bold">{entregadores.length}</p>
+                <p className="text-sm text-muted-foreground">Com GPS ativo</p>
               </div>
             </CardContent>
           </Card>
@@ -207,101 +226,91 @@ export default function MapaEntregadores() {
           <div className="space-y-4">
             <h3 className="font-semibold flex items-center gap-2">
               <Truck className="h-5 w-5" />
-              Entregadores
+              Entregadores ({allEntregadores.length})
             </h3>
-            {entregadores.map((entregador) => (
-              <Card 
-                key={entregador.id}
-                className={`cursor-pointer transition-all hover:shadow-lg ${
-                  selectedEntregador === entregador.id 
-                    ? "ring-2 ring-primary shadow-lg" 
-                    : ""
-                }`}
-                onClick={() => setSelectedEntregador(
-                  selectedEntregador === entregador.id ? null : entregador.id
-                )}
-              >
-                <CardContent className="pt-4">
-                  <div className="flex items-start gap-3">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                      entregador.status === "em_rota" 
-                        ? "bg-success/10" 
-                        : "bg-primary/10"
-                    }`}>
-                      <Truck className={`h-5 w-5 ${
-                        entregador.status === "em_rota" 
-                          ? "text-success" 
-                          : "text-primary"
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium">{entregador.nome}</p>
-                        <Badge
-                          variant={
-                            entregador.status === "em_rota" ? "default" : "secondary"
-                          }
-                        >
-                          {entregador.status === "em_rota" ? "Em Rota" : "Disponível"}
-                        </Badge>
+            {allEntregadores.map((entregador) => {
+              const hasGps = entregador.latitude && entregador.longitude;
+              return (
+                <Card
+                  key={entregador.id}
+                  className={`cursor-pointer transition-all hover:shadow-lg ${
+                    selectedEntregador === entregador.id
+                      ? "ring-2 ring-primary shadow-lg"
+                      : ""
+                  } ${!hasGps ? "opacity-60" : ""}`}
+                  onClick={() => {
+                    if (hasGps) {
+                      setSelectedEntregador(
+                        selectedEntregador === entregador.id ? null : entregador.id
+                      );
+                    }
+                  }}
+                >
+                  <CardContent className="pt-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                        entregador.status === "em_rota"
+                          ? "bg-success/10"
+                          : "bg-primary/10"
+                      }`}>
+                        <Truck className={`h-5 w-5 ${
+                          entregador.status === "em_rota"
+                            ? "text-success"
+                            : "text-primary"
+                        }`} />
                       </div>
-                      {entregador.veiculo && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          🚗 {entregador.veiculo}
-                        </p>
-                      )}
-                      {entregador.entregaAtual && (
-                        <p className="text-sm text-primary mt-1">
-                          → {entregador.entregaAtual}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Atualizado {entregador.ultimaAtualizacao}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Detalhes quando selecionado */}
-                  {selectedEntregador === entregador.id && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-muted-foreground">KM Inicial:</span>
-                        <span className="text-sm font-medium">
-                          {entregador.kmInicial?.toLocaleString("pt-BR")} km
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-muted-foreground">Entregas na rota:</span>
-                        <span className="text-sm font-medium">
-                          {clientesDoEntregador.length}
-                        </span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowPercurso(!showPercurso);
-                        }}
-                      >
-                        {showPercurso ? (
-                          <>
-                            <EyeOff className="h-4 w-4 mr-2" />
-                            Ocultar Percurso
-                          </>
-                        ) : (
-                          <>
-                            <Route className="h-4 w-4 mr-2" />
-                            Ver Percurso do Dia
-                          </>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">{entregador.nome}</p>
+                          <Badge
+                            variant={
+                              entregador.status === "em_rota" ? "default" : "secondary"
+                            }
+                          >
+                            {entregador.status === "em_rota" ? "Em Rota" : "Disponível"}
+                          </Badge>
+                        </div>
+                        {!hasGps && (
+                          <p className="text-xs text-destructive mt-1">📍 Sem localização GPS</p>
                         )}
-                      </Button>
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                    {selectedEntregador === entregador.id && hasGps && (
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm text-muted-foreground">Entregas na rota:</span>
+                          <span className="text-sm font-medium">
+                            {clientesDoEntregador.length}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPercurso(!showPercurso);
+                          }}
+                        >
+                          {showPercurso ? (
+                            <>
+                              <EyeOff className="h-4 w-4 mr-2" />
+                              Ocultar Percurso
+                            </>
+                          ) : (
+                            <>
+                              <Route className="h-4 w-4 mr-2" />
+                              Ver Percurso do Dia
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Mapa */}
@@ -310,9 +319,9 @@ export default function MapaEntregadores() {
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
                 Mapa em Tempo Real
-                {selectedEntregador && (
+                {entregadorSelecionado && (
                   <Badge variant="outline" className="ml-2">
-                    {entregadorSelecionado?.nome}
+                    {entregadorSelecionado.nome}
                   </Badge>
                 )}
               </CardTitle>
@@ -322,17 +331,18 @@ export default function MapaEntregadores() {
                 <DeliveryRoutesMap
                   entregadores={entregadores}
                   clientes={clientes}
-                  percurso={percursoAtual}
+                  percurso={percurso}
                   selectedEntregador={selectedEntregador}
                   onSelectEntregador={setSelectedEntregador}
                   showPercurso={showPercurso}
+                  defaultCenter={mapCenter}
                 />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Lista de clientes pendentes */}
+        {/* Lista de entregas do dia */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -341,55 +351,59 @@ export default function MapaEntregadores() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {clientes.map((cliente) => {
-                const entregadorAssociado = entregadores.find(e => e.id === cliente.entregadorId);
-                return (
-                  <div
-                    key={cliente.id}
-                    className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                  >
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                      cliente.status === "pendente" 
-                        ? "bg-warning/10" 
-                        : cliente.status === "em_rota"
-                        ? "bg-primary/10"
-                        : "bg-success/10"
-                    }`}>
-                      <MapPin className={`h-5 w-5 ${
-                        cliente.status === "pendente" 
-                          ? "text-warning" 
+            {clientes.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Nenhuma entrega ativa com localização</p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {clientes.map((cliente) => {
+                  const entregadorAssociado = entregadores.find(e => e.id === cliente.entregadorId);
+                  return (
+                    <div
+                      key={cliente.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                        cliente.status === "pendente"
+                          ? "bg-warning/10"
                           : cliente.status === "em_rota"
-                          ? "text-primary"
-                          : "text-success"
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm">{cliente.cliente}</p>
-                        <Badge 
-                          variant={cliente.status === "pendente" ? "secondary" : "outline"}
-                          className="text-[10px]"
-                        >
-                          {cliente.status === "pendente" ? "Pendente" : cliente.status === "em_rota" ? "Em Rota" : "Entregue"}
-                        </Badge>
+                          ? "bg-primary/10"
+                          : "bg-success/10"
+                      }`}>
+                        <MapPin className={`h-5 w-5 ${
+                          cliente.status === "pendente"
+                            ? "text-warning"
+                            : cliente.status === "em_rota"
+                            ? "text-primary"
+                            : "text-success"
+                        }`} />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{cliente.endereco}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-muted-foreground">
-                          ⏰ {cliente.horarioPrevisto}
-                        </span>
-                        {entregadorAssociado && (
-                          <span className="text-xs text-primary">
-                            {entregadorAssociado.nome}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-sm">{cliente.cliente}</p>
+                          <Badge
+                            variant={cliente.status === "pendente" ? "secondary" : "outline"}
+                            className="text-[10px]"
+                          >
+                            {cliente.status === "pendente" ? "Pendente" : cliente.status === "em_rota" ? "Em Rota" : "Confirmado"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{cliente.endereco}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-muted-foreground">
+                            ⏰ {cliente.horarioPrevisto}
                           </span>
-                        )}
+                          {entregadorAssociado && (
+                            <span className="text-xs text-primary">
+                              {entregadorAssociado.nome}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
