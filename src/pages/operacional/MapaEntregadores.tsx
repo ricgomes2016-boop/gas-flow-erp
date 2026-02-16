@@ -31,20 +31,29 @@ export default function MapaEntregadores() {
       }
 
       // Fetch entregadores
-      let eq = supabase.from("entregadores").select("id, nome, status, latitude, longitude, telefone").eq("ativo", true);
+      let eq = supabase.from("entregadores").select("id, nome, status, latitude, longitude, telefone, updated_at").eq("ativo", true);
       if (unidadeAtual?.id) eq = eq.eq("unidade_id", unidadeAtual.id);
       const { data: entregs } = await eq;
 
       const mapped: Entregador[] = (entregs || [])
         .filter(e => e.latitude && e.longitude)
-        .map(e => ({
-          id: e.id,
-          nome: e.nome,
-          status: (e.status || "disponivel") as "disponivel" | "em_rota" | "offline",
-          lat: e.latitude!,
-          lng: e.longitude!,
-          ultimaAtualizacao: "agora",
-        }));
+        .map(e => {
+          const updatedAt = new Date(e.updated_at);
+          const diffMs = Date.now() - updatedAt.getTime();
+          const diffMin = Math.floor(diffMs / 60000);
+          let ultimaAtt = "agora";
+          if (diffMin >= 1440) ultimaAtt = `há ${Math.floor(diffMin / 1440)}d`;
+          else if (diffMin >= 60) ultimaAtt = `há ${Math.floor(diffMin / 60)}h`;
+          else if (diffMin > 1) ultimaAtt = `há ${diffMin}min`;
+          return {
+            id: e.id,
+            nome: e.nome,
+            status: (e.status || "disponivel") as "disponivel" | "em_rota" | "offline",
+            lat: e.latitude!,
+            lng: e.longitude!,
+            ultimaAtualizacao: ultimaAtt,
+          };
+        });
       setEntregadores(mapped);
 
       // Fetch today's active orders
@@ -126,7 +135,7 @@ export default function MapaEntregadores() {
   const [allEntregadores, setAllEntregadores] = useState<any[]>([]);
   useEffect(() => {
     const fetchAll = async () => {
-      let eq = supabase.from("entregadores").select("id, nome, status, latitude, longitude").eq("ativo", true);
+      let eq = supabase.from("entregadores").select("id, nome, status, latitude, longitude, updated_at").eq("ativo", true);
       if (unidadeAtual?.id) eq = eq.eq("unidade_id", unidadeAtual.id);
       const { data } = await eq;
       setAllEntregadores(data || []);
@@ -272,6 +281,18 @@ export default function MapaEntregadores() {
                         </div>
                         {!hasGps && (
                           <p className="text-xs text-destructive mt-1">📍 Sem localização GPS</p>
+                        )}
+                        {hasGps && entregador.updated_at && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            📍 Atualizado {(() => {
+                              const diffMs = Date.now() - new Date(entregador.updated_at).getTime();
+                              const diffMin = Math.floor(diffMs / 60000);
+                              if (diffMin >= 1440) return `há ${Math.floor(diffMin / 1440)}d`;
+                              if (diffMin >= 60) return `há ${Math.floor(diffMin / 60)}h`;
+                              if (diffMin > 1) return `há ${diffMin}min`;
+                              return "agora";
+                            })()}
+                          </p>
                         )}
                       </div>
                     </div>
