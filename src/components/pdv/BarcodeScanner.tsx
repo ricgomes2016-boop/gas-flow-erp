@@ -7,9 +7,10 @@ interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
   isActive: boolean;
   onToggle: () => void;
+  hideToggle?: boolean;
 }
 
-export function BarcodeScanner({ onScan, isActive, onToggle }: BarcodeScannerProps) {
+export function BarcodeScanner({ onScan, isActive, onToggle, hideToggle }: BarcodeScannerProps) {
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScanRef = useRef<string>("");
@@ -90,29 +91,34 @@ export function BarcodeScanner({ onScan, isActive, onToggle }: BarcodeScannerPro
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Button
-          variant={isActive ? "destructive" : "default"}
-          size="sm"
-          onClick={onToggle}
-          className="gap-2"
-        >
-          {isActive ? (
-            <>
-              <CameraOff className="h-4 w-4" />
-              Parar Scanner
-            </>
-          ) : (
-            <>
-              <Camera className="h-4 w-4" />
-              Ler Código de Barras
-            </>
+      {!hideToggle && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant={isActive ? "destructive" : "default"}
+            size="sm"
+            onClick={onToggle}
+            className="gap-2"
+          >
+            {isActive ? (
+              <>
+                <CameraOff className="h-4 w-4" />
+                Parar Scanner
+              </>
+            ) : (
+              <>
+                <Camera className="h-4 w-4" />
+                Ler Código de Barras
+              </>
+            )}
+          </Button>
+          {error && (
+            <span className="text-xs text-destructive">{error}</span>
           )}
-        </Button>
-        {error && (
-          <span className="text-xs text-destructive">{error}</span>
-        )}
-      </div>
+        </div>
+      )}
+      {hideToggle && error && (
+        <span className="text-xs text-destructive">{error}</span>
+      )}
       
       {isActive && (
         <div
