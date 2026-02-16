@@ -32,10 +32,6 @@ export default function BancoHoras() {
       <Header title="Banco de Horas" subtitle="Controle de horas trabalhadas" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Banco de Horas</h1>
-            <p className="text-muted-foreground">Controle de horas trabalhadas e compensações</p>
-          </div>
           <Button className="gap-2"><Clock className="h-4 w-4" />Lançar Horas</Button>
         </div>
 

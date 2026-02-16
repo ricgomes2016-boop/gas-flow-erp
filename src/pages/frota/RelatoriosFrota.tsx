@@ -77,7 +77,6 @@ export default function RelatoriosFrota() {
       <Header title="Relatórios de Frota" subtitle="Análises e indicadores" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div><h1 className="text-3xl font-bold text-foreground">Relatórios de Frota</h1><p className="text-muted-foreground">Análises e indicadores da frota</p></div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2"><Download className="h-4 w-4" />Exportar PDF</Button>
             <Button variant="outline" className="gap-2"><FileText className="h-4 w-4" />Exportar Excel</Button>

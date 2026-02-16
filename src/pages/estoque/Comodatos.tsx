@@ -49,12 +49,6 @@ export default function Comodatos() {
       <Header title="Comodatos" subtitle="Controle de botijões emprestados" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Comodatos</h1>
-            <p className="text-muted-foreground">
-              Controle de botijões em comodato
-            </p>
-          </div>
           <Button>
             <Plus className="h-4 w-4 mr-2" />
             Novo Comodato

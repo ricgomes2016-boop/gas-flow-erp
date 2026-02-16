@@ -174,10 +174,6 @@ export default function MetasDesafios() {
       <Header title="Metas e Desafios" subtitle="Gerencie metas por unidade" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Metas e Desafios</h1>
-            <p className="text-muted-foreground">Gerencie metas de vendas e operações por unidade</p>
-          </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowAll(!showAll)}>
               <Store className="h-4 w-4 mr-1" />

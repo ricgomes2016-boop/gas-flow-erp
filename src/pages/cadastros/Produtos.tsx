@@ -299,10 +299,6 @@ export default function Produtos() {
       <Header title="Produtos" subtitle="Catálogo de produtos" />
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Produtos</h1>
-            <p className="text-muted-foreground">Gerencie o catálogo de produtos</p>
-          </div>
           <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
             <DialogTrigger asChild>
               <Button className="gap-2" onClick={handleNovoClick}>

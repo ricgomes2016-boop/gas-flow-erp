@@ -83,10 +83,6 @@ export default function FluxoCaixa() {
       <Header title="Fluxo de Caixa" subtitle="Entradas e saídas em tempo real" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Fluxo de Caixa</h1>
-            <p className="text-muted-foreground">Acompanhe entradas e saídas em tempo real</p>
-          </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Movimentação</Button></DialogTrigger>
             <DialogContent>

@@ -201,10 +201,6 @@ export default function GestaoEscalas() {
       <Header title="Escalas de Entregadores" subtitle="Gerenciar escalas de trabalho" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Escalas de Trabalho</h1>
-            <p className="text-muted-foreground">Monte a escala semanal dos entregadores</p>
-          </div>
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Escala

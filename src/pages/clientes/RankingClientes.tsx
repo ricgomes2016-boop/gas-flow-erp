@@ -44,7 +44,7 @@ export default function RankingClientes() {
     <MainLayout>
       <Header title="Ranking de Clientes" subtitle="Top clientes por volume de compras" />
       <div className="p-6 space-y-6">
-        <div><h1 className="text-2xl font-bold text-foreground">Ranking dos Clientes</h1><p className="text-muted-foreground">Top clientes por volume de compras</p></div>
+        
 
         {ranking.length >= 3 && (
           <div className="grid gap-4 md:grid-cols-3">

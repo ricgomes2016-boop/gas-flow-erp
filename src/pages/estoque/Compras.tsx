@@ -573,10 +573,6 @@ export default function Compras() {
       <Header title="Compras" subtitle="Gestão de compras e pedidos" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Compras</h1>
-            <p className="text-muted-foreground">Gestão de compras e pedidos a fornecedores</p>
-          </div>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />Nova Compra</Button>

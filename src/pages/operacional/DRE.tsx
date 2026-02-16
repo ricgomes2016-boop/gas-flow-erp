@@ -127,10 +127,6 @@ export default function DRE() {
     <MainLayout>
       <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">DRE - Demonstração do Resultado</h1>
-          <p className="text-muted-foreground">Demonstrativo de Resultado do Exercício</p>
-        </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-green-500/10"><TrendingUp className="h-6 w-6 text-green-500" /></div><div><p className="text-2xl font-bold">R$ {(totalReceita / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Receita Trimestre</p></div></div></CardContent></Card>

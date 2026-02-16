@@ -38,10 +38,6 @@ export default function Contador() {
       <Header title="Área do Contador" subtitle="Documentos e relatórios para contabilidade" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Área do Contador</h1>
-            <p className="text-muted-foreground">Documentos e relatórios para contabilidade</p>
-          </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2">
               <Send className="h-4 w-4" />

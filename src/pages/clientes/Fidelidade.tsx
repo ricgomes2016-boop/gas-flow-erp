@@ -45,7 +45,7 @@ export default function Fidelidade() {
     <MainLayout>
       <Header title="Fidelidade" subtitle="Programa de fidelidade e indicações" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-foreground">Fidelidade / Indicações</h1><p className="text-muted-foreground">Programa de fidelidade e indicações</p></div><Button><Gift className="h-4 w-4 mr-2" />Configurar Programa</Button></div>
+        <div className="flex items-center justify-between"><Button><Gift className="h-4 w-4 mr-2" />Configurar Programa</Button></div>
         <div className="grid gap-4 md:grid-cols-4">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><Users className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">{fidelidade.length}</p><p className="text-sm text-muted-foreground">Participantes</p></div></div></CardContent></Card>
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-yellow-500/10"><Star className="h-6 w-6 text-yellow-500" /></div><div><p className="text-2xl font-bold">{totalPontos.toLocaleString("pt-BR")}</p><p className="text-sm text-muted-foreground">Pontos Ativos</p></div></div></CardContent></Card>

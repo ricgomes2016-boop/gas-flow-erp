@@ -129,14 +129,6 @@ export default function MapaEntregadores() {
       <Header title="Mapa dos Entregadores" subtitle="Acompanhe a localização em tempo real" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Mapa de Entregas
-            </h1>
-            <p className="text-muted-foreground">
-              Visualização em tempo real de entregadores e clientes
-            </p>
-          </div>
           <div className="flex gap-2">
             {selectedEntregador && (
               <Button

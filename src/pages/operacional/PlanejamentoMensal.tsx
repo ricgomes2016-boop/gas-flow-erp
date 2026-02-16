@@ -76,12 +76,8 @@ export default function PlanejamentoMensal() {
     <MainLayout>
       <Header title="Planejamento Financeiro" subtitle="Planejamento mensal de receitas e despesas" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Planejamento Financeiro - Mês</h1>
-            <p className="text-muted-foreground">{now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</p>
-          </div>
-        </div>
+
+
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-green-500/10"><TrendingUp className="h-6 w-6 text-green-500" /></div><div><p className="text-2xl font-bold">R$ {totalRealizado.toLocaleString("pt-BR")}</p><p className="text-sm text-muted-foreground">Resultado Atual</p></div></div></CardContent></Card>

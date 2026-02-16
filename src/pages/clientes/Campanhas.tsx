@@ -38,7 +38,7 @@ export default function Campanhas() {
     <MainLayout>
       <Header title="Campanhas" subtitle="Marketing e comunicação" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-foreground">Campanhas</h1><p className="text-muted-foreground">Gerenciar campanhas de marketing</p></div><Button><Plus className="h-4 w-4 mr-2" />Nova Campanha</Button></div>
+        <div className="flex items-center justify-between"><Button><Plus className="h-4 w-4 mr-2" />Nova Campanha</Button></div>
         <div className="grid gap-4 md:grid-cols-4">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><Megaphone className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">{campanhas.length}</p><p className="text-sm text-muted-foreground">Campanhas</p></div></div></CardContent></Card>
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-blue-500/10"><Users className="h-6 w-6 text-blue-500" /></div><div><p className="text-2xl font-bold">{totalAlcance}</p><p className="text-sm text-muted-foreground">Alcance Total</p></div></div></CardContent></Card>

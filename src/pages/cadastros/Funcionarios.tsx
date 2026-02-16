@@ -131,10 +131,6 @@ export default function Funcionarios() {
       <Header title="Funcionários" subtitle="Gerencie a equipe da empresa" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Funcionários</h1>
-            <p className="text-muted-foreground">Gerencie a equipe da empresa</p>
-          </div>
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Funcionário</Button>

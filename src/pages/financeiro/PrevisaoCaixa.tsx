@@ -133,12 +133,8 @@ export default function PrevisaoCaixa() {
     <MainLayout>
       <Header title="Previsão de Caixa" subtitle="Projeções financeiras baseadas em histórico" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Previsão de Caixa</h1>
-            <p className="text-muted-foreground">Projeções financeiras baseadas em dados reais</p>
-          </div>
-        </div>
+
+
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>

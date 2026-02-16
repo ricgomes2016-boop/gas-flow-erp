@@ -57,12 +57,7 @@ export default function EstoqueRota() {
     <MainLayout>
       <Header title="Estoque em Rota" subtitle="Controle de estoque dos entregadores" />
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Estoque em Rota</h1>
-          <p className="text-muted-foreground">
-            Produtos em posse dos entregadores
-          </p>
-        </div>
+
 
         {/* KPIs */}
         <div className="grid gap-4 md:grid-cols-4">

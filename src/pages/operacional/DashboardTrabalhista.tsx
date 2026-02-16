@@ -76,10 +76,6 @@ export default function DashboardTrabalhista() {
       <Header title="Dashboard Trabalhista" subtitle="Controle de jornadas e horas extras" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard Trabalhista</h1>
-            <p className="text-muted-foreground">Controle de jornada e conformidade trabalhista</p>
-          </div>
           <Button><FileText className="h-4 w-4 mr-2" />Gerar Relatório</Button>
         </div>
 
