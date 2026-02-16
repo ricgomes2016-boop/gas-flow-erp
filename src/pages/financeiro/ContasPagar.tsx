@@ -23,7 +23,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2 } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -70,6 +71,13 @@ export default function ContasPagar() {
   }>>([]);
   const [reviewMode, setReviewMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Consolidation states
+  const [unificarDialogOpen, setUnificarDialogOpen] = useState(false);
+  const [selectedFornecedor, setSelectedFornecedor] = useState<string | null>(null);
+  const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
+  const [unificarVencimento, setUnificarVencimento] = useState("");
+  const [unificarObservacoes, setUnificarObservacoes] = useState("");
 
   const [form, setForm] = useState({
     fornecedor: "", descricao: "", valor: "", vencimento: "", categoria: "", observacoes: "",
@@ -281,6 +289,98 @@ export default function ContasPagar() {
     }));
   };
 
+  // Consolidation logic
+  const fornecedoresComMultiplas = (() => {
+    const pendentes = contas.filter(c => c.status === "pendente");
+    const grouped: Record<string, ContaPagar[]> = {};
+    pendentes.forEach(c => {
+      const key = c.fornecedor.trim().toLowerCase();
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(c);
+    });
+    return Object.entries(grouped)
+      .filter(([, items]) => items.length >= 2)
+      .map(([, items]) => ({
+        fornecedor: items[0].fornecedor,
+        contas: items,
+        total: items.reduce((s, c) => s + Number(c.valor), 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  })();
+
+  const openUnificarDialog = () => {
+    setSelectedFornecedor(null);
+    setSelectedContasIds(new Set());
+    setUnificarVencimento("");
+    setUnificarObservacoes("");
+    setUnificarDialogOpen(true);
+  };
+
+  const selectFornecedor = (fornecedor: string) => {
+    setSelectedFornecedor(fornecedor);
+    const grupo = fornecedoresComMultiplas.find(f => f.fornecedor === fornecedor);
+    if (grupo) {
+      setSelectedContasIds(new Set(grupo.contas.map(c => c.id)));
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      setUnificarVencimento(d.toISOString().split("T")[0]);
+    }
+  };
+
+  const toggleContaSelection = (id: string) => {
+    setSelectedContasIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleUnificar = async () => {
+    if (!selectedFornecedor || selectedContasIds.size < 2) {
+      toast.error("Selecione ao menos 2 contas para unificar");
+      return;
+    }
+    if (!unificarVencimento) {
+      toast.error("Informe a data de vencimento");
+      return;
+    }
+
+    const grupo = fornecedoresComMultiplas.find(f => f.fornecedor === selectedFornecedor);
+    if (!grupo) return;
+
+    const contasSelecionadas = grupo.contas.filter(c => selectedContasIds.has(c.id));
+    const totalUnificado = contasSelecionadas.reduce((s, c) => s + Number(c.valor), 0);
+
+    const detalhes = contasSelecionadas.map(c =>
+      `• ${c.descricao} — R$ ${Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (venc. ${format(new Date(c.vencimento + "T12:00:00"), "dd/MM/yyyy")})`
+    ).join("\n");
+
+    const descricaoUnificada = `Conta unificada (${contasSelecionadas.length} itens)`;
+    const obsUnificada = `${unificarObservacoes ? unificarObservacoes + "\n\n" : ""}--- Detalhamento ---\n${detalhes}`;
+
+    const { error: insertError } = await supabase.from("contas_pagar").insert({
+      fornecedor: selectedFornecedor,
+      descricao: descricaoUnificada,
+      valor: totalUnificado,
+      vencimento: unificarVencimento,
+      categoria: contasSelecionadas[0].categoria || null,
+      observacoes: obsUnificada,
+      unidade_id: unidadeAtual?.id || null,
+    });
+    if (insertError) { toast.error("Erro ao criar conta unificada"); console.error(insertError); return; }
+
+    const ids = contasSelecionadas.map(c => c.id);
+    const { error: updateError } = await supabase.from("contas_pagar")
+      .update({ status: "paga", observacoes: `Unificada em ${format(new Date(), "dd/MM/yyyy")}` })
+      .in("id", ids);
+    if (updateError) { toast.error("Erro ao marcar contas originais"); console.error(updateError); return; }
+
+    toast.success(`${contasSelecionadas.length} contas unificadas! Total: R$ ${totalUnificado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
+    setUnificarDialogOpen(false);
+    fetchContas();
+  };
+
   const hoje = new Date().toISOString().split("T")[0];
 
   const filtered = contas.filter(c => {
@@ -362,6 +462,12 @@ export default function ContasPagar() {
               <Camera className="h-4 w-4" />
               Foto com IA
             </Button>
+            {fornecedoresComMultiplas.length > 0 && (
+              <Button variant="outline" className="gap-2" onClick={openUnificarDialog}>
+                <Layers className="h-4 w-4" />
+                Unificar Fornecedor
+              </Button>
+            )}
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
               <DialogTrigger asChild>
                 <Button className="gap-2"><Plus className="h-4 w-4" />Nova Conta</Button>
@@ -681,6 +787,120 @@ export default function ContasPagar() {
               <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
               <p>Nenhuma despesa identificada na imagem.</p>
               <p className="text-sm mt-1">Tente com uma foto mais nítida do boleto ou conta.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unificar Fornecedor Dialog */}
+      <Dialog open={unificarDialogOpen} onOpenChange={setUnificarDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Unificar Contas por Fornecedor
+            </DialogTitle>
+          </DialogHeader>
+
+          {!selectedFornecedor ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Selecione o fornecedor para unificar as contas pendentes em uma única cobrança:
+              </p>
+              {fornecedoresComMultiplas.map(grupo => (
+                <button
+                  key={grupo.fornecedor}
+                  className="w-full flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors text-left"
+                  onClick={() => selectFornecedor(grupo.fornecedor)}
+                >
+                  <div>
+                    <p className="font-medium">{grupo.fornecedor}</p>
+                    <p className="text-sm text-muted-foreground">{grupo.contas.length} contas pendentes</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">R$ {grupo.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
+              ))}
+              {fornecedoresComMultiplas.length === 0 && (
+                <p className="text-center py-6 text-muted-foreground">
+                  Nenhum fornecedor com 2+ contas pendentes para unificar.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Button variant="ghost" size="sm" className="gap-1" onClick={() => setSelectedFornecedor(null)}>
+                ← Voltar
+              </Button>
+
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="font-medium text-lg">{selectedFornecedor}</p>
+                <p className="text-sm text-muted-foreground">
+                  Selecione as contas que deseja unificar:
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {fornecedoresComMultiplas.find(f => f.fornecedor === selectedFornecedor)?.contas.map(conta => {
+                  const vencida = conta.vencimento < hoje;
+                  return (
+                    <label
+                      key={conta.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 cursor-pointer transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedContasIds.has(conta.id)}
+                        onCheckedChange={() => toggleContaSelection(conta.id)}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{conta.descricao}</p>
+                        <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+                          <span>Venc: {format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</span>
+                          {conta.categoria && <Badge variant="outline" className="text-xs py-0">{conta.categoria}</Badge>}
+                          {vencida && <Badge variant="destructive" className="text-xs py-0">Vencida</Badge>}
+                        </div>
+                      </div>
+                      <span className="font-semibold whitespace-nowrap">
+                        R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Total Unificado ({selectedContasIds.size} contas)</span>
+                  <span className="text-lg font-bold">
+                    R$ {(fornecedoresComMultiplas.find(f => f.fornecedor === selectedFornecedor)?.contas
+                      .filter(c => selectedContasIds.has(c.id))
+                      .reduce((s, c) => s + Number(c.valor), 0) || 0)
+                      .toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Vencimento da Conta Unificada *</Label>
+                  <Input type="date" value={unificarVencimento} onChange={e => setUnificarVencimento(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Observações</Label>
+                  <Input value={unificarObservacoes} onChange={e => setUnificarObservacoes(e.target.value)} placeholder="Ex: Boleto semanal" />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setUnificarDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleUnificar} disabled={selectedContasIds.size < 2} className="gap-2">
+                  <Layers className="h-4 w-4" />
+                  Unificar {selectedContasIds.size} Contas
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
