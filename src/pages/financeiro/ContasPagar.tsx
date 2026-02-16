@@ -495,30 +495,19 @@ export default function ContasPagar() {
     <MainLayout>
       <Header title="Contas a Pagar" subtitle="Gerencie todas as contas" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handlePhotoCapture}
-            />
-            <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-              <Camera className="h-4 w-4" />
-              Foto com IA
-            </Button>
-            {fornecedoresComMultiplas.length > 0 && (
-              <Button variant="outline" className="gap-2" onClick={openUnificarDialog}>
-                <Layers className="h-4 w-4" />
-                Unificar Fornecedor
-              </Button>
-            )}
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
-              <DialogTrigger asChild>
-                <Button className="gap-2"><Plus className="h-4 w-4" />Nova Conta</Button>
-              </DialogTrigger>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handlePhotoCapture}
+          />
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 flex-1 sm:flex-none"><Plus className="h-4 w-4" /><span className="hidden sm:inline">Nova Conta</span><span className="sm:hidden">Nova</span></Button>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>{editId ? "Editar Conta" : "Nova Conta a Pagar"}</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
@@ -545,7 +534,16 @@ export default function ContasPagar() {
               </div>
             </DialogContent>
           </Dialog>
-          </div>
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => fileInputRef.current?.click()}>
+            <Camera className="h-4 w-4" />
+            <span className="hidden sm:inline">Foto com IA</span><span className="sm:hidden">Foto IA</span>
+          </Button>
+          {fornecedoresComMultiplas.length > 0 && (
+            <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={openUnificarDialog}>
+              <Layers className="h-4 w-4" />
+              <span className="hidden sm:inline">Unificar Fornecedor</span><span className="sm:hidden">Unificar</span>
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -602,40 +600,40 @@ export default function ContasPagar() {
         )}
 
         <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <CardTitle>Lista de Contas</CardTitle>
-                <div className="relative">
+          <CardHeader className="px-3 sm:px-6">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-base sm:text-lg">Lista de Contas</CardTitle>
+                <div className="relative w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar conta..." className="pl-10 w-[250px]" value={search} onChange={e => setSearch(e.target.value)} />
+                  <Input placeholder="Buscar conta..." className="pl-10 w-full sm:w-[250px]" value={search} onChange={e => setSearch(e.target.value)} />
                 </div>
               </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2 sm:gap-3">
+                <div className="col-span-1">
                   <Label className="text-xs text-muted-foreground">Fornecedor</Label>
                   <Select value={filtroFornecedor} onValueChange={setFiltroFornecedor}>
-                    <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todos">Todos</SelectItem>
                       {fornecedoresUnicos.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="col-span-1">
                   <Label className="text-xs text-muted-foreground">Categoria</Label>
                   <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-                    <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todos">Todas</SelectItem>
                       {categoriasUnicas.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="col-span-1">
                   <Label className="text-xs text-muted-foreground">Status</Label>
                   <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full sm:w-[140px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todos">Todos</SelectItem>
                       <SelectItem value="pendente">Pendentes</SelectItem>
@@ -644,34 +642,36 @@ export default function ContasPagar() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="col-span-1 flex items-end gap-2">
+                  <div className="flex items-center gap-2 h-10">
+                    <Checkbox id="agrupar" checked={agrupar} onCheckedChange={(v) => setAgrupar(!!v)} />
+                    <Label htmlFor="agrupar" className="text-xs cursor-pointer">Agrupar</Label>
+                  </div>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs h-10" onClick={clearAllFilters}>
+                      <X className="h-3 w-3" />Limpar
+                    </Button>
+                  )}
+                </div>
+                <div className="col-span-1">
                   <Label className="text-xs text-muted-foreground">De</Label>
-                  <Input type="date" className="w-[145px]" value={dataInicial} onChange={e => setDataInicial(e.target.value)} />
+                  <Input type="date" className="w-full sm:w-[145px]" value={dataInicial} onChange={e => setDataInicial(e.target.value)} />
                 </div>
-                <div>
+                <div className="col-span-1">
                   <Label className="text-xs text-muted-foreground">Até</Label>
-                  <Input type="date" className="w-[145px]" value={dataFinal} onChange={e => setDataFinal(e.target.value)} />
+                  <Input type="date" className="w-full sm:w-[145px]" value={dataFinal} onChange={e => setDataFinal(e.target.value)} />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox id="agrupar" checked={agrupar} onCheckedChange={(v) => setAgrupar(!!v)} />
-                  <Label htmlFor="agrupar" className="text-xs cursor-pointer">Agrupar</Label>
-                </div>
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={clearAllFilters}>
-                    <X className="h-3 w-3" />Limpar
+                <div className="col-span-2 sm:col-span-1 flex gap-2 sm:ml-auto">
+                  <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2 flex-1 sm:flex-none">
+                    <Download className="h-4 w-4" /><span className="hidden sm:inline">Excel</span><span className="sm:hidden">XLS</span>
                   </Button>
-                )}
-                <div className="flex gap-2 ml-auto">
-                  <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
-                    <Download className="h-4 w-4" />Excel
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
+                  <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2 flex-1 sm:flex-none">
                     <Download className="h-4 w-4" />PDF
                   </Button>
                 </div>
               </div>
               {hasActiveFilters && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Filter className="h-3 w-3" />
                   <span>{filtered.length} de {contas.length} contas</span>
                   {filtroFornecedor !== "todos" && <Badge variant="secondary" className="text-xs gap-1 py-0">{filtroFornecedor}<button onClick={() => setFiltroFornecedor("todos")}><X className="h-3 w-3" /></button></Badge>}
@@ -681,54 +681,55 @@ export default function ContasPagar() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : filtered.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</p> : (
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>Fornecedor</TableHead><TableHead className="hidden sm:table-cell">Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
+              <>
+                {/* Mobile card view */}
+                <div className="sm:hidden space-y-3">
                   {agrupar && groupedFiltered ? (
                     groupedFiltered.map(([fornecedor, items]) => {
                       const groupTotal = items.reduce((s, c) => s + Number(c.valor), 0);
                       return (
-                        <>
-                          <TableRow key={`group-${fornecedor}`} className="bg-muted/40 hover:bg-muted/60">
-                            <TableCell colSpan={4} className="font-semibold">
-                              <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-muted-foreground" />
-                                {fornecedor}
-                                <Badge variant="outline" className="text-xs">{items.length}</Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-bold">R$ {groupTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell colSpan={2} />
-                          </TableRow>
+                        <div key={`group-${fornecedor}`}>
+                          <div className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold text-sm">{fornecedor}</span>
+                              <Badge variant="outline" className="text-xs">{items.length}</Badge>
+                            </div>
+                            <span className="font-bold text-sm">R$ {groupTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
                           {items.map(conta => {
                             const vencida = conta.status === "pendente" && conta.vencimento < hoje;
                             const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
                             return (
-                              <TableRow key={conta.id}>
-                                <TableCell className="pl-10 text-muted-foreground text-sm">{conta.fornecedor}</TableCell>
-                                <TableCell className="hidden sm:table-cell">{conta.descricao}</TableCell>
-                                <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
-                                <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
-                                <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                                <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
-                                <TableCell className="text-right">
+                              <div key={conta.id} className="border rounded-lg p-3 ml-2 mb-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{conta.descricao}</p>
+                                    <p className="text-xs text-muted-foreground">{conta.fornecedor}</p>
+                                  </div>
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                       {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
                                       <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
                                       <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
-                                </TableCell>
-                              </TableRow>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"} className="text-xs">{displayStatus}</Badge>
+                                    {conta.categoria && <Badge variant="outline" className="text-xs">{conta.categoria}</Badge>}
+                                  </div>
+                                  <span className="font-bold text-sm">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">Venc: {format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</p>
+                              </div>
                             );
                           })}
-                        </>
+                        </div>
                       );
                     })
                   ) : (
@@ -736,29 +737,115 @@ export default function ContasPagar() {
                       const vencida = conta.status === "pendente" && conta.vencimento < hoje;
                       const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
                       return (
-                        <TableRow key={conta.id}>
-                          <TableCell className="font-medium">{conta.fornecedor}</TableCell>
-                          <TableCell className="hidden sm:table-cell">{conta.descricao}</TableCell>
-                          <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
-                          <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
-                          <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                          <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
-                          <TableCell className="text-right">
+                        <div key={conta.id} className="border rounded-lg p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{conta.descricao}</p>
+                              <p className="text-xs text-muted-foreground">{conta.fornecedor}</p>
+                            </div>
                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
                                 <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
                                 <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"} className="text-xs">{displayStatus}</Badge>
+                              {conta.categoria && <Badge variant="outline" className="text-xs">{conta.categoria}</Badge>}
+                            </div>
+                            <span className="font-bold text-sm">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Venc: {format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</p>
+                        </div>
                       );
                     })
                   )}
-                </TableBody>
-              </Table>
+                </div>
+
+                {/* Desktop table view */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader><TableRow>
+                      <TableHead>Fornecedor</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {agrupar && groupedFiltered ? (
+                        groupedFiltered.map(([fornecedor, items]) => {
+                          const groupTotal = items.reduce((s, c) => s + Number(c.valor), 0);
+                          return (
+                            <>
+                              <TableRow key={`group-${fornecedor}`} className="bg-muted/40 hover:bg-muted/60">
+                                <TableCell colSpan={4} className="font-semibold">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                                    {fornecedor}
+                                    <Badge variant="outline" className="text-xs">{items.length}</Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-bold">R$ {groupTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                                <TableCell colSpan={2} />
+                              </TableRow>
+                              {items.map(conta => {
+                                const vencida = conta.status === "pendente" && conta.vencimento < hoje;
+                                const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
+                                return (
+                                  <TableRow key={conta.id}>
+                                    <TableCell className="pl-10 text-muted-foreground text-sm">{conta.fornecedor}</TableCell>
+                                    <TableCell>{conta.descricao}</TableCell>
+                                    <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
+                                    <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                                    <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                                    <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
+                                    <TableCell className="text-right">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
+                                          <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </>
+                          );
+                        })
+                      ) : (
+                        filtered.map(conta => {
+                          const vencida = conta.status === "pendente" && conta.vencimento < hoje;
+                          const displayStatus = vencida ? "Vencida" : conta.status === "paga" ? "Paga" : "Pendente";
+                          return (
+                            <TableRow key={conta.id}>
+                              <TableCell className="font-medium">{conta.fornecedor}</TableCell>
+                              <TableCell>{conta.descricao}</TableCell>
+                              <TableCell><Badge variant="outline">{conta.categoria || "—"}</Badge></TableCell>
+                              <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                              <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                              <TableCell><Badge variant={displayStatus === "Paga" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
+                                    <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
