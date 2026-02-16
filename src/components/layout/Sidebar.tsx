@@ -214,7 +214,7 @@ export function Sidebar() {
             <img src={logoImg} alt="Nacional Gás" className="h-9 w-9 flex-shrink-0 rounded-lg object-contain" />
             {!collapsed && (
               <span className="text-lg font-bold text-sidebar-foreground">
-                Nacional Gás
+                Gás Fácil
               </span>
             )}
           </Link>
