@@ -32,6 +32,8 @@ serve(async (req) => {
       );
     }
 
+    console.log("PDF base64 length:", pdf_base64.length);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY não configurada");
@@ -79,7 +81,7 @@ Retorne APENAS um JSON válido no formato:
   ]
 }`;
 
-    // Use inline_data with proper PDF mime type for Gemini
+    // Try sending PDF as file input to Gemini
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -106,13 +108,14 @@ Retorne APENAS um JSON válido no formato:
       }),
     });
 
+    let content = "";
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI API error:", errorText);
+      console.error("AI API error (primary):", errorText);
       
-      // If PDF format fails, try converting first pages as images approach
-      // Fallback: send as plain text extraction request
-      console.log("Trying fallback approach - treating PDF content as text");
+      // Fallback: send truncated base64 as text context
+      console.log("Trying fallback approach - sending PDF content as text context");
       
       const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -125,12 +128,7 @@ Retorne APENAS um JSON válido no formato:
           messages: [
             {
               role: "user",
-              content: [
-                { 
-                  type: "text", 
-                  text: `${prompt}\n\nO conteúdo do PDF está codificado em base64 abaixo. Decodifique e extraia os dados:\n\n${pdf_base64.substring(0, 50000)}` 
-                },
-              ],
+              content: `${prompt}\n\nO conteúdo do PDF está codificado em base64 abaixo. Decodifique e extraia os dados de clientes:\n\n${pdf_base64.substring(0, 80000)}`,
             },
           ],
           temperature: 0.1,
@@ -144,38 +142,82 @@ Retorne APENAS um JSON válido no formato:
       }
 
       const fallbackData = await fallbackResponse.json();
-      const fallbackContent = fallbackData.choices?.[0]?.message?.content || "";
-      const fallbackJsonMatch = fallbackContent.match(/\{[\s\S]*\}/);
-      
-      if (!fallbackJsonMatch) {
-        throw new Error("Não foi possível extrair dados do PDF");
-      }
+      content = fallbackData.choices?.[0]?.message?.content || "";
+      console.log("Fallback AI response content length:", content.length);
+    } else {
+      const aiData = await response.json();
+      content = aiData.choices?.[0]?.message?.content || "";
+      console.log("Primary AI response content length:", content.length);
+    }
 
-      const fallbackParsed = JSON.parse(fallbackJsonMatch[0]);
+    console.log("AI raw response (first 500 chars):", content.substring(0, 500));
+
+    // Extract JSON from response - try multiple patterns
+    let parsed: any = null;
+
+    // Try to find JSON with "clientes" key
+    const jsonMatch = content.match(/\{[\s\S]*"clientes"[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+        console.log("Parsed with clientes key, count:", parsed.clientes?.length);
+      } catch (e) {
+        console.error("Failed to parse JSON with clientes key:", e);
+      }
+    }
+
+    // If no "clientes" key found, try finding any JSON array
+    if (!parsed || !parsed.clientes) {
+      const arrayMatch = content.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        try {
+          const arr = JSON.parse(arrayMatch[0]);
+          parsed = { clientes: arr };
+          console.log("Parsed from array, count:", arr.length);
+        } catch (e) {
+          console.error("Failed to parse JSON array:", e);
+        }
+      }
+    }
+
+    // Last resort: try any JSON object 
+    if (!parsed || !parsed.clientes) {
+      const anyJsonMatch = content.match(/\{[\s\S]*\}/);
+      if (anyJsonMatch) {
+        try {
+          const obj = JSON.parse(anyJsonMatch[0]);
+          // Check if the object itself looks like a client
+          if (obj.nome) {
+            parsed = { clientes: [obj] };
+            console.log("Parsed single client object");
+          } else {
+            parsed = obj;
+            console.log("Parsed generic object:", Object.keys(obj));
+          }
+        } catch (e) {
+          console.error("Failed to parse any JSON:", e);
+        }
+      }
+    }
+
+    if (!parsed || !parsed.clientes || parsed.clientes.length === 0) {
+      console.error("No clients extracted from AI response");
       return new Response(
-        JSON.stringify(fallbackParsed),
+        JSON.stringify({ clientes: [], message: "Nenhum cliente encontrado no PDF" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content || "";
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Não foi possível extrair dados do PDF");
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    console.log(`Successfully extracted ${parsed.clientes.length} clients`);
 
     return new Response(
-      JSON.stringify(parsed),
+      JSON.stringify({ clientes: parsed.clientes }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Erro ao processar PDF" }),
+      JSON.stringify({ error: "Erro ao processar PDF" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
