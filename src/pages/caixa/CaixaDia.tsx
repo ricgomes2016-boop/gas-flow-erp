@@ -97,7 +97,7 @@ export default function CaixaDia() {
 
     // Fetch movimentações, pedidos and sessão in parallel
     let qMov = supabase.from("movimentacoes_caixa").select("*").gte("created_at", inicio).lte("created_at", fim).order("created_at", { ascending: false });
-    if (unidadeAtual?.id) qMov = qMov.eq("unidade_id", unidadeAtual.id);
+    if (unidadeAtual?.id) qMov = qMov.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
 
     let qPed = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, created_at").gte("created_at", inicio).lte("created_at", fim);
     if (unidadeAtual?.id) qPed = qPed.eq("unidade_id", unidadeAtual.id);

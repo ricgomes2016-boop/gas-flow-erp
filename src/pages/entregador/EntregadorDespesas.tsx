@@ -68,6 +68,7 @@ export default function EntregadorDespesas() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [entregadorId, setEntregadorId] = useState<string | null>(null);
+  const [entregadorUnidadeId, setEntregadorUnidadeId] = useState<string | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [novaDespesa, setNovaDespesa] = useState({
     tipo: "",
@@ -87,12 +88,13 @@ export default function EntregadorDespesas() {
       // Get entregador
       const { data: entregador } = await supabase
         .from("entregadores")
-        .select("id")
+        .select("id, unidade_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (entregador) {
         setEntregadorId(entregador.id);
+        setEntregadorUnidadeId(entregador.unidade_id || null);
 
         const { data, error } = await supabase
           .from("movimentacoes_caixa")
@@ -166,6 +168,7 @@ export default function EntregadorDespesas() {
       status: "pendente",
       entregador_id: entregadorId,
       solicitante: "entregador",
+      unidade_id: entregadorUnidadeId,
     });
 
     if (error) {
