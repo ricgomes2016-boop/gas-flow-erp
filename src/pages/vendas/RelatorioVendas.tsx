@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  FileSpreadsheet, Download, Filter, TrendingUp, DollarSign, ShoppingCart, Calendar, RefreshCw, Users, Megaphone,
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  FileSpreadsheet, Download, Filter, TrendingUp, DollarSign, ShoppingCart, Calendar, RefreshCw, Users, Megaphone, Pencil,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
@@ -65,12 +68,36 @@ interface PedidoRelatorio {
 export default function RelatorioVendas() {
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
+  const queryClient = useQueryClient();
   const hoje = new Date();
 
   const [dataInicio, setDataInicio] = useState(format(startOfMonth(hoje), "yyyy-MM-dd"));
   const [dataFim, setDataFim] = useState(format(endOfMonth(hoje), "yyyy-MM-dd"));
   const [statusFiltro, setStatusFiltro] = useState<string>("todos");
   const [canalFiltro, setCanalFiltro] = useState<string>("todos");
+  const [editandoCanalId, setEditandoCanalId] = useState<string | null>(null);
+
+  // Buscar canais de venda cadastrados
+  const { data: canaisVenda = [] } = useQuery({
+    queryKey: ["canais-venda", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase.from("canais_venda").select("id, nome").eq("ativo", true);
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
+  const alterarCanalVenda = async (pedidoId: string, novoCanal: string) => {
+    const { error } = await supabase.from("pedidos").update({ canal_venda: novoCanal }).eq("id", pedidoId);
+    if (error) {
+      toast({ title: "Erro ao alterar canal", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Canal de venda atualizado!" });
+      queryClient.invalidateQueries({ queryKey: ["relatorio-vendas"] });
+    }
+    setEditandoCanalId(null);
+  };
 
   const { data: pedidos = [], isLoading, refetch } = useQuery({
     queryKey: ["relatorio-vendas", dataInicio, dataFim, unidadeAtual?.id],
@@ -410,7 +437,39 @@ export default function RelatorioVendas() {
                           <TableCell className="hidden sm:table-cell font-mono text-xs">#{pedido.id.slice(0, 6).toUpperCase()}</TableCell>
                           <TableCell className="text-xs md:text-sm">{pedido.clientes?.nome || "Não identificado"}</TableCell>
                           <TableCell className="hidden md:table-cell text-xs">{pedido.entregadores?.nome || "-"}</TableCell>
-                          <TableCell className="hidden md:table-cell text-xs"><Badge variant="outline">{canalLabels[pedido.canal_venda || ""] || pedido.canal_venda || "-"}</Badge></TableCell>
+                          <TableCell className="hidden md:table-cell text-xs">
+                            <Popover open={editandoCanalId === pedido.id} onOpenChange={(open) => setEditandoCanalId(open ? pedido.id : null)}>
+                              <PopoverTrigger asChild>
+                                <button className="inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
+                                  <Badge variant="outline">{canalLabels[pedido.canal_venda || ""] || pedido.canal_venda || "-"}</Badge>
+                                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-48 p-2 bg-popover border border-border shadow-lg z-50" align="start">
+                                <div className="space-y-1">
+                                  <p className="text-xs font-medium text-muted-foreground px-1 mb-2">Trocar canal:</p>
+                                  {["telefone", "whatsapp", "portaria", "balcao", "Entregador"].map((canal) => (
+                                    <button
+                                      key={canal}
+                                      className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${pedido.canal_venda === canal ? "bg-accent font-medium" : ""}`}
+                                      onClick={() => alterarCanalVenda(pedido.id, canal)}
+                                    >
+                                      {canalLabels[canal] || canal}
+                                    </button>
+                                  ))}
+                                  {canaisVenda.filter(c => !["telefone", "whatsapp", "portaria", "balcao", "Entregador"].includes(c.nome)).map((c) => (
+                                    <button
+                                      key={c.id}
+                                      className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${pedido.canal_venda === c.nome ? "bg-accent font-medium" : ""}`}
+                                      onClick={() => alterarCanalVenda(pedido.id, c.nome)}
+                                    >
+                                      {c.nome}
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </TableCell>
                           <TableCell className="font-semibold text-xs md:text-sm">{formatCurrency(pedido.valor_total || 0)}</TableCell>
                           <TableCell className="hidden lg:table-cell"><Badge variant="outline" className="text-xs">{pedido.forma_pagamento || "-"}</Badge></TableCell>
                           <TableCell><Badge variant={statusConfig[pedido.status || "pendente"]?.variant || "secondary"} className="text-xs">{statusConfig[pedido.status || "pendente"]?.label || pedido.status}</Badge></TableCell>
