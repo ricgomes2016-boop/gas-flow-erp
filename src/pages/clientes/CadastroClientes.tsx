@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown, Navigation } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown, Navigation, FileUp } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -128,6 +128,7 @@ export default function CadastroClientesCad() {
   const [isSavingBulk, setIsSavingBulk] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Stats
   const [stats, setStats] = useState({
@@ -622,6 +623,72 @@ export default function CadastroClientesCad() {
     }
   };
 
+  // PDF import function
+  const handlePdfSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast({ title: "Formato inválido", description: "Use apenas arquivos PDF.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Máximo 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessingPhoto(true);
+    setIsPhotoModalOpen(true);
+    setExtractedClients([]);
+    setSelectedClients(new Set());
+
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("extract-clients-from-pdf", {
+        body: { pdf_base64: base64 },
+      });
+
+      if (error) throw error;
+      if (!data?.clientes || data.clientes.length === 0) {
+        toast({ title: "Nenhum cliente encontrado", description: "A IA não conseguiu extrair dados do PDF.", variant: "destructive" });
+        setIsPhotoModalOpen(false);
+        return;
+      }
+
+      const mapped: FormData[] = data.clientes.map((c: any) => ({
+        nome: c.nome || "",
+        cpf: c.cpf || "",
+        telefone: c.telefone || "",
+        email: c.email || "",
+        endereco: [c.endereco, c.numero ? `Nº ${c.numero}` : ""].filter(Boolean).join(", "),
+        bairro: c.bairro || "",
+        cidade: c.cidade || "",
+        cep: c.cep || "",
+        tipo: c.tipo || "residencial",
+      }));
+
+      setExtractedClients(mapped);
+      setSelectedClients(new Set(mapped.map((_, i) => i)));
+      toast({ title: `${mapped.length} cliente(s) encontrado(s)!`, description: "Revise e confirme o cadastro." });
+    } catch (error: any) {
+      console.error("Erro ao processar PDF:", error);
+      toast({ title: "Erro ao processar", description: error.message || "Falha na leitura do PDF.", variant: "destructive" });
+      setIsPhotoModalOpen(false);
+    } finally {
+      setIsProcessingPhoto(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    }
+  };
+
   const handleSaveBulkClients = async () => {
     const toSave = extractedClients.filter((_, i) => selectedClients.has(i));
     if (toSave.length === 0) {
@@ -777,11 +844,18 @@ export default function CadastroClientesCad() {
               onChange={handlePhotoSelect}
               className="hidden"
             />
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={handlePdfSelect}
+              className="hidden"
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
                   <Camera className="h-4 w-4" />
-                  Importar por Foto
+                  Importar
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -793,6 +867,10 @@ export default function CadastroClientesCad() {
                 <DropdownMenuItem onClick={() => photoInputRef.current?.click()}>
                   <ImageIcon className="h-4 w-4 mr-2" />
                   Selecionar Imagem
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => pdfInputRef.current?.click()}>
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Importar PDF
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
