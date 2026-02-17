@@ -408,6 +408,112 @@ export type Database = {
           },
         ]
       }
+      carregamento_rota_itens: {
+        Row: {
+          carregamento_id: string
+          created_at: string
+          id: string
+          produto_id: string
+          quantidade_retorno: number | null
+          quantidade_saida: number
+          quantidade_vendida: number | null
+        }
+        Insert: {
+          carregamento_id: string
+          created_at?: string
+          id?: string
+          produto_id: string
+          quantidade_retorno?: number | null
+          quantidade_saida?: number
+          quantidade_vendida?: number | null
+        }
+        Update: {
+          carregamento_id?: string
+          created_at?: string
+          id?: string
+          produto_id?: string
+          quantidade_retorno?: number | null
+          quantidade_saida?: number
+          quantidade_vendida?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carregamento_rota_itens_carregamento_id_fkey"
+            columns: ["carregamento_id"]
+            isOneToOne: false
+            referencedRelation: "carregamentos_rota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carregamento_rota_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carregamentos_rota: {
+        Row: {
+          created_at: string
+          data_retorno: string | null
+          data_saida: string
+          entregador_id: string
+          id: string
+          observacoes: string | null
+          rota_definida_id: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_retorno?: string | null
+          data_saida?: string
+          entregador_id: string
+          id?: string
+          observacoes?: string | null
+          rota_definida_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_retorno?: string | null
+          data_saida?: string
+          entregador_id?: string
+          id?: string
+          observacoes?: string | null
+          rota_definida_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carregamentos_rota_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carregamentos_rota_rota_definida_id_fkey"
+            columns: ["rota_definida_id"]
+            isOneToOne: false
+            referencedRelation: "rotas_definidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carregamentos_rota_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           ativo: boolean | null
