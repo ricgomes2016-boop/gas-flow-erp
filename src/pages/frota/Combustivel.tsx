@@ -61,7 +61,7 @@ export default function Combustivel() {
       mesInicio.setDate(1);
       mesInicio.setHours(0, 0, 0, 0);
 
-      let aq = (supabase as any).from("abastecimentos").select("*, veiculos(placa, modelo)").order("data", { ascending: false });
+      let aq = (supabase as any).from("abastecimentos").select("*, veiculos(placa, modelo), entregadores(nome)").order("data", { ascending: false });
       if (unidadeAtual?.id) aq = aq.eq("unidade_id", unidadeAtual.id);
       const { data } = await aq;
       setAbastecimentos(data || []);
@@ -271,6 +271,7 @@ export default function Combustivel() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
+                  <TableHead>Origem</TableHead>
                   <TableHead>Veículo</TableHead>
                   <TableHead>Motorista</TableHead>
                   <TableHead>Data</TableHead>
@@ -280,11 +281,12 @@ export default function Combustivel() {
                   <TableHead>Litros</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Caixa</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nenhum abastecimento encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground">Nenhum abastecimento encontrado</TableCell></TableRow>
                 )}
                 {filtered.map((a) => (
                   <TableRow key={a.id}>
@@ -292,6 +294,15 @@ export default function Combustivel() {
                       <Badge variant={a.status === "acertado" ? "default" : "secondary"}>
                         {a.status === "acertado" ? "Acertado" : "Pendente"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {a.entregador_id ? (
+                        <Badge variant="outline" className="text-primary border-primary">
+                          📱 {(a.entregadores as any)?.nome || "Entregador"}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Gestão</span>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{(a.veiculos as any)?.placa || "-"}</TableCell>
                     <TableCell>{a.motorista}</TableCell>
@@ -302,6 +313,13 @@ export default function Combustivel() {
                     <TableCell>{Number(a.litros)} L</TableCell>
                     <TableCell><Badge variant="outline">{a.tipo}</Badge></TableCell>
                     <TableCell className="font-medium">R$ {Number(a.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell>
+                      {a.sem_saida_caixa ? (
+                        <Badge variant="outline" className="text-muted-foreground">Sem saída</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Normal</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

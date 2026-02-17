@@ -118,6 +118,7 @@ const EntregadorEntregas = lazy(() => import("./pages/entregador/EntregadorEntre
 const FinalizarEntrega = lazy(() => import("./pages/entregador/FinalizarEntrega"));
 const EntregadorNovaVenda = lazy(() => import("./pages/entregador/EntregadorNovaVenda"));
 const EntregadorDespesas = lazy(() => import("./pages/entregador/EntregadorDespesas"));
+const EntregadorCombustivel = lazy(() => import("./pages/entregador/EntregadorCombustivel"));
 const EntregadorPerfil = lazy(() => import("./pages/entregador/EntregadorPerfil"));
 const EntregadorHistorico = lazy(() => import("./pages/entregador/EntregadorHistorico"));
 const EntregadorIniciarJornada = lazy(() => import("./pages/entregador/EntregadorIniciarJornada"));
@@ -599,6 +600,11 @@ const App = () => (
                   <Route path="/entregador/despesas" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <EntregadorDespesas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/combustivel" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorCombustivel />
                     </ProtectedRoute>
                   } />
                   <Route path="/entregador/historico" element={
