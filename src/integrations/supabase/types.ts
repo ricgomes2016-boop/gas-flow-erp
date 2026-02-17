@@ -596,6 +596,100 @@ export type Database = {
           },
         ]
       }
+      conferencia_cartao: {
+        Row: {
+          autorizacao: string | null
+          bandeira: string | null
+          created_at: string
+          data_deposito_real: string | null
+          data_prevista_deposito: string | null
+          data_venda: string
+          id: string
+          nsu: string | null
+          observacoes: string | null
+          operadora_id: string | null
+          parcelas: number
+          pedido_id: string | null
+          status: string
+          taxa_percentual: number
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor_bruto: number
+          valor_liquido_esperado: number
+          valor_liquido_recebido: number | null
+          valor_taxa: number
+        }
+        Insert: {
+          autorizacao?: string | null
+          bandeira?: string | null
+          created_at?: string
+          data_deposito_real?: string | null
+          data_prevista_deposito?: string | null
+          data_venda?: string
+          id?: string
+          nsu?: string | null
+          observacoes?: string | null
+          operadora_id?: string | null
+          parcelas?: number
+          pedido_id?: string | null
+          status?: string
+          taxa_percentual?: number
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_bruto?: number
+          valor_liquido_esperado?: number
+          valor_liquido_recebido?: number | null
+          valor_taxa?: number
+        }
+        Update: {
+          autorizacao?: string | null
+          bandeira?: string | null
+          created_at?: string
+          data_deposito_real?: string | null
+          data_prevista_deposito?: string | null
+          data_venda?: string
+          id?: string
+          nsu?: string | null
+          observacoes?: string | null
+          operadora_id?: string | null
+          parcelas?: number
+          pedido_id?: string | null
+          status?: string
+          taxa_percentual?: number
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_bruto?: number
+          valor_liquido_esperado?: number
+          valor_liquido_recebido?: number | null
+          valor_taxa?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conferencia_cartao_operadora_id_fkey"
+            columns: ["operadora_id"]
+            isOneToOne: false
+            referencedRelation: "operadoras_cartao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conferencia_cartao_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conferencia_cartao_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracoes_empresa: {
         Row: {
           cnpj: string | null
@@ -1478,6 +1572,59 @@ export type Database = {
           },
           {
             foreignKeyName: "movimentacoes_estoque_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operadoras_cartao: {
+        Row: {
+          ativo: boolean
+          bandeira: string | null
+          created_at: string
+          id: string
+          nome: string
+          prazo_credito: number
+          prazo_debito: number
+          taxa_credito_parcelado: number
+          taxa_credito_vista: number
+          taxa_debito: number
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          bandeira?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          prazo_credito?: number
+          prazo_debito?: number
+          taxa_credito_parcelado?: number
+          taxa_credito_vista?: number
+          taxa_debito?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          bandeira?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          prazo_credito?: number
+          prazo_debito?: number
+          taxa_credito_parcelado?: number
+          taxa_credito_vista?: number
+          taxa_debito?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operadoras_cartao_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
