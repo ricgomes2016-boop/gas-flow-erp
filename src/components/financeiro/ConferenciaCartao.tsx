@@ -1,0 +1,698 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tabs, TabsContent, TabsList, TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  CreditCard, Plus, CheckCircle2, AlertCircle, Clock, Settings, Trash2, Search,
+  DollarSign, TrendingDown, Filter, X,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { format, addDays } from "date-fns";
+
+interface Operadora {
+  id: string;
+  nome: string;
+  bandeira: string | null;
+  taxa_debito: number;
+  taxa_credito_vista: number;
+  taxa_credito_parcelado: number;
+  prazo_debito: number;
+  prazo_credito: number;
+  ativo: boolean;
+}
+
+interface ConferenciaItem {
+  id: string;
+  tipo: string;
+  bandeira: string | null;
+  valor_bruto: number;
+  taxa_percentual: number;
+  valor_taxa: number;
+  valor_liquido_esperado: number;
+  valor_liquido_recebido: number | null;
+  data_venda: string;
+  data_prevista_deposito: string | null;
+  data_deposito_real: string | null;
+  nsu: string | null;
+  autorizacao: string | null;
+  parcelas: number;
+  status: string;
+  observacoes: string | null;
+  operadora_id: string | null;
+  pedido_id: string | null;
+  operadora_nome?: string;
+}
+
+const BANDEIRAS = ["Visa", "Mastercard", "Elo", "Hipercard", "Amex", "Outras"];
+
+export function ConferenciaCartao() {
+  const { unidadeAtual } = useUnidade();
+  const [activeTab, setActiveTab] = useState("conferencia");
+
+  // Operadoras
+  const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  const [opDialogOpen, setOpDialogOpen] = useState(false);
+  const [opEditId, setOpEditId] = useState<string | null>(null);
+  const [opForm, setOpForm] = useState({
+    nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
+    taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+  });
+  const [opDeleteId, setOpDeleteId] = useState<string | null>(null);
+
+  // Conferencia
+  const [itens, setItens] = useState<ConferenciaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [confDialogOpen, setConfDialogOpen] = useState(false);
+  const [confForm, setConfForm] = useState({
+    tipo: "credito", bandeira: "", valor_bruto: "", operadora_id: "",
+    nsu: "", autorizacao: "", parcelas: "1", data_venda: format(new Date(), "yyyy-MM-dd"),
+    observacoes: "",
+  });
+  const [confirmarId, setConfirmarId] = useState<string | null>(null);
+  const [valorRecebido, setValorRecebido] = useState("");
+  const [dataDeposito, setDataDeposito] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroBandeira, setFiltroBandeira] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [deleteConfId, setDeleteConfId] = useState<string | null>(null);
+
+  const fetchOperadoras = async () => {
+    let query = supabase.from("operadoras_cartao").select("*").eq("ativo", true);
+    if (unidadeAtual?.id) query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    const { data } = await query;
+    setOperadoras((data as Operadora[]) || []);
+  };
+
+  const fetchItens = async () => {
+    setLoading(true);
+    let query = supabase.from("conferencia_cartao")
+      .select("*, operadoras_cartao(nome)")
+      .order("data_venda", { ascending: false });
+    if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+    const { data, error } = await query;
+    if (error) { toast.error("Erro ao carregar conferência"); console.error(error); }
+    else {
+      setItens((data || []).map((d: any) => ({
+        ...d,
+        operadora_nome: d.operadoras_cartao?.nome || "—",
+      })));
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchOperadoras(); fetchItens(); }, [unidadeAtual]);
+
+  // --- Operadoras CRUD ---
+  const resetOpForm = () => setOpForm({
+    nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
+    taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+  });
+
+  const handleOpSubmit = async () => {
+    if (!opForm.nome) { toast.error("Nome obrigatório"); return; }
+    const payload = {
+      nome: opForm.nome,
+      bandeira: opForm.bandeira || null,
+      taxa_debito: parseFloat(opForm.taxa_debito) || 0,
+      taxa_credito_vista: parseFloat(opForm.taxa_credito_vista) || 0,
+      taxa_credito_parcelado: parseFloat(opForm.taxa_credito_parcelado) || 0,
+      prazo_debito: parseInt(opForm.prazo_debito) || 1,
+      prazo_credito: parseInt(opForm.prazo_credito) || 30,
+      unidade_id: unidadeAtual?.id || null,
+    };
+    if (opEditId) {
+      const { error } = await supabase.from("operadoras_cartao").update(payload).eq("id", opEditId);
+      if (error) { toast.error("Erro ao atualizar"); return; }
+      toast.success("Operadora atualizada!");
+    } else {
+      const { error } = await supabase.from("operadoras_cartao").insert(payload);
+      if (error) { toast.error("Erro ao criar"); return; }
+      toast.success("Operadora cadastrada!");
+    }
+    setOpDialogOpen(false); setOpEditId(null); resetOpForm(); fetchOperadoras();
+  };
+
+  const handleOpDelete = async () => {
+    if (!opDeleteId) return;
+    const { error } = await supabase.from("operadoras_cartao").update({ ativo: false }).eq("id", opDeleteId);
+    if (error) toast.error("Erro ao desativar");
+    else { toast.success("Operadora desativada!"); fetchOperadoras(); }
+    setOpDeleteId(null);
+  };
+
+  // --- Conferência CRUD ---
+  const handleConfSubmit = async () => {
+    const valorBruto = parseFloat(confForm.valor_bruto);
+    if (!valorBruto || valorBruto <= 0) { toast.error("Informe o valor bruto"); return; }
+
+    const operadora = operadoras.find(o => o.id === confForm.operadora_id);
+    let taxaPct = 0;
+    if (operadora) {
+      if (confForm.tipo === "debito") taxaPct = operadora.taxa_debito;
+      else if (parseInt(confForm.parcelas) > 1) taxaPct = operadora.taxa_credito_parcelado;
+      else taxaPct = operadora.taxa_credito_vista;
+    }
+
+    const valorTaxa = valorBruto * (taxaPct / 100);
+    const valorLiquidoEsperado = valorBruto - valorTaxa;
+
+    const prazo = operadora
+      ? (confForm.tipo === "debito" ? operadora.prazo_debito : operadora.prazo_credito)
+      : (confForm.tipo === "debito" ? 1 : 30);
+    const dataPrevista = addDays(new Date(confForm.data_venda), prazo);
+
+    const payload = {
+      tipo: confForm.tipo,
+      bandeira: confForm.bandeira || null,
+      valor_bruto: valorBruto,
+      taxa_percentual: taxaPct,
+      valor_taxa: valorTaxa,
+      valor_liquido_esperado: valorLiquidoEsperado,
+      data_venda: confForm.data_venda,
+      data_prevista_deposito: format(dataPrevista, "yyyy-MM-dd"),
+      nsu: confForm.nsu || null,
+      autorizacao: confForm.autorizacao || null,
+      parcelas: parseInt(confForm.parcelas) || 1,
+      operadora_id: confForm.operadora_id || null,
+      observacoes: confForm.observacoes || null,
+      unidade_id: unidadeAtual?.id || null,
+    };
+
+    const { error } = await supabase.from("conferencia_cartao").insert(payload);
+    if (error) { toast.error("Erro ao registrar"); console.error(error); return; }
+    toast.success("Venda no cartão registrada!");
+    setConfDialogOpen(false);
+    setConfForm({
+      tipo: "credito", bandeira: "", valor_bruto: "", operadora_id: "",
+      nsu: "", autorizacao: "", parcelas: "1", data_venda: format(new Date(), "yyyy-MM-dd"),
+      observacoes: "",
+    });
+    fetchItens();
+  };
+
+  const handleConfirmar = async () => {
+    if (!confirmarId) return;
+    const valor = parseFloat(valorRecebido);
+    if (isNaN(valor) || valor <= 0) { toast.error("Informe o valor recebido"); return; }
+
+    const item = itens.find(i => i.id === confirmarId);
+    if (!item) return;
+
+    const diff = Math.abs(valor - item.valor_liquido_esperado);
+    const status = diff < 0.02 ? "confirmado" : "divergente";
+
+    const { error } = await supabase.from("conferencia_cartao").update({
+      valor_liquido_recebido: valor,
+      data_deposito_real: dataDeposito || null,
+      status,
+    }).eq("id", confirmarId);
+
+    if (error) { toast.error("Erro ao confirmar"); return; }
+    toast.success(status === "confirmado" ? "Conferência confirmada!" : "Divergência detectada!");
+    setConfirmarId(null); setValorRecebido(""); setDataDeposito(""); fetchItens();
+  };
+
+  const handleDeleteConf = async () => {
+    if (!deleteConfId) return;
+    const { error } = await supabase.from("conferencia_cartao").delete().eq("id", deleteConfId);
+    if (error) toast.error("Erro ao excluir");
+    else { toast.success("Registro excluído!"); fetchItens(); }
+    setDeleteConfId(null);
+  };
+
+  // Filtered
+  const filtered = itens.filter(i => {
+    if (filtroStatus !== "todos" && i.status !== filtroStatus) return false;
+    if (filtroBandeira !== "todos" && i.bandeira !== filtroBandeira) return false;
+    if (filtroTipo !== "todos" && i.tipo !== filtroTipo) return false;
+    return true;
+  });
+
+  const hoje = format(new Date(), "yyyy-MM-dd");
+  const totalBruto = filtered.reduce((a, i) => a + Number(i.valor_bruto), 0);
+  const totalTaxas = filtered.reduce((a, i) => a + Number(i.valor_taxa), 0);
+  const totalLiqEsperado = filtered.reduce((a, i) => a + Number(i.valor_liquido_esperado), 0);
+  const totalPendente = filtered.filter(i => i.status === "pendente").reduce((a, i) => a + Number(i.valor_liquido_esperado), 0);
+  const totalConfirmado = filtered.filter(i => i.status === "confirmado").reduce((a, i) => a + Number(i.valor_liquido_recebido || 0), 0);
+  const totalDivergente = filtered.filter(i => i.status === "divergente").length;
+  const aReceberHoje = itens.filter(i => i.data_prevista_deposito === hoje && i.status === "pendente")
+    .reduce((a, i) => a + Number(i.valor_liquido_esperado), 0);
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="conferencia" className="gap-1.5">
+            <CreditCard className="h-4 w-4" />
+            <span className="hidden sm:inline">Conferência</span>
+            <span className="sm:hidden">Conf.</span>
+          </TabsTrigger>
+          <TabsTrigger value="operadoras" className="gap-1.5">
+            <Settings className="h-4 w-4" />
+            Operadoras
+          </TabsTrigger>
+        </TabsList>
+
+        {/* === CONFERÊNCIA === */}
+        <TabsContent value="conferencia" className="space-y-4">
+          <div className="flex items-center gap-2 justify-between">
+            <Button size="sm" className="gap-2" onClick={() => setConfDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Registrar Venda Cartão</span>
+              <span className="sm:hidden">Registrar</span>
+            </Button>
+          </div>
+
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+                <CardTitle className="text-xs md:text-sm font-medium">Total Bruto</CardTitle>
+                <CreditCard className="h-4 w-4 text-muted-foreground hidden sm:block" />
+              </CardHeader>
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+                <div className="text-lg md:text-2xl font-bold">R$ {totalBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+                <CardTitle className="text-xs md:text-sm font-medium">Taxas</CardTitle>
+                <TrendingDown className="h-4 w-4 text-destructive hidden sm:block" />
+              </CardHeader>
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+                <div className="text-lg md:text-2xl font-bold text-destructive">R$ {totalTaxas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+                <CardTitle className="text-xs md:text-sm font-medium">Pendente</CardTitle>
+                <Clock className="h-4 w-4 text-warning hidden sm:block" />
+              </CardHeader>
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+                <div className="text-lg md:text-2xl font-bold text-warning">R$ {totalPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                {aReceberHoje > 0 && (
+                  <p className="text-[10px] md:text-xs text-primary">Hoje: R$ {aReceberHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+                <CardTitle className="text-xs md:text-sm font-medium">Confirmado</CardTitle>
+                <CheckCircle2 className="h-4 w-4 text-success hidden sm:block" />
+              </CardHeader>
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+                <div className="text-lg md:text-2xl font-bold text-success">R$ {totalConfirmado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                {totalDivergente > 0 && (
+                  <p className="text-[10px] md:text-xs text-destructive">{totalDivergente} divergência(s)</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Status</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="confirmado">Confirmado</SelectItem>
+                <SelectItem value="divergente">Divergente</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Tipos</SelectItem>
+                <SelectItem value="credito">Crédito</SelectItem>
+                <SelectItem value="debito">Débito</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroBandeira} onValueChange={setFiltroBandeira}>
+              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas Bandeiras</SelectItem>
+                {BANDEIRAS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className="p-0 md:p-6">
+              {loading ? (
+                <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">Nenhum registro de cartão</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead className="hidden sm:table-cell">Bandeira</TableHead>
+                        <TableHead className="hidden md:table-cell">Operadora</TableHead>
+                        <TableHead>Bruto</TableHead>
+                        <TableHead className="hidden sm:table-cell">Taxa</TableHead>
+                        <TableHead>Líquido Esp.</TableHead>
+                        <TableHead className="hidden lg:table-cell">Depósito Prev.</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                            {format(new Date(item.data_venda + "T12:00:00"), "dd/MM/yy")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={item.tipo === "credito" ? "default" : "secondary"} className="text-[10px] sm:text-xs">
+                              {item.tipo === "credito" ? "Créd" : "Déb"}
+                              {item.parcelas > 1 && ` ${item.parcelas}x`}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs">{item.bandeira || "—"}</TableCell>
+                          <TableCell className="hidden md:table-cell text-xs">{item.operadora_nome}</TableCell>
+                          <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                            R$ {Number(item.valor_bruto).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs text-destructive">
+                            {Number(item.taxa_percentual).toFixed(2)}% (R$ {Number(item.valor_taxa).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                          </TableCell>
+                          <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                            R$ {Number(item.valor_liquido_esperado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-xs whitespace-nowrap">
+                            {item.data_prevista_deposito
+                              ? format(new Date(item.data_prevista_deposito + "T12:00:00"), "dd/MM/yy")
+                              : "—"
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={item.status === "confirmado" ? "default" : item.status === "divergente" ? "destructive" : "secondary"}
+                              className="text-[10px] sm:text-xs"
+                            >
+                              {item.status === "confirmado" ? "OK" : item.status === "divergente" ? "Diverg." : "Pend."}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center gap-1 justify-end">
+                              {item.status === "pendente" && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                                  setConfirmarId(item.id);
+                                  setValorRecebido(String(item.valor_liquido_esperado));
+                                  setDataDeposito(item.data_prevista_deposito || "");
+                                }}>
+                                  <DollarSign className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfId(item.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {!loading && filtered.length > 0 && (
+                <div className="px-3 md:px-0 py-3 text-xs text-muted-foreground border-t">
+                  {filtered.length} registro(s) — Líquido total: R$ {totalLiqEsperado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* === OPERADORAS === */}
+        <TabsContent value="operadoras" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Configure operadoras, bandeiras e taxas</p>
+            <Button size="sm" className="gap-2" onClick={() => { resetOpForm(); setOpEditId(null); setOpDialogOpen(true); }}>
+              <Plus className="h-4 w-4" />Operadora
+            </Button>
+          </div>
+
+          {operadoras.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Nenhuma operadora cadastrada</p>
+                <p className="text-xs mt-1">Cadastre para calcular taxas automaticamente</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {operadoras.map(op => (
+                <Card key={op.id}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{op.nome}</p>
+                        {op.bandeira && <Badge variant="outline" className="text-[10px] mt-0.5">{op.bandeira}</Badge>}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                          setOpEditId(op.id);
+                          setOpForm({
+                            nome: op.nome, bandeira: op.bandeira || "",
+                            taxa_debito: String(op.taxa_debito), taxa_credito_vista: String(op.taxa_credito_vista),
+                            taxa_credito_parcelado: String(op.taxa_credito_parcelado),
+                            prazo_debito: String(op.prazo_debito), prazo_credito: String(op.prazo_credito),
+                          });
+                          setOpDialogOpen(true);
+                        }}>
+                          <Settings className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setOpDeleteId(op.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="p-2 rounded bg-muted/50">
+                        <p className="text-muted-foreground">Débito</p>
+                        <p className="font-medium">{Number(op.taxa_debito).toFixed(2)}%</p>
+                        <p className="text-[10px] text-muted-foreground">D+{op.prazo_debito}</p>
+                      </div>
+                      <div className="p-2 rounded bg-muted/50">
+                        <p className="text-muted-foreground">Créd. Vista</p>
+                        <p className="font-medium">{Number(op.taxa_credito_vista).toFixed(2)}%</p>
+                        <p className="text-[10px] text-muted-foreground">D+{op.prazo_credito}</p>
+                      </div>
+                      <div className="p-2 rounded bg-muted/50">
+                        <p className="text-muted-foreground">Créd. Parc.</p>
+                        <p className="font-medium">{Number(op.taxa_credito_parcelado).toFixed(2)}%</p>
+                        <p className="text-[10px] text-muted-foreground">D+{op.prazo_credito}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Dialog: Nova venda no cartão */}
+      <Dialog open={confDialogOpen} onOpenChange={setConfDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Registrar Venda no Cartão</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Tipo *</Label>
+                <Select value={confForm.tipo} onValueChange={v => setConfForm({ ...confForm, tipo: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credito">Crédito</SelectItem>
+                    <SelectItem value="debito">Débito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Bandeira</Label>
+                <Select value={confForm.bandeira} onValueChange={v => setConfForm({ ...confForm, bandeira: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {BANDEIRAS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Valor Bruto (R$) *</Label>
+                <Input type="number" step="0.01" value={confForm.valor_bruto}
+                  onChange={e => setConfForm({ ...confForm, valor_bruto: e.target.value })} />
+              </div>
+              <div>
+                <Label>Operadora</Label>
+                <Select value={confForm.operadora_id} onValueChange={v => setConfForm({ ...confForm, operadora_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {operadoras.map(op => <SelectItem key={op.id} value={op.id}>{op.nome}{op.bandeira ? ` (${op.bandeira})` : ""}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {confForm.operadora_id && confForm.valor_bruto && (() => {
+              const op = operadoras.find(o => o.id === confForm.operadora_id);
+              if (!op) return null;
+              const taxaPct = confForm.tipo === "debito" ? op.taxa_debito
+                : parseInt(confForm.parcelas) > 1 ? op.taxa_credito_parcelado : op.taxa_credito_vista;
+              const vb = parseFloat(confForm.valor_bruto) || 0;
+              const taxaVal = vb * (taxaPct / 100);
+              const liq = vb - taxaVal;
+              const prazo = confForm.tipo === "debito" ? op.prazo_debito : op.prazo_credito;
+              return (
+                <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Taxa:</span><span className="text-destructive">{taxaPct.toFixed(2)}% = R$ {taxaVal.toFixed(2)}</span></div>
+                  <div className="flex justify-between font-medium"><span>Líquido esperado:</span><span className="text-success">R$ {liq.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>Previsão depósito:</span><span>D+{prazo}</span></div>
+                </div>
+              );
+            })()}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Parcelas</Label>
+                <Input type="number" min="1" value={confForm.parcelas}
+                  onChange={e => setConfForm({ ...confForm, parcelas: e.target.value })}
+                  disabled={confForm.tipo === "debito"} />
+              </div>
+              <div>
+                <Label>NSU</Label>
+                <Input value={confForm.nsu} onChange={e => setConfForm({ ...confForm, nsu: e.target.value })} placeholder="Opcional" />
+              </div>
+              <div>
+                <Label>Autorização</Label>
+                <Input value={confForm.autorizacao} onChange={e => setConfForm({ ...confForm, autorizacao: e.target.value })} placeholder="Opcional" />
+              </div>
+            </div>
+            <div>
+              <Label>Data da Venda</Label>
+              <Input type="date" value={confForm.data_venda} onChange={e => setConfForm({ ...confForm, data_venda: e.target.value })} />
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea value={confForm.observacoes} onChange={e => setConfForm({ ...confForm, observacoes: e.target.value })} rows={2} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setConfDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleConfSubmit}>Registrar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Confirmar recebimento */}
+      <Dialog open={!!confirmarId} onOpenChange={() => { setConfirmarId(null); setValorRecebido(""); setDataDeposito(""); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Confirmar Recebimento</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Valor Recebido (R$)</Label>
+              <Input type="number" step="0.01" value={valorRecebido} onChange={e => setValorRecebido(e.target.value)} />
+            </div>
+            <div>
+              <Label>Data do Depósito</Label>
+              <Input type="date" value={dataDeposito} onChange={e => setDataDeposito(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmarId(null)}>Cancelar</Button>
+              <Button onClick={handleConfirmar}>Confirmar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Operadora */}
+      <Dialog open={opDialogOpen} onOpenChange={v => { setOpDialogOpen(v); if (!v) { setOpEditId(null); resetOpForm(); } }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{opEditId ? "Editar Operadora" : "Nova Operadora"}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Nome *</Label><Input value={opForm.nome} onChange={e => setOpForm({ ...opForm, nome: e.target.value })} placeholder="Ex: Cielo" /></div>
+              <div>
+                <Label>Bandeira</Label>
+                <Select value={opForm.bandeira} onValueChange={v => setOpForm({ ...opForm, bandeira: v })}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas</SelectItem>
+                    {BANDEIRAS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div><Label>Taxa Débito (%)</Label><Input type="number" step="0.01" value={opForm.taxa_debito} onChange={e => setOpForm({ ...opForm, taxa_debito: e.target.value })} /></div>
+              <div><Label>Taxa Créd. Vista (%)</Label><Input type="number" step="0.01" value={opForm.taxa_credito_vista} onChange={e => setOpForm({ ...opForm, taxa_credito_vista: e.target.value })} /></div>
+              <div><Label>Taxa Créd. Parc. (%)</Label><Input type="number" step="0.01" value={opForm.taxa_credito_parcelado} onChange={e => setOpForm({ ...opForm, taxa_credito_parcelado: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Prazo Débito (D+)</Label><Input type="number" min="0" value={opForm.prazo_debito} onChange={e => setOpForm({ ...opForm, prazo_debito: e.target.value })} /></div>
+              <div><Label>Prazo Crédito (D+)</Label><Input type="number" min="0" value={opForm.prazo_credito} onChange={e => setOpForm({ ...opForm, prazo_credito: e.target.value })} /></div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setOpDialogOpen(false); setOpEditId(null); resetOpForm(); }}>Cancelar</Button>
+              <Button onClick={handleOpSubmit}>{opEditId ? "Atualizar" : "Salvar"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm deletes */}
+      <AlertDialog open={!!opDeleteId} onOpenChange={() => setOpDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar operadora?</AlertDialogTitle>
+            <AlertDialogDescription>A operadora será desativada e não aparecerá mais nas opções.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleOpDelete}>Desativar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteConfId} onOpenChange={() => setDeleteConfId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConf}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

@@ -23,8 +23,12 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, MapPin, User, Filter, X } from "lucide-react";
+import {
+  Tabs, TabsContent, TabsList, TabsTrigger,
+} from "@/components/ui/tabs";
+import { Wallet, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, MapPin, User, Filter, X, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ConferenciaCartao } from "@/components/financeiro/ConferenciaCartao";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format } from "date-fns";
@@ -63,7 +67,9 @@ export default function ContasReceber() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroFormaPagamento, setFiltroFormaPagamento] = useState("todos");
   const [showFilters, setShowFilters] = useState(false);
+  const [mainTab, setMainTab] = useState("recebiveis");
   const { unidadeAtual } = useUnidade();
 
   const [form, setForm] = useState({
@@ -227,14 +233,15 @@ export default function ContasReceber() {
     const vencida = c.status === "pendente" && c.vencimento < hoje;
     const statusAtual = c.status === "recebida" ? "recebida" : vencida ? "vencida" : "pendente";
     const matchStatus = filtroStatus === "todos" || statusAtual === filtroStatus;
-    return matchNome && matchEndereco && matchDataIni && matchDataFim && matchStatus;
+    const matchForma = filtroFormaPagamento === "todos" || (c.forma_pagamento || "").toLowerCase().includes(filtroFormaPagamento.toLowerCase());
+    return matchNome && matchEndereco && matchDataIni && matchDataFim && matchStatus && matchForma;
   });
 
   const totalPendente = filtered.filter(c => c.status === "pendente" && c.vencimento >= hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalVencido = filtered.filter(c => c.status === "pendente" && c.vencimento < hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalRecebido = filtered.filter(c => c.status === "recebida").reduce((a, c) => a + Number(c.valor), 0);
 
-  const hasActiveFilters = filtroNome || filtroEndereco || dataInicial || dataFinal || filtroStatus !== "todos";
+  const hasActiveFilters = filtroNome || filtroEndereco || dataInicial || dataFinal || filtroStatus !== "todos" || filtroFormaPagamento !== "todos";
 
   const clearAllFilters = () => {
     setFiltroNome("");
@@ -242,6 +249,7 @@ export default function ContasReceber() {
     setDataInicial("");
     setDataFinal("");
     setFiltroStatus("todos");
+    setFiltroFormaPagamento("todos");
   };
 
   const exportToExcel = () => {
@@ -296,6 +304,17 @@ export default function ContasReceber() {
     <MainLayout>
       <Header title="Contas a Receber" subtitle="Acompanhe os recebíveis" />
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+      <Tabs value={mainTab} onValueChange={setMainTab}>
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="recebiveis" className="gap-1.5">
+            <Wallet className="h-4 w-4" />Recebíveis
+          </TabsTrigger>
+          <TabsTrigger value="cartao" className="gap-1.5">
+            <CreditCard className="h-4 w-4" />Conferência Cartão
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="recebiveis" className="space-y-4 md:space-y-6">
         {/* Top actions */}
         <div className="flex items-center gap-2 justify-between">
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
@@ -400,7 +419,7 @@ export default function ContasReceber() {
                     <span className="hidden sm:inline">Filtros</span>
                     {hasActiveFilters && (
                       <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-                        {[filtroNome, filtroEndereco, dataInicial, dataFinal, filtroStatus !== "todos" ? "1" : ""].filter(Boolean).length}
+                        {[filtroNome, filtroEndereco, dataInicial, dataFinal, filtroStatus !== "todos" ? "1" : "", filtroFormaPagamento !== "todos" ? "1" : ""].filter(Boolean).length}
                       </Badge>
                     )}
                   </Button>
@@ -414,7 +433,7 @@ export default function ContasReceber() {
               </div>
 
               {showFilters && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
                   <div>
                     <Label className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" />Nome do Cliente</Label>
                     <Input
@@ -450,6 +469,22 @@ export default function ContasReceber() {
                         <SelectItem value="pendente">Pendentes</SelectItem>
                         <SelectItem value="vencida">Vencidas</SelectItem>
                         <SelectItem value="recebida">Recebidas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><CreditCard className="h-3 w-3" />Forma Pgto</Label>
+                    <Select value={filtroFormaPagamento} onValueChange={setFiltroFormaPagamento}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todas</SelectItem>
+                        <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                        <SelectItem value="PIX">PIX</SelectItem>
+                        <SelectItem value="Cartão">Cartão</SelectItem>
+                        <SelectItem value="Boleto">Boleto</SelectItem>
+                        <SelectItem value="Transferência">Transferência</SelectItem>
+                        <SelectItem value="Cheque">Cheque</SelectItem>
+                        <SelectItem value="fiado">Fiado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -554,7 +589,12 @@ export default function ContasReceber() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="cartao">
+          <ConferenciaCartao />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog Receber com múltiplas formas */}
       <Dialog open={receberDialogOpen} onOpenChange={setReceberDialogOpen}>
@@ -626,6 +666,7 @@ export default function ContasReceber() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </MainLayout>
   );
 }
