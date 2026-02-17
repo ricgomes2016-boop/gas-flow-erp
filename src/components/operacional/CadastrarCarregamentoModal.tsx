@@ -92,7 +92,7 @@ export function CadastrarCarregamentoModal({ open, onOpenChange, onSaved }: Prop
     : allEntregadores;
 
   const produtos = selectedUnidadeId
-    ? allProdutos.filter((p) => p.unidade_id === selectedUnidadeId || !p.unidade_id)
+    ? allProdutos.filter((p) => p.unidade_id === selectedUnidadeId)
     : allProdutos;
 
   const fetchData = async () => {
