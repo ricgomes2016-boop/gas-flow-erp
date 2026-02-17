@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Wrench, Plus, Search, AlertTriangle, CheckCircle2, Clock, DollarSign,
-  Loader2, Camera, FileText, FileCheck, Receipt
+  Loader2, Camera, FileText, FileCheck, Receipt, Edit, Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -51,6 +51,9 @@ export default function Manutencao() {
   const [isScanning, setIsScanning] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit
+  const [editId, setEditId] = useState<string | null>(null);
 
   // Acerto / Contas a Pagar
   const [showAcerto, setShowAcerto] = useState(false);
@@ -185,7 +188,7 @@ export default function Manutencao() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("manutencoes").insert({
+      const payload = {
         veiculo_id: form.veiculo_id,
         descricao: form.descricao,
         tipo: form.tipo,
@@ -194,16 +197,52 @@ export default function Manutencao() {
         data: form.data,
         status: form.status,
         unidade_id: unidadeAtual?.id || null,
-      });
-      if (error) throw error;
-      toast.success("Manutenção registrada!");
+      };
+
+      if (editId) {
+        const { error } = await supabase.from("manutencoes").update(payload).eq("id", editId);
+        if (error) throw error;
+        toast.success("Manutenção atualizada!");
+      } else {
+        const { error } = await supabase.from("manutencoes").insert(payload);
+        if (error) throw error;
+        toast.success("Manutenção registrada!");
+      }
       setShowForm(false);
+      setEditId(null);
       setForm({ veiculo_id: "", descricao: "", tipo: "Preventiva", oficina: "", valor: "", data: new Date().toISOString().split("T")[0], status: "Agendada", observacoes: "" });
       fetchData();
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEdit = (m: any) => {
+    setForm({
+      veiculo_id: m.veiculo_id,
+      descricao: m.descricao,
+      tipo: m.tipo,
+      oficina: m.oficina,
+      valor: String(m.valor),
+      data: m.data,
+      status: m.status,
+      observacoes: "",
+    });
+    setEditId(m.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta manutenção?")) return;
+    try {
+      const { error } = await supabase.from("manutencoes").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Manutenção excluída!");
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir");
     }
   };
 
@@ -373,11 +412,12 @@ export default function Manutencao() {
                   <TableHead>Oficina</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhuma manutenção registrada</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhuma manutenção registrada</TableCell></TableRow>
                 )}
                 {filtered.map((m) => (
                   <TableRow key={m.id}>
@@ -402,6 +442,18 @@ export default function Manutencao() {
                     <TableCell>{m.oficina}</TableCell>
                     <TableCell>{new Date(m.data).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="font-medium">R$ {Number(m.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(m)} title="Editar">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {m.status !== "Paga" && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id)} title="Excluir">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -411,9 +463,9 @@ export default function Manutencao() {
       </div>
 
       {/* Dialog: Nova Manutenção */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) { setEditId(null); setForm({ veiculo_id: "", descricao: "", tipo: "Preventiva", oficina: "", valor: "", data: new Date().toISOString().split("T")[0], status: "Agendada", observacoes: "" }); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Manutenção</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? "Editar Manutenção" : "Nova Manutenção"}</DialogTitle></DialogHeader>
 
           {/* OCR inputs */}
           <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} className="hidden" />
@@ -514,7 +566,7 @@ export default function Manutencao() {
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Salvar
+              {editId ? "Atualizar" : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
