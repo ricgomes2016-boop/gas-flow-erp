@@ -11,6 +11,7 @@ import {
   Flame,
   History,
   Fuel,
+  BoxesIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -28,6 +29,7 @@ const menuItems = [
   { path: "/entregador", icon: Home, label: "Início" },
   { path: "/entregador/jornada", icon: Flame, label: "Jornada" },
   { path: "/entregador/entregas", icon: Package, label: "Entregas" },
+  { path: "/entregador/estoque", icon: BoxesIcon, label: "Estoque" },
   { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
   { path: "/entregador/despesas", icon: Receipt, label: "Despesas" },
   { path: "/entregador/combustivel", icon: Fuel, label: "Combustível" },
