@@ -11,11 +11,17 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Truck, Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Truck, Plus, Search, Edit, Trash2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
+
+interface Entregador {
+  id: string;
+  nome: string;
+}
 
 interface Veiculo {
   id: string;
@@ -26,12 +32,14 @@ interface Veiculo {
   km_atual: number | null;
   tipo: string | null;
   ativo: boolean | null;
+  entregador_id: string | null;
 }
 
-const emptyForm = { placa: "", modelo: "", marca: "", ano: "", km_atual: "", tipo: "moto" };
+const emptyForm = { placa: "", modelo: "", marca: "", ano: "", km_atual: "", tipo: "moto", entregador_id: "" };
 
 export default function Veiculos() {
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
+  const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -50,9 +58,13 @@ export default function Veiculos() {
       query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     }
 
-    const { data, error } = await query;
+    const [{ data, error }, { data: entData }] = await Promise.all([
+      query,
+      supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome"),
+    ]);
     if (error) { console.error(error); return; }
-    setVeiculos(data || []);
+    setVeiculos((data || []) as Veiculo[]);
+    setEntregadores(entData || []);
     setLoading(false);
   };
 
@@ -70,6 +82,7 @@ export default function Veiculos() {
       ano: form.ano ? parseInt(form.ano) : null,
       km_atual: form.km_atual ? parseFloat(form.km_atual) : 0,
       tipo: form.tipo || "moto",
+      entregador_id: form.entregador_id || null,
     };
     if (!editId && unidadeAtual?.id) {
       payload.unidade_id = unidadeAtual.id;
@@ -98,6 +111,7 @@ export default function Veiculos() {
       ano: v.ano?.toString() || "",
       km_atual: v.km_atual?.toString() || "",
       tipo: v.tipo || "moto",
+      entregador_id: v.entregador_id || "",
     });
     setEditId(v.id);
     setOpen(true);
@@ -108,6 +122,11 @@ export default function Veiculos() {
     if (error) { toast.error("Erro ao excluir"); return; }
     toast.success("Veículo removido");
     fetchVeiculos();
+  };
+
+  const getEntregadorNome = (id: string | null) => {
+    if (!id) return null;
+    return entregadores.find(e => e.id === id)?.nome || null;
   };
 
   const filtered = veiculos.filter(v =>
@@ -154,6 +173,18 @@ export default function Veiculos() {
                   <Label>Tipo</Label>
                   <Input value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})} placeholder="moto, carro, caminhão" />
                 </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Entregador Vinculado</Label>
+                  <Select value={form.entregador_id} onValueChange={(v) => setForm({...form, entregador_id: v === "none" ? "" : v})}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {entregadores.map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
@@ -180,10 +211,10 @@ export default function Veiculos() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Outros</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Com Entregador</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{veiculos.filter(v => v.tipo !== "moto").length}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{veiculos.filter(v => v.entregador_id).length}</div></CardContent>
           </Card>
         </div>
 
@@ -208,6 +239,7 @@ export default function Veiculos() {
                     <TableHead>Ano</TableHead>
                     <TableHead>KM</TableHead>
                     <TableHead>Tipo</TableHead>
+                    <TableHead>Entregador</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -220,6 +252,16 @@ export default function Veiculos() {
                       <TableCell>{v.ano || "-"}</TableCell>
                       <TableCell>{v.km_atual?.toLocaleString("pt-BR") || 0} km</TableCell>
                       <TableCell><Badge variant="outline">{v.tipo || "-"}</Badge></TableCell>
+                      <TableCell>
+                        {getEntregadorNome(v.entregador_id) ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <User className="h-3 w-3" />
+                            {getEntregadorNome(v.entregador_id)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(v)}>
@@ -233,7 +275,7 @@ export default function Veiculos() {
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum veículo encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum veículo encontrado</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

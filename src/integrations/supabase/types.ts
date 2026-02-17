@@ -2605,6 +2605,7 @@ export type Database = {
           ano: number | null
           ativo: boolean | null
           created_at: string
+          entregador_id: string | null
           id: string
           km_atual: number | null
           marca: string | null
@@ -2618,6 +2619,7 @@ export type Database = {
           ano?: number | null
           ativo?: boolean | null
           created_at?: string
+          entregador_id?: string | null
           id?: string
           km_atual?: number | null
           marca?: string | null
@@ -2631,6 +2633,7 @@ export type Database = {
           ano?: number | null
           ativo?: boolean | null
           created_at?: string
+          entregador_id?: string | null
           id?: string
           km_atual?: number | null
           marca?: string | null
@@ -2641,6 +2644,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "veiculos_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "veiculos_unidade_id_fkey"
             columns: ["unidade_id"]

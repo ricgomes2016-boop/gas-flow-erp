@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Wrench, Plus, Search, AlertTriangle, CheckCircle2, Clock, DollarSign,
-  Loader2, Camera, FileText, FileCheck, Receipt, Edit, Trash2
+  Loader2, Camera, FileText, FileCheck, Receipt, Edit, Trash2, Bell
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -23,6 +23,14 @@ interface Veiculo {
   id: string;
   placa: string;
   modelo?: string;
+}
+
+interface AlertaPreventivo {
+  veiculo_placa: string;
+  veiculo_modelo: string;
+  dias_desde_ultima: number;
+  tipo: "tempo" | "sem_preventiva";
+  mensagem: string;
 }
 
 export default function Manutencao() {
@@ -59,6 +67,9 @@ export default function Manutencao() {
   const [showAcerto, setShowAcerto] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [gerando, setGerando] = useState(false);
+
+  // Alertas preventivos
+  const [alertas, setAlertas] = useState<AlertaPreventivo[]>([]);
 
   useEffect(() => { fetchData(); }, [unidadeAtual]);
 
@@ -159,11 +170,48 @@ export default function Manutencao() {
 
       const { data: veiculosData } = await supabase.from("veiculos").select("id, placa, modelo").eq("ativo", true).order("placa");
       setVeiculos(veiculosData || []);
+
+      // Calcular alertas preventivos
+      calcularAlertas(data || [], veiculosData || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const calcularAlertas = (mans: any[], veics: Veiculo[]) => {
+    const hoje = new Date();
+    const novosAlertas: AlertaPreventivo[] = [];
+
+    for (const v of veics) {
+      const preventivas = mans
+        .filter(m => m.veiculo_id === v.id && m.tipo === "Preventiva")
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+      if (preventivas.length === 0) {
+        novosAlertas.push({
+          veiculo_placa: v.placa,
+          veiculo_modelo: v.modelo || "",
+          dias_desde_ultima: -1,
+          tipo: "sem_preventiva",
+          mensagem: `${v.placa} nunca teve manutenção preventiva registrada`,
+        });
+      } else {
+        const ultima = new Date(preventivas[0].data);
+        const dias = Math.floor((hoje.getTime() - ultima.getTime()) / (1000 * 60 * 60 * 24));
+        if (dias >= 90) {
+          novosAlertas.push({
+            veiculo_placa: v.placa,
+            veiculo_modelo: v.modelo || "",
+            dias_desde_ultima: dias,
+            tipo: "tempo",
+            mensagem: `${v.placa} — última preventiva há ${dias} dias`,
+          });
+        }
+      }
+    }
+    setAlertas(novosAlertas);
   };
 
   const agendadas = manutencoes.filter(m => m.status === "Agendada").length;
@@ -333,6 +381,41 @@ export default function Manutencao() {
             </Button>
           )}
         </div>
+
+        {/* Alertas de Manutenção Preventiva */}
+        {alertas.length > 0 && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-destructive" />
+                <CardTitle className="text-base">Alertas de Manutenção Preventiva ({alertas.length})</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {alertas.map((a, i) => (
+                <div key={i} className="flex items-center justify-between p-2 rounded-md bg-background border">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                    <span className="text-sm">{a.mensagem}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const veiculo = veiculos.find(v => v.placa === a.veiculo_placa);
+                      if (veiculo) {
+                        setForm(prev => ({ ...prev, veiculo_id: veiculo.id, tipo: "Preventiva" }));
+                        setShowForm(true);
+                      }
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />Agendar
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
