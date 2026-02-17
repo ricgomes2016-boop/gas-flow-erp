@@ -1,17 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Wallet,
-  Settings2,
-  Users,
-  Package,
-  
-  CreditCard,
-  Truck,
-  HardHat,
-  Settings,
   LogOut,
   Flame,
   Menu,
@@ -27,137 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-
-interface MenuItem {
-  icon: React.ElementType;
-  label: string;
-  path?: string;
-  submenu?: { label: string; path: string }[];
-}
-
-const menuItems: MenuItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  {
-    icon: ShoppingCart,
-    label: "Vendas",
-    submenu: [
-      { label: "PDV", path: "/vendas/pdv" },
-      { label: "Nova Venda", path: "/vendas/nova" },
-      { label: "Pedidos", path: "/vendas/pedidos" },
-      { label: "Relatório de Vendas", path: "/vendas/relatorio" },
-    ],
-  },
-  {
-    icon: Wallet,
-    label: "Caixa",
-    submenu: [
-      { label: "Acerto Diário Entregador", path: "/caixa/acerto" },
-      { label: "Caixa do Dia", path: "/caixa/dia" },
-      { label: "Despesas (Sangria)", path: "/caixa/despesas" },
-    ],
-  },
-  {
-    icon: Settings2,
-    label: "Gestão Operacional",
-    submenu: [
-      { label: "Cockpit do Gestor", path: "/operacional/cockpit" },
-      { label: "Central de Indicadores", path: "/operacional/indicadores" },
-      { label: "Mapa Operacional", path: "/operacional/centro" },
-      { label: "Alertas Inteligentes", path: "/operacional/alertas" },
-      { label: "Rotas de Entrega", path: "/operacional/rotas" },
-      { label: "Escalas de Entregadores", path: "/operacional/escalas" },
-      { label: "Análise de Concorrência", path: "/operacional/concorrencia" },
-      { label: "Conselhos IA", path: "/operacional/ia" },
-      { label: "DRE", path: "/operacional/dre" },
-      { label: "Metas e Desafios", path: "/operacional/metas" },
-      { label: "Planejamento Anual", path: "/operacional/anual" },
-      { label: "Planejamento Financeiro - Mês", path: "/operacional/mensal" },
-      { label: "Canais de Venda", path: "/operacional/canais-venda" },
-      { label: "Fornecedores", path: "/cadastros/fornecedores" },
-    ],
-  },
-  {
-    icon: Users,
-    label: "Gestão de Clientes",
-    submenu: [
-      { label: "Clientes", path: "/clientes/cadastro" },
-      { label: "Campanhas", path: "/clientes/campanhas" },
-      { label: "Fidelidade / Indicações", path: "/clientes/fidelidade" },
-      { label: "CRM", path: "/clientes/crm" },
-      { label: "Ranking dos Clientes", path: "/clientes/ranking" },
-    ],
-  },
-  {
-    icon: Package,
-    label: "Gestão de Estoque",
-    submenu: [
-      { label: "Estoque do Dia", path: "/estoque" },
-      { label: "Produtos", path: "/cadastros/produtos" },
-      { label: "Compras", path: "/estoque/compras" },
-      { label: "Comodatos", path: "/estoque/comodatos" },
-      { label: "Estoque em Rota", path: "/estoque/rota" },
-      { label: "MCMM", path: "/estoque/mcmm" },
-    ],
-  },
-  {
-    icon: CreditCard,
-    label: "Gestão Financeira",
-    submenu: [
-      { label: "Fluxo de Caixa", path: "/financeiro/fluxo" },
-      { label: "Previsão de Caixa", path: "/financeiro/previsao" },
-      { label: "Contas a Pagar", path: "/financeiro/pagar" },
-      { label: "Contas a Receber", path: "/financeiro/receber" },
-      { label: "Aprovar Despesas", path: "/financeiro/aprovar" },
-      { label: "Conciliação (OFX / CSV)", path: "/financeiro/conciliacao" },
-      { label: "Contador", path: "/financeiro/contador" },
-      { label: "Vale Gás - Parceiros", path: "/financeiro/vale-gas/parceiros" },
-      { label: "Vale Gás - Emissão", path: "/financeiro/vale-gas/emissao" },
-      { label: "Vale Gás - Controle", path: "/financeiro/vale-gas/controle" },
-      { label: "Vale Gás - Acerto", path: "/financeiro/vale-gas/acerto" },
-      { label: "Vale Gás - Relatório", path: "/financeiro/vale-gas/relatorio" },
-    ],
-  },
-  {
-    icon: Truck,
-    label: "Gestão de Frota",
-    submenu: [
-      { label: "Veículos", path: "/cadastros/veiculos" },
-      { label: "Controle de Combustível", path: "/frota/combustivel" },
-      { label: "Manutenção", path: "/frota/manutencao" },
-      { label: "Relatórios", path: "/frota/relatorios" },
-      { label: "Gamificação", path: "/frota/gamificacao" },
-    ],
-  },
-  {
-    icon: HardHat,
-    label: "Gestão de RH",
-    submenu: [
-      { label: "Funcionários", path: "/cadastros/funcionarios" },
-      { label: "Entregadores", path: "/cadastros/entregadores" },
-      { label: "Folha de Pagamento", path: "/rh/folha" },
-      { label: "Vale Funcionário", path: "/rh/vale" },
-      { label: "Comissão do Entregador", path: "/rh/comissao" },
-      { label: "Premiação", path: "/rh/premiacao" },
-      { label: "Bônus", path: "/rh/bonus" },
-      { label: "Alerta Jornada", path: "/rh/jornada" },
-      { label: "Banco de Horas", path: "/rh/banco-horas" },
-      { label: "Horários", path: "/rh/horarios" },
-      { label: "Prevenção Trabalhista - IA", path: "/rh/prevencao-ia" },
-      { label: "Produtividade - IA", path: "/rh/produtividade-ia" },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Configurações",
-    submenu: [
-      { label: "Geral / Regras", path: "/configuracoes" },
-      { label: "Usuários", path: "/config/usuarios" },
-      { label: "Unidades / Lojas", path: "/config/unidades" },
-      { label: "Auditoria", path: "/config/auditoria" },
-      { label: "Permissões", path: "/config/permissoes" },
-    ],
-  },
-];
+import { menuItems } from "./menuItems";
 
 export function MobileNav() {
   const location = useLocation();
@@ -239,21 +98,25 @@ export function MobileNav() {
                       </button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pl-8 space-y-1 mt-1">
-                      {item.submenu.map((sub) => (
-                        <Link
-                          key={sub.path}
-                          to={sub.path}
-                          onClick={() => setOpen(false)}
-                          className={cn(
-                            "block px-3 py-2 rounded-md text-sm transition-colors",
-                            isActive(sub.path)
-                              ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-                          )}
-                        >
-                          {sub.label}
-                        </Link>
-                      ))}
+                      {item.submenu.map((sub) => {
+                        const SubIcon = sub.icon;
+                        return (
+                          <Link
+                            key={sub.path}
+                            to={sub.path}
+                            onClick={() => setOpen(false)}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                              isActive(sub.path)
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                            )}
+                          >
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            <span>{sub.label}</span>
+                          </Link>
+                        );
+                      })}
                     </CollapsibleContent>
                   </Collapsible>
                 );
