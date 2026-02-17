@@ -85,11 +85,9 @@ export default function GestaoRotas() {
   // Filters
   const [filtroEntregador, setFiltroEntregador] = useState("all");
   const [filtroProduto, setFiltroProduto] = useState("all");
-  const [filtroLoja, setFiltroLoja] = useState("all");
   const [filtroDataInicio, setFiltroDataInicio] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [filtroDataFim, setFiltroDataFim] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [entregadoresList, setEntregadoresList] = useState<{ id: string; nome: string }[]>([]);
-  const [unidadesList, setUnidadesList] = useState<{ id: string; nome: string }[]>([]);
   const [produtosList, setProdutosList] = useState<{ id: string; nome: string }[]>([]);
 
   const { toast } = useToast();
@@ -101,14 +99,12 @@ export default function GestaoRotas() {
   }, []);
 
   const fetchFilters = async () => {
-    const [entRes, prodRes, uniRes] = await Promise.all([
+    const [entRes, prodRes] = await Promise.all([
       supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("produtos").select("id, nome").eq("ativo", true).order("nome"),
-      supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome"),
     ]);
     if (entRes.data) setEntregadoresList(entRes.data);
     if (prodRes.data) setProdutosList(prodRes.data);
-    if (uniRes.data) setUnidadesList(uniRes.data);
   };
 
   const fetchRotas = async () => {
@@ -250,7 +246,6 @@ export default function GestaoRotas() {
   const filteredCarregamentos = carregamentos.filter((c) => {
     if (filtroEntregador !== "all" && c.entregador_id !== filtroEntregador) return false;
     if (filtroProduto !== "all" && !c.itens.some((i) => i.produto_nome.toLowerCase().includes(filtroProduto.toLowerCase()))) return false;
-    if (filtroLoja !== "all" && (c.unidade_nome || "").toLowerCase() !== filtroLoja.toLowerCase()) return false;
     return true;
   });
 
@@ -304,18 +299,6 @@ export default function GestaoRotas() {
                         <SelectItem value="all">Todos</SelectItem>
                         {produtosList.map((p) => (
                           <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Loja</Label>
-                    <Select value={filtroLoja} onValueChange={setFiltroLoja}>
-                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
-                        {unidadesList.map((u) => (
-                          <SelectItem key={u.id} value={u.nome}>{u.nome}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
