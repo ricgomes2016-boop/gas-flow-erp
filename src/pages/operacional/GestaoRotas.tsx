@@ -397,6 +397,10 @@ export default function GestaoRotas() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <Button variant="outline" onClick={openNew}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Rota
+                  </Button>
                   <Button onClick={() => setCarregModalOpen(true)}>
                     <Truck className="h-4 w-4 mr-2" />
                     Cadastrar Rota
