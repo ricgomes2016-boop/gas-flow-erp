@@ -30,10 +30,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MapPin, Plus, Pencil, Trash2, Loader2, Truck, Package, ArrowLeftRight, CheckCircle } from "lucide-react";
+import { MapPin, Plus, Pencil, Trash2, Loader2, Truck, Package, ArrowLeftRight, CheckCircle, Printer, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CadastrarCarregamentoModal } from "@/components/operacional/CadastrarCarregamentoModal";
+import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { format } from "date-fns";
 
 interface RotaDefinida {
@@ -219,9 +220,19 @@ export default function GestaoRotas() {
   const handleRetorno = async () => {
     if (!selectedCarreg) return;
     try {
+      const itensVendidos: { produto_id: string; quantidade: number }[] = [];
+
       for (const ri of retornoItens) {
         const item = selectedCarreg.itens.find((i) => i.id === ri.id);
         const vendido = (item?.quantidade_saida || 0) - ri.qtd_retorno;
+
+        // Get produto_id from carregamento_rota_itens
+        const { data: itemData } = await supabase
+          .from("carregamento_rota_itens")
+          .select("produto_id")
+          .eq("id", ri.id)
+          .single();
+
         await supabase
           .from("carregamento_rota_itens")
           .update({
@@ -229,13 +240,30 @@ export default function GestaoRotas() {
             quantidade_vendida: vendido,
           } as any)
           .eq("id", ri.id);
+
+        if (vendido > 0 && itemData) {
+          itensVendidos.push({ produto_id: itemData.produto_id, quantidade: vendido });
+        }
       }
+
+      // Get unidade_id from carregamento
+      const { data: carregData } = await supabase
+        .from("carregamentos_rota")
+        .select("unidade_id")
+        .eq("id", selectedCarreg.id)
+        .single();
+
+      // Baixa automática de estoque
+      if (itensVendidos.length > 0) {
+        await atualizarEstoqueVenda(itensVendidos, carregData?.unidade_id);
+      }
+
       await supabase
         .from("carregamentos_rota")
         .update({ status: "finalizado", data_retorno: new Date().toISOString() } as any)
         .eq("id", selectedCarreg.id);
 
-      toast({ title: "Retorno registrado com sucesso!" });
+      toast({ title: "Retorno registrado e estoque atualizado!" });
       setRetornoModalOpen(false);
       fetchCarregamentos();
     } catch (err: any) {
@@ -248,6 +276,67 @@ export default function GestaoRotas() {
     if (filtroProduto !== "all" && !c.itens.some((i) => i.produto_nome.toLowerCase().includes(filtroProduto.toLowerCase()))) return false;
     return true;
   });
+
+  // Resumo dos carregamentos
+  const resumo = filteredCarregamentos.reduce(
+    (acc, c) => {
+      c.itens.forEach((i) => {
+        acc.totalSaida += i.quantidade_saida;
+        acc.totalVendido += i.quantidade_vendida || 0;
+        acc.totalRetorno += i.quantidade_retorno || 0;
+      });
+      if (c.status === "em_rota") acc.emRota++;
+      if (c.status === "finalizado") acc.finalizados++;
+      return acc;
+    },
+    { totalSaida: 0, totalVendido: 0, totalRetorno: 0, emRota: 0, finalizados: 0 }
+  );
+
+  const handlePrintManifesto = (carreg: Carregamento) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const html = `
+      <html><head><title>Manifesto - ${carreg.entregador_nome}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h2 { margin-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+        th { background: #f0f0f0; }
+        .info { margin: 4px 0; font-size: 14px; }
+        .signature { margin-top: 60px; display: flex; gap: 60px; }
+        .signature div { border-top: 1px solid #333; padding-top: 5px; width: 200px; text-align: center; font-size: 13px; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      <h2>Manifesto de Carregamento</h2>
+      <p class="info"><strong>Entregador:</strong> ${carreg.entregador_nome}</p>
+      <p class="info"><strong>Loja:</strong> ${carreg.unidade_nome || "—"}</p>
+      <p class="info"><strong>Rota:</strong> ${carreg.rota_nome || "—"}</p>
+      <p class="info"><strong>Data Saída:</strong> ${format(new Date(carreg.data_saida), "dd/MM/yyyy HH:mm")}</p>
+      <table>
+        <thead><tr><th>#</th><th>Produto</th><th>Qtd. Saída</th><th>Qtd. Retorno</th><th>Qtd. Vendida</th></tr></thead>
+        <tbody>
+          ${carreg.itens.map((i, idx) => `
+            <tr>
+              <td>${idx + 1}</td>
+              <td>${i.produto_nome}</td>
+              <td>${i.quantidade_saida}</td>
+              <td>${i.quantidade_retorno ?? "—"}</td>
+              <td>${i.quantidade_vendida ?? "—"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+      <div class="signature">
+        <div>Responsável</div>
+        <div>Entregador</div>
+      </div>
+      <script>window.onload = function() { window.print(); }</script>
+      </body></html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
 
   return (
     <MainLayout>
@@ -312,6 +401,40 @@ export default function GestaoRotas() {
               </CardContent>
             </Card>
 
+            {/* Resumo */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Saída</p>
+                  <p className="text-2xl font-bold text-primary">{resumo.totalSaida}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Vendido</p>
+                  <p className="text-2xl font-bold text-green-600">{resumo.totalVendido}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Retorno</p>
+                  <p className="text-2xl font-bold text-orange-500">{resumo.totalRetorno}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Em Rota</p>
+                  <p className="text-2xl font-bold">{resumo.emRota}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Finalizados</p>
+                  <p className="text-2xl font-bold">{resumo.finalizados}</p>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Lista de carregamentos */}
             <Card>
               <CardContent className="p-0">
@@ -366,7 +489,10 @@ export default function GestaoRotas() {
                                 </Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right space-x-1">
+                              <Button size="sm" variant="ghost" onClick={() => handlePrintManifesto(c)} title="Imprimir manifesto">
+                                <Printer className="h-4 w-4" />
+                              </Button>
                               {c.status === "em_rota" && (
                                 <Button size="sm" variant="outline" onClick={() => openRetorno(c)}>
                                   <ArrowLeftRight className="h-4 w-4 mr-1" />
