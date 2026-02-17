@@ -19,12 +19,14 @@ export type Database = {
           acerto_data: string | null
           created_at: string
           data: string
+          entregador_id: string | null
           id: string
           km: number
           litros: number
           motorista: string
           nota_fiscal: string | null
           posto: string | null
+          sem_saida_caixa: boolean
           status: string
           tipo: string
           unidade_id: string | null
@@ -36,12 +38,14 @@ export type Database = {
           acerto_data?: string | null
           created_at?: string
           data?: string
+          entregador_id?: string | null
           id?: string
           km: number
           litros: number
           motorista: string
           nota_fiscal?: string | null
           posto?: string | null
+          sem_saida_caixa?: boolean
           status?: string
           tipo?: string
           unidade_id?: string | null
@@ -53,12 +57,14 @@ export type Database = {
           acerto_data?: string | null
           created_at?: string
           data?: string
+          entregador_id?: string | null
           id?: string
           km?: number
           litros?: number
           motorista?: string
           nota_fiscal?: string | null
           posto?: string | null
+          sem_saida_caixa?: boolean
           status?: string
           tipo?: string
           unidade_id?: string | null
@@ -67,6 +73,13 @@ export type Database = {
           veiculo_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "abastecimentos_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "abastecimentos_unidade_id_fkey"
             columns: ["unidade_id"]
