@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/tabs";
 import {
   CreditCard, Plus, CheckCircle2, AlertCircle, Clock, Settings, Trash2, Search,
-  DollarSign, TrendingDown, Filter, X,
+  DollarSign, TrendingDown, Filter, X, FileUp, Loader2,
 } from "lucide-react";
+import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -96,6 +97,14 @@ export function ConferenciaCartao() {
   const [filtroBandeira, setFiltroBandeira] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [deleteConfId, setDeleteConfId] = useState<string | null>(null);
+
+  // PDF import
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<any[]>([]);
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfOperadora, setPdfOperadora] = useState("");
+  const [pdfImporting, setPdfImporting] = useState(false);
 
   const fetchOperadoras = async () => {
     let query = supabase.from("operadoras_cartao").select("*").eq("ativo", true);
@@ -240,8 +249,125 @@ export function ConferenciaCartao() {
     else { toast.success("Registro excluído!"); fetchItens(); }
     setDeleteConfId(null);
   };
+  // PDF Import
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
 
-  // Filtered
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("PDF muito grande (máx 10MB)");
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const resp = await supabase.functions.invoke("parse-card-statement-pdf", {
+        body: { pdf_base64: base64 },
+      });
+
+      if (resp.error) throw resp.error;
+      const { transacoes, operadora_detectada } = resp.data;
+
+      if (!transacoes?.length) {
+        toast.error("Nenhuma transação encontrada no PDF");
+        return;
+      }
+
+      setPdfPreview(transacoes);
+      if (operadora_detectada) {
+        const match = operadoras.find(o => o.nome.toLowerCase().includes(operadora_detectada.toLowerCase()));
+        if (match) setPdfOperadora(match.id);
+      }
+      setPdfDialogOpen(true);
+      toast.success(`${transacoes.length} transação(ões) encontrada(s)!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao processar PDF: " + (err.message || "erro desconhecido"));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const importPdfTransactions = async () => {
+    if (!pdfPreview.length) return;
+    setPdfImporting(true);
+    try {
+      const op = operadoras.find(o => o.id === pdfOperadora);
+      const rows = pdfPreview.map(t => {
+        const valorBruto = Number(t.valor_bruto) || 0;
+        let taxaPct = Number(t.taxa_percentual) || 0;
+        let valorTaxa = Number(t.valor_taxa) || 0;
+        let valorLiq = Number(t.valor_liquido) || 0;
+
+        // If operator selected but no tax from PDF, calculate from operator
+        if (op && taxaPct === 0) {
+          const tipo = t.tipo || "credito";
+          const parcelas = Number(t.parcelas) || 1;
+          taxaPct = tipo === "debito" ? op.taxa_debito
+            : parcelas > 1 ? op.taxa_credito_parcelado : op.taxa_credito_vista;
+          valorTaxa = valorBruto * (taxaPct / 100);
+          valorLiq = valorBruto - valorTaxa;
+        }
+
+        if (valorLiq === 0 && valorBruto > 0) valorLiq = valorBruto - valorTaxa;
+
+        // Calculate deposit date
+        let dataPrevista: string | null = null;
+        if (t.data_deposito) {
+          dataPrevista = t.data_deposito;
+        } else if (op && t.data_venda) {
+          const prazo = t.tipo === "debito" ? op.prazo_debito : op.prazo_credito;
+          dataPrevista = format(addDays(new Date(t.data_venda), prazo), "yyyy-MM-dd");
+        }
+
+        return {
+          tipo: t.tipo || "credito",
+          bandeira: t.bandeira || null,
+          valor_bruto: valorBruto,
+          taxa_percentual: taxaPct,
+          valor_taxa: valorTaxa,
+          valor_liquido_esperado: valorLiq,
+          data_venda: t.data_venda || format(new Date(), "yyyy-MM-dd"),
+          data_prevista_deposito: dataPrevista,
+          nsu: t.nsu || null,
+          autorizacao: t.autorizacao || null,
+          parcelas: Number(t.parcelas) || 1,
+          operadora_id: pdfOperadora || null,
+          observacoes: "Importado via PDF",
+          unidade_id: unidadeAtual?.id || null,
+        };
+      });
+
+      const { error } = await supabase.from("conferencia_cartao").insert(rows);
+      if (error) throw error;
+
+      toast.success(`${rows.length} transação(ões) importada(s)!`);
+      setPdfDialogOpen(false);
+      setPdfPreview([]);
+      setPdfOperadora("");
+      fetchItens();
+    } catch (err: any) {
+      toast.error("Erro ao importar: " + (err.message || "erro desconhecido"));
+    } finally {
+      setPdfImporting(false);
+    }
+  };
+
+
   const filtered = itens.filter(i => {
     if (filtroStatus !== "todos" && i.status !== filtroStatus) return false;
     if (filtroBandeira !== "todos" && i.bandeira !== filtroBandeira) return false;
@@ -276,12 +402,20 @@ export function ConferenciaCartao() {
 
         {/* === CONFERÊNCIA === */}
         <TabsContent value="conferencia" className="space-y-4">
-          <div className="flex items-center gap-2 justify-between">
-            <Button size="sm" className="gap-2" onClick={() => setConfDialogOpen(true)}>
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Registrar Venda Cartão</span>
-              <span className="sm:hidden">Registrar</span>
-            </Button>
+          <div className="flex items-center gap-2 justify-between flex-wrap">
+            <div className="flex gap-2">
+              <Button size="sm" className="gap-2" onClick={() => setConfDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Registrar Venda Cartão</span>
+                <span className="sm:hidden">Registrar</span>
+              </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => pdfInputRef.current?.click()} disabled={pdfLoading}>
+                {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                <span className="hidden sm:inline">Importar PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </Button>
+              <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} />
+            </div>
           </div>
 
           {/* Summary cards */}
@@ -693,6 +827,77 @@ export function ConferenciaCartao() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog: PDF Import Preview */}
+      <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Importar Transações do PDF</DialogTitle>
+            <DialogDescription>
+              {pdfPreview.length} transação(ões) encontrada(s). Selecione a operadora e confirme.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Operadora (aplica taxas e prazos)</Label>
+              <Select value={pdfOperadora} onValueChange={setPdfOperadora}>
+                <SelectTrigger><SelectValue placeholder="Selecione a operadora" /></SelectTrigger>
+                <SelectContent>
+                  {operadoras.map(op => (
+                    <SelectItem key={op.id} value={op.id}>
+                      {op.nome}{op.bandeira ? ` (${op.bandeira})` : ""} — D+{op.prazo_debito}/{op.prazo_credito}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="overflow-auto flex-1 border rounded-md">
+            <table className="w-full text-xs">
+              <thead className="bg-muted sticky top-0">
+                <tr>
+                  <th className="p-2 text-left font-medium">#</th>
+                  <th className="p-2 text-left font-medium">Data</th>
+                  <th className="p-2 text-left font-medium">Tipo</th>
+                  <th className="p-2 text-left font-medium">Bandeira</th>
+                  <th className="p-2 text-right font-medium">Bruto</th>
+                  <th className="p-2 text-right font-medium">Taxa</th>
+                  <th className="p-2 text-right font-medium">Líquido</th>
+                  <th className="p-2 text-center font-medium">Parc.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pdfPreview.slice(0, 200).map((t, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-2 text-muted-foreground">{i + 1}</td>
+                    <td className="p-2">{t.data_venda || "—"}</td>
+                    <td className="p-2">
+                      <Badge variant={t.tipo === "debito" ? "secondary" : "default"} className="text-[10px]">
+                        {t.tipo === "debito" ? "Déb" : "Créd"}
+                      </Badge>
+                    </td>
+                    <td className="p-2">{t.bandeira || "—"}</td>
+                    <td className="p-2 text-right font-medium">R$ {Number(t.valor_bruto || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="p-2 text-right text-destructive">{Number(t.taxa_percentual || 0).toFixed(2)}%</td>
+                    <td className="p-2 text-right font-medium text-success">R$ {Number(t.valor_liquido || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="p-2 text-center">{t.parcelas || 1}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Total bruto: R$ {pdfPreview.reduce((a, t) => a + (Number(t.valor_bruto) || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+            <span>Total líquido: R$ {pdfPreview.reduce((a, t) => a + (Number(t.valor_liquido) || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdfDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={importPdfTransactions} disabled={pdfImporting}>
+              {pdfImporting ? "Importando..." : `Importar ${pdfPreview.length} transação(ões)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
