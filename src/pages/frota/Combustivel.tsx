@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Fuel, Plus, Search, TrendingUp, Truck, DollarSign, Loader2, FileCheck, Receipt } from "lucide-react";
+import { Fuel, Plus, Search, TrendingUp, Truck, DollarSign, Loader2, FileCheck, Receipt, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
@@ -51,8 +51,65 @@ export default function Combustivel() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [gerando, setGerando] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "pendente" | "acertado">("todos");
+  const [isScanning, setIsScanning] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchData(); }, [unidadeAtual]);
+
+  const compressImage = (file: File, maxWidth = 1600): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ratio = Math.min(maxWidth / img.width, 1);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject("Canvas error");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (photoInputRef.current) photoInputRef.current.value = "";
+
+    setIsScanning(true);
+    try {
+      const imageBase64 = await compressImage(file);
+      const { data, error } = await supabase.functions.invoke("parse-fuel-photo", {
+        body: { imageBase64 },
+      });
+      if (error) throw error;
+
+      setForm((prev) => ({
+        ...prev,
+        litros: data.litros != null ? String(data.litros) : prev.litros,
+        valor: data.valor != null ? String(data.valor) : prev.valor,
+        tipo: data.tipo || prev.tipo,
+        posto: data.posto || prev.posto,
+        nota_fiscal: data.nota_fiscal || prev.nota_fiscal,
+        km: data.km != null ? String(data.km) : prev.km,
+      }));
+
+      toast.success("Dados extraídos da foto! Confira e complete.");
+    } catch (err: any) {
+      console.error("OCR error:", err);
+      toast.error(err.message || "Erro ao ler foto. Tente novamente.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -332,6 +389,28 @@ export default function Combustivel() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Novo Abastecimento</DialogTitle></DialogHeader>
+          {/* Foto OCR */}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhotoCapture}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Lendo comprovante...</>
+            ) : (
+              <><Camera className="h-4 w-4" />Tirar foto do comprovante</>
+            )}
+          </Button>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Veículo *</Label>
