@@ -50,6 +50,7 @@ interface Carregamento {
   entregador_id: string;
   entregador_nome: string;
   rota_nome: string | null;
+  unidade_nome: string | null;
   data_saida: string;
   data_retorno: string | null;
   status: string;
@@ -84,9 +85,11 @@ export default function GestaoRotas() {
   // Filters
   const [filtroEntregador, setFiltroEntregador] = useState("all");
   const [filtroProduto, setFiltroProduto] = useState("all");
+  const [filtroLoja, setFiltroLoja] = useState("all");
   const [filtroDataInicio, setFiltroDataInicio] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [filtroDataFim, setFiltroDataFim] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [entregadoresList, setEntregadoresList] = useState<{ id: string; nome: string }[]>([]);
+  const [unidadesList, setUnidadesList] = useState<{ id: string; nome: string }[]>([]);
   const [produtosList, setProdutosList] = useState<{ id: string; nome: string }[]>([]);
 
   const { toast } = useToast();
@@ -98,12 +101,14 @@ export default function GestaoRotas() {
   }, []);
 
   const fetchFilters = async () => {
-    const [entRes, prodRes] = await Promise.all([
+    const [entRes, prodRes, uniRes] = await Promise.all([
       supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("produtos").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("unidades").select("id, nome").eq("ativo", true).order("nome"),
     ]);
     if (entRes.data) setEntregadoresList(entRes.data);
     if (prodRes.data) setProdutosList(prodRes.data);
+    if (uniRes.data) setUnidadesList(uniRes.data);
   };
 
   const fetchRotas = async () => {
@@ -117,7 +122,7 @@ export default function GestaoRotas() {
     setIsLoadingCarreg(true);
     const { data } = await supabase
       .from("carregamentos_rota")
-      .select("*, entregadores(nome), rotas_definidas(nome)")
+      .select("*, entregadores(nome), rotas_definidas(nome), unidades(nome)")
       .gte("data_saida", `${filtroDataInicio}T00:00:00`)
       .lte("data_saida", `${filtroDataFim}T23:59:59`)
       .order("data_saida", { ascending: false }) as any;
@@ -135,6 +140,7 @@ export default function GestaoRotas() {
           entregador_id: c.entregador_id,
           entregador_nome: c.entregadores?.nome || "—",
           rota_nome: c.rotas_definidas?.nome || null,
+          unidade_nome: c.unidades?.nome || null,
           data_saida: c.data_saida,
           data_retorno: c.data_retorno,
           status: c.status,
@@ -244,6 +250,7 @@ export default function GestaoRotas() {
   const filteredCarregamentos = carregamentos.filter((c) => {
     if (filtroEntregador !== "all" && c.entregador_id !== filtroEntregador) return false;
     if (filtroProduto !== "all" && !c.itens.some((i) => i.produto_nome.toLowerCase().includes(filtroProduto.toLowerCase()))) return false;
+    if (filtroLoja !== "all" && (c.unidade_nome || "").toLowerCase() !== filtroLoja.toLowerCase()) return false;
     return true;
   });
 
@@ -301,6 +308,18 @@ export default function GestaoRotas() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Loja</Label>
+                    <Select value={filtroLoja} onValueChange={setFiltroLoja}>
+                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {unidadesList.map((u) => (
+                          <SelectItem key={u.id} value={u.nome}>{u.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button variant="outline" onClick={fetchCarregamentos}>Filtrar</Button>
                   <Button onClick={() => setCarregModalOpen(true)}>
                     <Truck className="h-4 w-4 mr-2" />
@@ -322,6 +341,7 @@ export default function GestaoRotas() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Loja</TableHead>
                           <TableHead>Entregador</TableHead>
                           <TableHead>Rota</TableHead>
                           <TableHead>Saída</TableHead>
@@ -333,6 +353,9 @@ export default function GestaoRotas() {
                       <TableBody>
                         {filteredCarregamentos.map((c) => (
                           <TableRow key={c.id}>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">{c.unidade_nome || "—"}</Badge>
+                            </TableCell>
                             <TableCell className="font-medium">{c.entregador_nome}</TableCell>
                             <TableCell>{c.rota_nome || "—"}</TableCell>
                             <TableCell className="text-sm">
@@ -372,7 +395,7 @@ export default function GestaoRotas() {
                         ))}
                         {filteredCarregamentos.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                               Nenhum carregamento encontrado
                             </TableCell>
                           </TableRow>

@@ -33,6 +33,7 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 interface Entregador {
   id: string;
   nome: string;
+  unidade_nome: string | null;
 }
 
 interface Rota {
@@ -44,6 +45,7 @@ interface Produto {
   id: string;
   nome: string;
   categoria: string;
+  unidade_nome: string | null;
 }
 
 interface ItemCarregamento {
@@ -106,13 +108,13 @@ export function CadastrarCarregamentoModal({ open, onOpenChange, onSaved }: Prop
 
   const fetchData = async () => {
     const [entRes, rotaRes, prodRes] = await Promise.all([
-      supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("entregadores").select("id, nome, unidades(nome)").eq("ativo", true).order("nome"),
       supabase.from("rotas_definidas").select("id, nome").eq("ativo", true).order("nome"),
-      supabase.from("produtos").select("id, nome, categoria").eq("ativo", true).order("nome"),
+      supabase.from("produtos").select("id, nome, categoria, unidades(nome)").eq("ativo", true).order("nome"),
     ]);
-    if (entRes.data) setEntregadores(entRes.data);
+    if (entRes.data) setEntregadores((entRes.data as any[]).map((e: any) => ({ id: e.id, nome: e.nome, unidade_nome: e.unidades?.nome || null })));
     if (rotaRes.data) setRotas(rotaRes.data);
-    if (prodRes.data) setProdutos(prodRes.data as Produto[]);
+    if (prodRes.data) setProdutos((prodRes.data as any[]).map((p: any) => ({ id: p.id, nome: p.nome, categoria: p.categoria, unidade_nome: p.unidades?.nome || null })));
   };
 
   const addItem = (produto: Produto) => {
@@ -202,7 +204,9 @@ export function CadastrarCarregamentoModal({ open, onOpenChange, onSaved }: Prop
               <SelectTrigger><SelectValue placeholder="Entregador" /></SelectTrigger>
               <SelectContent>
                 {entregadores.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.nome}{e.unidade_nome ? ` (${e.unidade_nome})` : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -250,7 +254,7 @@ export function CadastrarCarregamentoModal({ open, onOpenChange, onSaved }: Prop
                     className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex justify-between items-center"
                     onClick={() => addItem(p)}
                   >
-                    <span>{p.nome}</span>
+                    <span>{p.nome} {p.unidade_nome && <span className="text-muted-foreground">({p.unidade_nome})</span>}</span>
                     <Plus className="h-4 w-4 text-primary" />
                   </button>
                 ))}
