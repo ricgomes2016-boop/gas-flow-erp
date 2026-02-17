@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Fuel, Plus, CheckCircle, Clock, Loader2 } from "lucide-react";
+import { Fuel, Plus, CheckCircle, Clock, Loader2, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +49,8 @@ export default function EntregadorCombustivel() {
   const [entregadorUnidadeId, setEntregadorUnidadeId] = useState<string | null>(null);
   const [veiculos, setVeiculos] = useState<{ id: string; placa: string; modelo: string | null }[]>([]);
   const [dialogAberto, setDialogAberto] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     veiculo_id: "",
     litros: "",
@@ -109,6 +111,63 @@ export default function EntregadorCombustivel() {
       .filter((a) => new Date(a.data) >= mesInicio)
       .reduce((s, a) => s + Number(a.valor), 0);
   })();
+
+  const compressImage = (file: File, maxWidth = 1600): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ratio = Math.min(maxWidth / img.width, 1);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject("Canvas error");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (photoInputRef.current) photoInputRef.current.value = "";
+
+    setIsScanning(true);
+    try {
+      const imageBase64 = await compressImage(file);
+
+      const { data, error } = await supabase.functions.invoke("parse-fuel-photo", {
+        body: { imageBase64 },
+      });
+
+      if (error) throw error;
+
+      setForm((prev) => ({
+        ...prev,
+        litros: data.litros != null ? String(data.litros) : prev.litros,
+        valor: data.valor != null ? String(data.valor) : prev.valor,
+        tipo: data.tipo || prev.tipo,
+        posto: data.posto || prev.posto,
+        nota_fiscal: data.nota_fiscal || prev.nota_fiscal,
+        km: data.km != null ? String(data.km) : prev.km,
+      }));
+
+      toast({ title: "Dados extraídos!", description: "Confira e complete as informações." });
+    } catch (err: any) {
+      console.error("OCR error:", err);
+      toast({ title: "Erro ao ler foto", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.veiculo_id || !form.litros || !form.valor) {
@@ -206,6 +265,28 @@ export default function EntregadorCombustivel() {
           <DialogContent className="max-w-sm">
             <DialogHeader><DialogTitle>Novo Abastecimento</DialogTitle></DialogHeader>
             <div className="space-y-4">
+              {/* Foto OCR */}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoCapture}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={isScanning}
+              >
+                {isScanning ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Lendo comprovante...</>
+                ) : (
+                  <><Camera className="h-4 w-4 mr-2" />Tirar foto do comprovante</>
+                )}
+              </Button>
               <div className="space-y-2">
                 <Label className="text-xs">Veículo *</Label>
                 <Select value={form.veiculo_id} onValueChange={(v) => setForm({ ...form, veiculo_id: v })}>

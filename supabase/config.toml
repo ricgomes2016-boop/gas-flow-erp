@@ -1,1 +1,4 @@
 project_id = "scqenurznkatvrqxqjmt"
+
+[functions.parse-fuel-photo]
+verify_jwt = false
