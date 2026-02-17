@@ -36,6 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CadastrarCarregamentoModal } from "@/components/operacional/CadastrarCarregamentoModal";
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { format } from "date-fns";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface RotaDefinida {
   id: string;
@@ -92,18 +93,22 @@ export default function GestaoRotas() {
   const [produtosList, setProdutosList] = useState<{ id: string; nome: string }[]>([]);
 
   const { toast } = useToast();
+  const { unidadeAtual } = useUnidade();
 
   useEffect(() => {
     fetchRotas();
     fetchCarregamentos();
     fetchFilters();
-  }, []);
+  }, [unidadeAtual?.id]);
 
   const fetchFilters = async () => {
-    const [entRes, prodRes] = await Promise.all([
-      supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome"),
-      supabase.from("produtos").select("id, nome").eq("ativo", true).order("nome"),
-    ]);
+    let entQuery = supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome");
+    let prodQuery = supabase.from("produtos").select("id, nome").eq("ativo", true).order("nome");
+    if (unidadeAtual?.id) {
+      entQuery = entQuery.eq("unidade_id", unidadeAtual.id);
+      prodQuery = prodQuery.eq("unidade_id", unidadeAtual.id);
+    }
+    const [entRes, prodRes] = await Promise.all([entQuery, prodQuery]);
     if (entRes.data) setEntregadoresList(entRes.data);
     if (prodRes.data) setProdutosList(prodRes.data);
   };
@@ -392,7 +397,6 @@ export default function GestaoRotas() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button variant="outline" onClick={fetchCarregamentos}>Filtrar</Button>
                   <Button onClick={() => setCarregModalOpen(true)}>
                     <Truck className="h-4 w-4 mr-2" />
                     Cadastrar Rota
