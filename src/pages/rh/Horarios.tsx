@@ -20,10 +20,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 export default function Horarios() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { unidadeAtual } = useUnidade();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -37,38 +39,56 @@ export default function Horarios() {
   const [diasSemana, setDiasSemana] = useState("Seg-Sex");
 
   const { data: horarios = [], isLoading } = useQuery({
-    queryKey: ["horarios-funcionario"],
+    queryKey: ["horarios-funcionario", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("horarios_funcionario")
         .select("*, funcionarios(nome, cargo), entregadores(nome)")
         .order("created_at", { ascending: false });
+
+      if (unidadeAtual?.id) {
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
 
   const { data: funcionarios = [] } = useQuery({
-    queryKey: ["funcionarios-ativos"],
+    queryKey: ["funcionarios-ativos", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("funcionarios")
         .select("id, nome, cargo")
         .eq("ativo", true)
         .order("nome");
+
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
 
   const { data: entregadores = [] } = useQuery({
-    queryKey: ["entregadores-ativos"],
+    queryKey: ["entregadores-ativos", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("entregadores")
         .select("id, nome")
         .eq("ativo", true)
         .order("nome");
+
+      if (unidadeAtual?.id) {
+        query = query.eq("unidade_id", unidadeAtual.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -124,6 +144,7 @@ export default function Horarios() {
       dias_semana: diasSemana,
       funcionario_id: tipoPessoa === "funcionario" ? pessoaId : null,
       entregador_id: tipoPessoa === "entregador" ? pessoaId : null,
+      unidade_id: unidadeAtual?.id || null,
     };
 
     if (editingId) {
