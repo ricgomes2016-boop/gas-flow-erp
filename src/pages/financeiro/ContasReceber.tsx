@@ -23,7 +23,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download } from "lucide-react";
+import { Wallet, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, MapPin, User, Filter, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -42,6 +42,10 @@ interface ContaReceber {
   forma_pagamento: string | null;
   observacoes: string | null;
   created_at: string;
+  pedido_id: string | null;
+  // joined data
+  endereco_cliente?: string | null;
+  bairro_cliente?: string | null;
 }
 
 const FORMAS_PAGAMENTO = ["Boleto", "PIX", "Transferência", "Dinheiro", "Cartão", "Cheque"];
@@ -49,7 +53,8 @@ const FORMAS_PAGAMENTO = ["Boleto", "PIX", "Transferência", "Dinheiro", "Cartã
 export default function ContasReceber() {
   const [contas, setContas] = useState<ContaReceber[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [filtroNome, setFiltroNome] = useState("");
+  const [filtroEndereco, setFiltroEndereco] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -58,6 +63,7 @@ export default function ContasReceber() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [showFilters, setShowFilters] = useState(false);
   const { unidadeAtual } = useUnidade();
 
   const [form, setForm] = useState({
@@ -74,11 +80,30 @@ export default function ContasReceber() {
 
   const fetchContas = async () => {
     setLoading(true);
-    let query = supabase.from("contas_receber").select("*").order("vencimento", { ascending: true });
+    let query = supabase
+      .from("contas_receber")
+      .select("*, pedidos(cliente_id, endereco_entrega, clientes(nome, endereco, bairro))")
+      .order("vencimento", { ascending: true });
     if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
     const { data, error } = await query;
     if (error) { toast.error("Erro ao carregar recebíveis"); console.error(error); }
-    else setContas((data as ContaReceber[]) || []);
+    else {
+      const mapped = (data || []).map((c: any) => ({
+        id: c.id,
+        cliente: c.cliente,
+        descricao: c.descricao,
+        valor: c.valor,
+        vencimento: c.vencimento,
+        status: c.status,
+        forma_pagamento: c.forma_pagamento,
+        observacoes: c.observacoes,
+        created_at: c.created_at,
+        pedido_id: c.pedido_id,
+        endereco_cliente: c.pedidos?.endereco_entrega || c.pedidos?.clientes?.endereco || null,
+        bairro_cliente: c.pedidos?.clientes?.bairro || null,
+      }));
+      setContas(mapped);
+    }
     setLoading(false);
   };
 
@@ -151,7 +176,6 @@ export default function ContasReceber() {
       .join(", ");
 
     if (isParcial) {
-      // Update current with remaining
       const restante = valorConta - totalRecebido;
       const obs = `${receberConta.observacoes || ""}\nRecebido parcial R$ ${totalRecebido.toFixed(2)} em ${format(new Date(), "dd/MM/yyyy")} (${formasStr})`.trim();
       const { error } = await supabase.from("contas_receber").update({
@@ -195,23 +219,36 @@ export default function ContasReceber() {
   const hoje = new Date().toISOString().split("T")[0];
 
   const filtered = contas.filter(c => {
-    const matchSearch = c.cliente.toLowerCase().includes(search.toLowerCase()) ||
-      c.descricao.toLowerCase().includes(search.toLowerCase());
+    const matchNome = !filtroNome || c.cliente.toLowerCase().includes(filtroNome.toLowerCase());
+    const matchEndereco = !filtroEndereco || 
+      [c.endereco_cliente, c.bairro_cliente].filter(Boolean).join(" ").toLowerCase().includes(filtroEndereco.toLowerCase());
     const matchDataIni = !dataInicial || c.vencimento >= dataInicial;
     const matchDataFim = !dataFinal || c.vencimento <= dataFinal;
     const vencida = c.status === "pendente" && c.vencimento < hoje;
     const statusAtual = c.status === "recebida" ? "recebida" : vencida ? "vencida" : "pendente";
     const matchStatus = filtroStatus === "todos" || statusAtual === filtroStatus;
-    return matchSearch && matchDataIni && matchDataFim && matchStatus;
+    return matchNome && matchEndereco && matchDataIni && matchDataFim && matchStatus;
   });
 
   const totalPendente = filtered.filter(c => c.status === "pendente" && c.vencimento >= hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalVencido = filtered.filter(c => c.status === "pendente" && c.vencimento < hoje).reduce((a, c) => a + Number(c.valor), 0);
   const totalRecebido = filtered.filter(c => c.status === "recebida").reduce((a, c) => a + Number(c.valor), 0);
 
+  const hasActiveFilters = filtroNome || filtroEndereco || dataInicial || dataFinal || filtroStatus !== "todos";
+
+  const clearAllFilters = () => {
+    setFiltroNome("");
+    setFiltroEndereco("");
+    setDataInicial("");
+    setDataFinal("");
+    setFiltroStatus("todos");
+  };
+
   const exportToExcel = () => {
     const data = filtered.map(c => ({
       Cliente: c.cliente,
+      Endereço: c.endereco_cliente || "—",
+      Bairro: c.bairro_cliente || "—",
       Descrição: c.descricao,
       "Forma Pgto": c.forma_pagamento || "—",
       Vencimento: format(new Date(c.vencimento + "T12:00:00"), "dd/MM/yyyy"),
@@ -258,13 +295,14 @@ export default function ContasReceber() {
   return (
     <MainLayout>
       <Header title="Contas a Receber" subtitle="Acompanhe os recebíveis" />
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-3 md:p-6 space-y-4 md:space-y-6">
+        {/* Top actions */}
+        <div className="flex items-center gap-2 justify-between">
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
             <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" />Novo Recebível</Button>
+              <Button className="gap-2" size="sm"><Plus className="h-4 w-4" /><span className="hidden sm:inline">Novo Recebível</span><span className="sm:hidden">Novo</span></Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editId ? "Editar Recebível" : "Novo Recebível"}</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
                 <div><Label>Cliente *</Label><Input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} /></div>
@@ -290,103 +328,229 @@ export default function ContasReceber() {
               </div>
             </DialogContent>
           </Dialog>
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-1.5">
+              <Download className="h-4 w-4" /><span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-1.5">
+              <Download className="h-4 w-4" /><span className="hidden sm:inline">PDF</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total a Receber</CardTitle><Wallet className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">R$ {(totalPendente + totalVencido).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div><p className="text-xs text-muted-foreground">Em aberto</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Vencidas</CardTitle><AlertCircle className="h-4 w-4 text-destructive" /></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">R$ {totalVencido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div><p className="text-xs text-muted-foreground">Cobrar urgente</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Pendentes</CardTitle><Clock className="h-4 w-4 text-warning" /></CardHeader><CardContent><div className="text-2xl font-bold text-warning">R$ {totalPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div><p className="text-xs text-muted-foreground">A vencer</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Recebidas</CardTitle><CheckCircle2 className="h-4 w-4 text-success" /></CardHeader><CardContent><div className="text-2xl font-bold text-success">R$ {totalRecebido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div><p className="text-xs text-muted-foreground">Confirmadas</p></CardContent></Card>
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+              <CardTitle className="text-xs md:text-sm font-medium">Total a Receber</CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground hidden sm:block" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold">R$ {(totalPendente + totalVencido).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground">Em aberto</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+              <CardTitle className="text-xs md:text-sm font-medium">Vencidas</CardTitle>
+              <AlertCircle className="h-4 w-4 text-destructive hidden sm:block" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold text-destructive">R$ {totalVencido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground">Cobrar urgente</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+              <CardTitle className="text-xs md:text-sm font-medium">Pendentes</CardTitle>
+              <Clock className="h-4 w-4 text-warning hidden sm:block" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold text-warning">R$ {totalPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground">A vencer</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 md:p-6 md:pb-2">
+              <CardTitle className="text-xs md:text-sm font-medium">Recebidas</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-success hidden sm:block" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold text-success">R$ {totalRecebido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground">Confirmadas</p>
+            </CardContent>
+          </Card>
         </div>
 
+        {/* Filters + Table */}
         <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <CardTitle>Lista de Recebíveis</CardTitle>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar recebível..." className="pl-10 w-[250px]" value={search} onChange={e => setSearch(e.target.value)} />
+          <CardHeader className="p-3 md:p-6">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm md:text-base">Recebíveis</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showFilters ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="gap-1.5"
+                  >
+                    <Filter className="h-4 w-4" />
+                    <span className="hidden sm:inline">Filtros</span>
+                    {hasActiveFilters && (
+                      <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                        {[filtroNome, filtroEndereco, dataInicial, dataFinal, filtroStatus !== "todos" ? "1" : ""].filter(Boolean).length}
+                      </Badge>
+                    )}
+                  </Button>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearAllFilters} className="gap-1 text-muted-foreground">
+                      <X className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Limpar</span>
+                    </Button>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-wrap items-end gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Data Inicial</Label>
-                  <Input type="date" className="w-[160px]" value={dataInicial} onChange={e => setDataInicial(e.target.value)} />
+
+              {showFilters && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" />Nome do Cliente</Label>
+                    <Input
+                      placeholder="Buscar por nome..."
+                      value={filtroNome}
+                      onChange={e => setFiltroNome(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />Endereço</Label>
+                    <Input
+                      placeholder="Rua, bairro..."
+                      value={filtroEndereco}
+                      onChange={e => setFiltroEndereco(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Data Inicial</Label>
+                    <Input type="date" value={dataInicial} onChange={e => setDataInicial(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Data Final</Label>
+                    <Input type="date" value={dataFinal} onChange={e => setDataFinal(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="pendente">Pendentes</SelectItem>
+                        <SelectItem value="vencida">Vencidas</SelectItem>
+                        <SelectItem value="recebida">Recebidas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Data Final</Label>
-                  <Input type="date" className="w-[160px]" value={dataFinal} onChange={e => setDataFinal(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Status</Label>
-                  <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos</SelectItem>
-                      <SelectItem value="pendente">Pendentes</SelectItem>
-                      <SelectItem value="vencida">Vencidas</SelectItem>
-                      <SelectItem value="recebida">Recebidas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {(dataInicial || dataFinal || filtroStatus !== "todos") && (
-                   <Button variant="ghost" size="sm" onClick={() => { setDataInicial(""); setDataFinal(""); setFiltroStatus("todos"); }}>Limpar filtros</Button>
-                )}
-                <div className="flex gap-2 ml-auto">
-                  <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
-                    <Download className="h-4 w-4" />Excel
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
-                    <Download className="h-4 w-4" />PDF
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
           </CardHeader>
-          <CardContent>
-            {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : filtered.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</p> : (
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>Cliente</TableHead><TableHead>Descrição</TableHead><TableHead>Forma Pgto</TableHead><TableHead>Vencimento</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {filtered.map(conta => {
-                    const vencida = conta.status === "pendente" && conta.vencimento < hoje;
-                    const displayStatus = vencida ? "Vencida" : conta.status === "recebida" ? "Recebida" : "Pendente";
-                    return (
-                      <TableRow key={conta.id}>
-                        <TableCell className="font-medium">{conta.cliente}</TableCell>
-                        <TableCell>{conta.descricao}</TableCell>
-                        <TableCell><Badge variant="outline">{conta.forma_pagamento || "—"}</Badge></TableCell>
-                        <TableCell>{format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="font-medium">R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell><Badge variant={displayStatus === "Recebida" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}>{displayStatus}</Badge></TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {conta.status !== "recebida" && (
-                                <DropdownMenuItem onClick={() => openReceberDialog(conta)}>
-                                  <DollarSign className="h-4 w-4 mr-2" />Receber
-                                </DropdownMenuItem>
+          <CardContent className="p-0 md:p-6 md:pt-0">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead className="hidden md:table-cell">Descrição</TableHead>
+                      <TableHead className="hidden lg:table-cell">Endereço</TableHead>
+                      <TableHead className="hidden sm:table-cell">Forma Pgto</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map(conta => {
+                      const vencida = conta.status === "pendente" && conta.vencimento < hoje;
+                      const displayStatus = vencida ? "Vencida" : conta.status === "recebida" ? "Recebida" : "Pendente";
+                      const enderecoDisplay = [conta.endereco_cliente, conta.bairro_cliente].filter(Boolean).join(", ");
+                      return (
+                        <TableRow key={conta.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium text-sm">{conta.cliente}</p>
+                              <p className="text-xs text-muted-foreground md:hidden">{conta.descricao}</p>
+                              {enderecoDisplay && (
+                                <p className="text-[10px] text-muted-foreground lg:hidden flex items-center gap-0.5 mt-0.5">
+                                  <MapPin className="h-2.5 w-2.5 shrink-0" />{enderecoDisplay}
+                                </p>
                               )}
-                              <DropdownMenuItem onClick={() => handleEdit(conta)}>
-                                <Pencil className="h-4 w-4 mr-2" />Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" />Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm">{conta.descricao}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {enderecoDisplay ? (
+                              <span className="text-xs text-muted-foreground">{enderecoDisplay}</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge variant="outline" className="text-xs">{conta.forma_pagamento || "—"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                            {format(new Date(conta.vencimento + "T12:00:00"), "dd/MM/yyyy")}
+                          </TableCell>
+                          <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                            R$ {Number(conta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={displayStatus === "Recebida" ? "default" : displayStatus === "Vencida" ? "destructive" : "secondary"}
+                              className="text-[10px] sm:text-xs"
+                            >
+                              {displayStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-popover border border-border shadow-lg z-50">
+                                {conta.status !== "recebida" && (
+                                  <DropdownMenuItem onClick={() => openReceberDialog(conta)}>
+                                    <DollarSign className="h-4 w-4 mr-2" />Receber
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleEdit(conta)}>
+                                  <Pencil className="h-4 w-4 mr-2" />Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {!loading && filtered.length > 0 && (
+              <div className="px-3 md:px-0 py-3 text-xs text-muted-foreground border-t">
+                {filtered.length} {filtered.length === 1 ? "registro" : "registros"} encontrado{filtered.length !== 1 ? "s" : ""}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -394,7 +558,7 @@ export default function ContasReceber() {
 
       {/* Dialog Receber com múltiplas formas */}
       <Dialog open={receberDialogOpen} onOpenChange={setReceberDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Receber Conta</DialogTitle></DialogHeader>
           {receberConta && (
             <div className="space-y-4 pt-2">
