@@ -16,12 +16,16 @@ export type Database = {
     Tables: {
       abastecimentos: {
         Row: {
+          acerto_data: string | null
           created_at: string
           data: string
           id: string
           km: number
           litros: number
           motorista: string
+          nota_fiscal: string | null
+          posto: string | null
+          status: string
           tipo: string
           unidade_id: string | null
           updated_at: string
@@ -29,12 +33,16 @@ export type Database = {
           veiculo_id: string
         }
         Insert: {
+          acerto_data?: string | null
           created_at?: string
           data?: string
           id?: string
           km: number
           litros: number
           motorista: string
+          nota_fiscal?: string | null
+          posto?: string | null
+          status?: string
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
@@ -42,12 +50,16 @@ export type Database = {
           veiculo_id: string
         }
         Update: {
+          acerto_data?: string | null
           created_at?: string
           data?: string
           id?: string
           km?: number
           litros?: number
           motorista?: string
+          nota_fiscal?: string | null
+          posto?: string | null
+          status?: string
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
