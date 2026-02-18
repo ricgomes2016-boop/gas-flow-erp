@@ -1,33 +1,63 @@
 import L from "leaflet";
 
 // Custom delivery person icon
-export const createEntregadorIcon = (isSelected: boolean = false) => new L.DivIcon({
-  className: "custom-entregador-icon",
-  html: `
-    <div style="
-      background: ${isSelected ? 'hsl(var(--primary))' : 'hsl(var(--success))'};
-      width: ${isSelected ? '48px' : '40px'};
-      height: ${isSelected ? '48px' : '40px'};
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 3px solid white;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
-      transition: all 0.3s ease;
-    ">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
-        <path d="M15 18H9"/>
-        <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
-        <circle cx="17" cy="18" r="2"/>
-        <circle cx="7" cy="18" r="2"/>
-      </svg>
-    </div>
-  `,
-  iconSize: [isSelected ? 48 : 40, isSelected ? 48 : 40],
-  iconAnchor: [isSelected ? 24 : 20, isSelected ? 48 : 40],
-});
+export const createEntregadorIcon = (isSelected: boolean = false, gpsOffline: boolean = false) => {
+  const bg = gpsOffline
+    ? 'hsl(var(--muted-foreground))'
+    : isSelected
+      ? 'hsl(var(--primary))'
+      : 'hsl(var(--success))';
+  const size = isSelected ? 48 : 40;
+  const alertBadge = gpsOffline
+    ? `<div style="
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: hsl(var(--destructive));
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        font-size: 11px;
+        color: white;
+        font-weight: bold;
+      ">!</div>`
+    : '';
+
+  return new L.DivIcon({
+    className: "custom-entregador-icon",
+    html: `
+      <div style="
+        position: relative;
+        background: ${bg};
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid white;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+        ${gpsOffline ? 'opacity: 0.7;' : ''}
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+          <path d="M15 18H9"/>
+          <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
+          <circle cx="17" cy="18" r="2"/>
+          <circle cx="7" cy="18" r="2"/>
+        </svg>
+        ${alertBadge}
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+  });
+};
 
 // Custom client/destination icon with status-based colors
 export const createClienteIcon = (status: string = "pendente", isSelected: boolean = false) => {

@@ -9,6 +9,13 @@ import { Eye, Navigation, User, MapPin } from "lucide-react";
 import { NearestDriversPanel } from "./NearestDriversPanel";
 import { haversineDistance } from "@/lib/haversine";
 
+const GPS_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+function isGpsOffline(updatedAt?: string): boolean {
+  if (!updatedAt) return true;
+  return Date.now() - new Date(updatedAt).getTime() > GPS_OFFLINE_THRESHOLD_MS;
+}
+
 // Fix for default marker icons in React-Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -24,6 +31,7 @@ export interface Entregador {
   lat: number;
   lng: number;
   ultimaAtualizacao: string;
+  updatedAt?: string; // ISO timestamp for GPS freshness check
   entregaAtual?: string;
   veiculo?: string;
   kmInicial?: number;
@@ -205,11 +213,13 @@ export function DeliveryRoutesMap({
       ))}
 
       {/* Markers dos Entregadores */}
-      {entregadores.map((entregador) => (
+      {entregadores.map((entregador) => {
+        const gpsOff = isGpsOffline(entregador.updatedAt);
+        return (
         <Marker
           key={`entregador-${entregador.id}`}
           position={[entregador.lat, entregador.lng]}
-          icon={createEntregadorIcon(selectedEntregador === entregador.id)}
+          icon={createEntregadorIcon(selectedEntregador === entregador.id, gpsOff)}
           eventHandlers={{
             click: () => {
               if (onSelectEntregador) {
@@ -243,6 +253,11 @@ export function DeliveryRoutesMap({
                   → {entregador.entregaAtual}
                 </p>
               )}
+              {gpsOff && (
+                <p className="text-[10px] text-destructive font-medium mt-1">
+                  ⚠ GPS Offline
+                </p>
+              )}
               <p className="text-[10px] text-muted-foreground mt-1">
                 Atualizado {entregador.ultimaAtualizacao}
               </p>
@@ -260,7 +275,8 @@ export function DeliveryRoutesMap({
             </div>
           </Popup>
         </Marker>
-      ))}
+        );
+      })}
 
       {/* Markers dos Clientes */}
       {clientes.map((cliente) => (
