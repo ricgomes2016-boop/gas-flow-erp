@@ -112,6 +112,11 @@ const Horarios = lazy(() => import("./pages/rh/Horarios"));
 const PrevencaoTrabalhistaIA = lazy(() => import("./pages/rh/PrevencaoTrabalhistaIA"));
 const ProdutividadeIA = lazy(() => import("./pages/rh/ProdutividadeIA"));
 const Ferias = lazy(() => import("./pages/rh/Ferias"));
+const PontoEletronico = lazy(() => import("./pages/rh/PontoEletronico"));
+const AtestadosFaltas = lazy(() => import("./pages/rh/AtestadosFaltas"));
+const AvaliacaoDesempenho = lazy(() => import("./pages/rh/AvaliacaoDesempenho"));
+const OnboardingOffboarding = lazy(() => import("./pages/rh/OnboardingOffboarding"));
+const DashboardRH = lazy(() => import("./pages/rh/DashboardRH"));
 
 // Fiscal
 const EmitirNFe = lazy(() => import("./pages/fiscal/EmitirNFe"));
@@ -576,6 +581,31 @@ const App = () => (
                   <Route path="/rh/ferias" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <Ferias />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/ponto" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PontoEletronico />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/atestados" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AtestadosFaltas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/avaliacao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AvaliacaoDesempenho />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/onboarding" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <OnboardingOffboarding />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/dashboard" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <DashboardRH />
                     </ProtectedRoute>
                   } />
                   

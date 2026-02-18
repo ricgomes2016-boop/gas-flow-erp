@@ -189,6 +189,147 @@ export type Database = {
         }
         Relationships: []
       }
+      atestados_faltas: {
+        Row: {
+          abona: boolean
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          dias: number
+          documento_url: string | null
+          funcionario_id: string
+          id: string
+          motivo: string | null
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          abona?: boolean
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          dias?: number
+          documento_url?: string | null
+          funcionario_id: string
+          id?: string
+          motivo?: string | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          abona?: boolean
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          dias?: number
+          documento_url?: string | null
+          funcionario_id?: string
+          id?: string
+          motivo?: string | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atestados_faltas_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atestados_faltas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avaliacoes_desempenho: {
+        Row: {
+          avaliador_id: string | null
+          comunicacao: number | null
+          created_at: string
+          data_avaliacao: string
+          funcionario_id: string
+          id: string
+          iniciativa: number | null
+          metas_proximas: string | null
+          nota_geral: number
+          observacoes: string | null
+          periodo_referencia: string
+          pontos_fortes: string | null
+          pontos_melhorar: string | null
+          pontualidade: number | null
+          produtividade: number | null
+          status: string
+          trabalho_equipe: number | null
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          avaliador_id?: string | null
+          comunicacao?: number | null
+          created_at?: string
+          data_avaliacao?: string
+          funcionario_id: string
+          id?: string
+          iniciativa?: number | null
+          metas_proximas?: string | null
+          nota_geral?: number
+          observacoes?: string | null
+          periodo_referencia: string
+          pontos_fortes?: string | null
+          pontos_melhorar?: string | null
+          pontualidade?: number | null
+          produtividade?: number | null
+          status?: string
+          trabalho_equipe?: number | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avaliador_id?: string | null
+          comunicacao?: number | null
+          created_at?: string
+          data_avaliacao?: string
+          funcionario_id?: string
+          id?: string
+          iniciativa?: number | null
+          metas_proximas?: string | null
+          nota_geral?: number
+          observacoes?: string | null
+          periodo_referencia?: string
+          pontos_fortes?: string | null
+          pontos_melhorar?: string | null
+          pontualidade?: number | null
+          produtividade?: number | null
+          status?: string
+          trabalho_equipe?: number | null
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaliacoes_desempenho_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_desempenho_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banco_horas: {
         Row: {
           created_at: string
@@ -1462,6 +1603,137 @@ export type Database = {
           },
         ]
       }
+      folha_pagamento_itens: {
+        Row: {
+          bonus: number
+          bruto: number
+          cargo: string | null
+          comissao: number
+          created_at: string
+          folha_id: string
+          funcionario_id: string
+          funcionario_nome: string
+          horas_extras: number
+          id: string
+          inss: number
+          ir: number
+          liquido: number
+          outros_descontos: number
+          salario_base: number
+          total_descontos: number
+          vales_desconto: number
+        }
+        Insert: {
+          bonus?: number
+          bruto?: number
+          cargo?: string | null
+          comissao?: number
+          created_at?: string
+          folha_id: string
+          funcionario_id: string
+          funcionario_nome: string
+          horas_extras?: number
+          id?: string
+          inss?: number
+          ir?: number
+          liquido?: number
+          outros_descontos?: number
+          salario_base?: number
+          total_descontos?: number
+          vales_desconto?: number
+        }
+        Update: {
+          bonus?: number
+          bruto?: number
+          cargo?: string | null
+          comissao?: number
+          created_at?: string
+          folha_id?: string
+          funcionario_id?: string
+          funcionario_nome?: string
+          horas_extras?: number
+          id?: string
+          inss?: number
+          ir?: number
+          liquido?: number
+          outros_descontos?: number
+          salario_base?: number
+          total_descontos?: number
+          vales_desconto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_pagamento_itens_folha_id_fkey"
+            columns: ["folha_id"]
+            isOneToOne: false
+            referencedRelation: "folhas_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "folha_pagamento_itens_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folhas_pagamento: {
+        Row: {
+          created_at: string
+          data_fechamento: string
+          id: string
+          mes_referencia: string
+          observacoes: string | null
+          status: string
+          total_bruto: number
+          total_comissoes: number
+          total_descontos: number
+          total_funcionarios: number
+          total_liquido: number
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_fechamento?: string
+          id?: string
+          mes_referencia: string
+          observacoes?: string | null
+          status?: string
+          total_bruto?: number
+          total_comissoes?: number
+          total_descontos?: number
+          total_funcionarios?: number
+          total_liquido?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_fechamento?: string
+          id?: string
+          mes_referencia?: string
+          observacoes?: string | null
+          status?: string
+          total_bruto?: number
+          total_comissoes?: number
+          total_descontos?: number
+          total_funcionarios?: number
+          total_liquido?: number
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folhas_pagamento_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           ativo: boolean | null
@@ -1933,6 +2205,104 @@ export type Database = {
           },
         ]
       }
+      onboarding_checklists: {
+        Row: {
+          created_at: string
+          data_conclusao: string | null
+          data_inicio: string
+          funcionario_id: string
+          id: string
+          observacoes: string | null
+          responsavel_id: string | null
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string
+          funcionario_id: string
+          id?: string
+          observacoes?: string | null
+          responsavel_id?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string
+          funcionario_id?: string
+          id?: string
+          observacoes?: string | null
+          responsavel_id?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_checklists_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_checklists_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_itens: {
+        Row: {
+          checklist_id: string
+          concluido: boolean
+          created_at: string
+          data_conclusao: string | null
+          descricao: string
+          id: string
+          ordem: number
+          responsavel: string | null
+        }
+        Insert: {
+          checklist_id: string
+          concluido?: boolean
+          created_at?: string
+          data_conclusao?: string | null
+          descricao: string
+          id?: string
+          ordem?: number
+          responsavel?: string | null
+        }
+        Update: {
+          checklist_id?: string
+          concluido?: boolean
+          created_at?: string
+          data_conclusao?: string | null
+          descricao?: string
+          id?: string
+          ordem?: number
+          responsavel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_itens_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operadoras_cartao: {
         Row: {
           ativo: boolean
@@ -2109,6 +2479,72 @@ export type Database = {
           },
           {
             foreignKeyName: "pedidos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ponto_eletronico: {
+        Row: {
+          created_at: string
+          data: string
+          entrada: string | null
+          funcionario_id: string
+          horas_extras: number | null
+          horas_trabalhadas: number | null
+          id: string
+          observacoes: string | null
+          retorno_almoco: string | null
+          saida: string | null
+          saida_almoco: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          entrada?: string | null
+          funcionario_id: string
+          horas_extras?: number | null
+          horas_trabalhadas?: number | null
+          id?: string
+          observacoes?: string | null
+          retorno_almoco?: string | null
+          saida?: string | null
+          saida_almoco?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          entrada?: string | null
+          funcionario_id?: string
+          horas_extras?: number | null
+          horas_trabalhadas?: number | null
+          id?: string
+          observacoes?: string | null
+          retorno_almoco?: string | null
+          saida?: string | null
+          saida_almoco?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ponto_eletronico_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ponto_eletronico_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"

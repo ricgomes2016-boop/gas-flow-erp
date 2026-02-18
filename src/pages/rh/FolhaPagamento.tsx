@@ -10,30 +10,39 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DollarSign, Users, Download, Calendar, Printer, Info } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { DollarSign, Users, Download, Calendar, Printer, Info, Lock, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { generateFolhaRecibo } from "@/services/receiptRhService";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 
-// Normalize string for fuzzy name matching (remove accents, lowercase, trim)
 function normalize(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 export default function FolhaPagamento() {
-  const now = new Date();
-  const mesAtual = format(now, "MMMM yyyy", { locale: ptBR });
-  const mesInicio = startOfMonth(now).toISOString();
-  const mesFim = endOfMonth(now).toISOString();
+  const queryClient = useQueryClient();
+  const [mesSelecionado, setMesSelecionado] = useState(new Date());
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [showConfirmFechar, setShowConfirmFechar] = useState(false);
+
+  const mesAtual = format(mesSelecionado, "MMMM yyyy", { locale: ptBR });
+  const mesKey = format(mesSelecionado, "yyyy-MM");
+  const mesInicio = startOfMonth(mesSelecionado).toISOString();
+  const mesFim = endOfMonth(mesSelecionado).toISOString();
   const { unidadeAtual } = useUnidade();
 
-  // Editable discounts per employee: { [funcId]: { inss, ir, outros } }
   const [descontosEdit, setDescontosEdit] = useState<Record<string, { inss: string; ir: string; outros: string }>>({});
 
   const { data: empresaConfig } = useQuery({
@@ -44,7 +53,28 @@ export default function FolhaPagamento() {
     },
   });
 
-  // Fetch active employees
+  // Check if month is already closed
+  const { data: folhaFechada } = useQuery({
+    queryKey: ["folha-fechada", mesKey, unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase.from("folhas_pagamento").select("*").eq("mes_referencia", mesKey);
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query.limit(1).single();
+      return data;
+    },
+  });
+
+  // Fetch closed payrolls history
+  const { data: historicoFolhas = [] } = useQuery({
+    queryKey: ["folhas-historico", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase.from("folhas_pagamento").select("*").order("mes_referencia", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
   const { data: funcionarios = [], isLoading } = useQuery({
     queryKey: ["folha-pagamento", unidadeAtual?.id],
     queryFn: async () => {
@@ -56,7 +86,6 @@ export default function FolhaPagamento() {
     },
   });
 
-  // Fetch entregadores for name matching
   const { data: entregadores = [] } = useQuery({
     queryKey: ["folha-entregadores", unidadeAtual?.id],
     queryFn: async () => {
@@ -67,7 +96,6 @@ export default function FolhaPagamento() {
     },
   });
 
-  // Fetch banco de horas
   const { data: bancoHoras = [] } = useQuery({
     queryKey: ["folha-banco-horas", unidadeAtual?.id],
     queryFn: async () => {
@@ -78,23 +106,21 @@ export default function FolhaPagamento() {
     },
   });
 
-  // Fetch vales pendentes do mês
   const { data: valesMes = [] } = useQuery({
-    queryKey: ["folha-vales", unidadeAtual?.id, format(now, "yyyy-MM")],
+    queryKey: ["folha-vales", unidadeAtual?.id, mesKey],
     queryFn: async () => {
       let query = supabase
         .from("vales_funcionario")
         .select("funcionario_id, valor, tipo")
         .eq("status", "pendente")
-        .gte("data", format(startOfMonth(now), "yyyy-MM-dd"))
-        .lte("data", format(endOfMonth(now), "yyyy-MM-dd"));
+        .gte("data", format(startOfMonth(mesSelecionado), "yyyy-MM-dd"))
+        .lte("data", format(endOfMonth(mesSelecionado), "yyyy-MM-dd"));
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
       const { data } = await query;
       return data || [];
     },
   });
 
-  // Fetch comissão config
   const { data: comissaoConfig = [] } = useQuery({
     queryKey: ["folha-comissao-config", unidadeAtual?.id],
     queryFn: async () => {
@@ -105,9 +131,8 @@ export default function FolhaPagamento() {
     },
   });
 
-  // Fetch pedidos entregues do mês com itens para calcular comissões
   const { data: pedidosMes = [] } = useQuery({
-    queryKey: ["folha-pedidos-comissao", unidadeAtual?.id, format(now, "yyyy-MM")],
+    queryKey: ["folha-pedidos-comissao", unidadeAtual?.id, mesKey],
     queryFn: async () => {
       let query = supabase
         .from("pedidos")
@@ -128,29 +153,38 @@ export default function FolhaPagamento() {
     queryFn: async () => {
       const ids = pedidosMes.map((p: any) => p.id);
       if (ids.length === 0) return [];
-      const { data } = await supabase
-        .from("pedido_itens")
-        .select("pedido_id, produto_id, quantidade")
-        .in("pedido_id", ids);
+      const { data } = await supabase.from("pedido_itens").select("pedido_id, produto_id, quantidade").in("pedido_id", ids);
       return data || [];
     },
   });
 
-  // Build comissão map
+  // Fetch bonus aprovados do mês
+  const { data: bonusMes = [] } = useQuery({
+    queryKey: ["folha-bonus", unidadeAtual?.id, mesKey],
+    queryFn: async () => {
+      let query = supabase
+        .from("bonus")
+        .select("funcionario_id, valor")
+        .eq("status", "aprovado")
+        .eq("mes_referencia", mesKey);
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
   const comissaoMap = useMemo(() => {
     const map = new Map<string, number>();
     comissaoConfig.forEach((c: any) => map.set(`${c.produto_id}|${c.canal_venda}`, Number(c.valor)));
     return map;
   }, [comissaoConfig]);
 
-  // Build pedido lookup
   const pedidoMap = useMemo(() => {
     const map = new Map<string, any>();
     pedidosMes.forEach((p: any) => map.set(p.id, p));
     return map;
   }, [pedidosMes]);
 
-  // Calculate comissão per entregador_id
   const comissaoPorEntregador = useMemo(() => {
     const totals = new Map<string, number>();
     itensMes.forEach((item: any) => {
@@ -164,7 +198,6 @@ export default function FolhaPagamento() {
     return totals;
   }, [itensMes, pedidoMap, comissaoMap]);
 
-  // Match funcionario → entregador by normalized name
   const funcToEntregadorId = useMemo(() => {
     const map = new Map<string, string>();
     funcionarios.forEach((f: any) => {
@@ -174,7 +207,6 @@ export default function FolhaPagamento() {
     return map;
   }, [funcionarios, entregadores]);
 
-  // Aggregate vales per funcionario
   const valesPorFunc = useMemo(() => {
     const map = new Map<string, number>();
     valesMes.forEach((v: any) => {
@@ -183,29 +215,30 @@ export default function FolhaPagamento() {
     return map;
   }, [valesMes]);
 
-  // Build enriched data
+  const bonusPorFunc = useMemo(() => {
+    const map = new Map<string, number>();
+    bonusMes.forEach((b: any) => {
+      map.set(b.funcionario_id, (map.get(b.funcionario_id) || 0) + Number(b.valor));
+    });
+    return map;
+  }, [bonusMes]);
+
   const dadosFolha = useMemo(() => {
     return funcionarios.map((f: any) => {
       const salarioBase = Number(f.salario) || 0;
-
-      // Horas extras from banco de horas
       const bh = bancoHoras.find((b: any) => b.funcionario_id === f.id);
       const horasExtras = bh ? Math.round(Number(bh.saldo_positivo) * 15) : 0;
-
-      // Comissão
       const entId = funcToEntregadorId.get(f.id);
       const comissao = entId ? (comissaoPorEntregador.get(entId) || 0) : 0;
-
-      // Vales to deduct
       const valesDesconto = valesPorFunc.get(f.id) || 0;
+      const bonusVal = bonusPorFunc.get(f.id) || 0;
 
-      // Editable discounts
       const edit = descontosEdit[f.id] || { inss: "", ir: "", outros: "" };
       const inss = edit.inss !== "" ? parseFloat(edit.inss) || 0 : Math.round(salarioBase * 0.11);
       const ir = edit.ir !== "" ? parseFloat(edit.ir) || 0 : 0;
       const outros = edit.outros !== "" ? parseFloat(edit.outros) || 0 : 0;
 
-      const bruto = salarioBase + horasExtras + comissao;
+      const bruto = salarioBase + horasExtras + comissao + bonusVal;
       const totalDescontos = inss + ir + outros + valesDesconto;
       const liquido = bruto - totalDescontos;
 
@@ -213,19 +246,11 @@ export default function FolhaPagamento() {
         id: f.id,
         funcionario: f.nome,
         cargo: f.cargo || "N/A",
-        salarioBase,
-        horasExtras,
-        comissao,
-        valesDesconto,
-        inss,
-        ir,
-        outros,
-        bruto,
-        totalDescontos,
-        liquido,
+        salarioBase, horasExtras, comissao, valesDesconto, bonusVal,
+        inss, ir, outros, bruto, totalDescontos, liquido,
       };
     });
-  }, [funcionarios, bancoHoras, funcToEntregadorId, comissaoPorEntregador, valesPorFunc, descontosEdit]);
+  }, [funcionarios, bancoHoras, funcToEntregadorId, comissaoPorEntregador, valesPorFunc, bonusPorFunc, descontosEdit]);
 
   const totalBruto = dadosFolha.reduce((acc, f) => acc + f.bruto, 0);
   const totalDescontos = dadosFolha.reduce((acc, f) => acc + f.totalDescontos, 0);
@@ -238,6 +263,54 @@ export default function FolhaPagamento() {
       [funcId]: { ...(prev[funcId] || { inss: "", ir: "", outros: "" }), [field]: value },
     }));
   };
+
+  const fecharFolhaMutation = useMutation({
+    mutationFn: async () => {
+      // Insert folha header
+      const { data: folha, error: folhaError } = await supabase.from("folhas_pagamento").insert({
+        mes_referencia: mesKey,
+        total_bruto: totalBruto,
+        total_descontos: totalDescontos,
+        total_liquido: totalLiquido,
+        total_comissoes: totalComissoes,
+        total_funcionarios: dadosFolha.length,
+        unidade_id: unidadeAtual?.id || null,
+      }).select().single();
+
+      if (folhaError) throw folhaError;
+
+      // Insert line items
+      const itens = dadosFolha.map(f => ({
+        folha_id: folha.id,
+        funcionario_id: f.id,
+        funcionario_nome: f.funcionario,
+        cargo: f.cargo,
+        salario_base: f.salarioBase,
+        horas_extras: f.horasExtras,
+        comissao: f.comissao,
+        bonus: f.bonusVal,
+        inss: f.inss,
+        ir: f.ir,
+        vales_desconto: f.valesDesconto,
+        outros_descontos: f.outros,
+        bruto: f.bruto,
+        total_descontos: f.totalDescontos,
+        liquido: f.liquido,
+      }));
+
+      const { error: itensError } = await supabase.from("folha_pagamento_itens").insert(itens);
+      if (itensError) throw itensError;
+    },
+    onSuccess: () => {
+      toast.success("Folha fechada com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["folha-fechada"] });
+      queryClient.invalidateQueries({ queryKey: ["folhas-historico"] });
+      setShowConfirmFechar(false);
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao fechar folha: " + err.message);
+    },
+  });
 
   const handlePrintRecibo = (func: typeof dadosFolha[0]) => {
     if (!empresaConfig) {
@@ -263,16 +336,45 @@ export default function FolhaPagamento() {
   };
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const isFechada = !!folhaFechada;
 
   return (
     <MainLayout>
       <Header title="Folha de Pagamento" subtitle="Gestão de salários, comissões e descontos" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Month selector + actions */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setMesSelecionado(prev => subMonths(prev, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-lg font-semibold capitalize min-w-[160px] text-center">{mesAtual}</span>
+            <Button variant="outline" size="icon" onClick={() => setMesSelecionado(prev => addMonths(prev, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="flex gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setShowHistorico(true)}>
+              <History className="h-4 w-4" />Histórico
+            </Button>
             <Button className="gap-2"><Download className="h-4 w-4" />Exportar</Button>
+            {!isFechada && dadosFolha.length > 0 && (
+              <Button variant="destructive" className="gap-2" onClick={() => setShowConfirmFechar(true)}>
+                <Lock className="h-4 w-4" />Fechar Folha
+              </Button>
+            )}
           </div>
         </div>
+
+        {isFechada && (
+          <div className="bg-muted/50 border rounded-lg p-4 flex items-center gap-3">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Folha fechada em {format(new Date(folhaFechada.data_fechamento), "dd/MM/yyyy HH:mm")}</p>
+              <p className="text-sm text-muted-foreground">Os valores abaixo estão congelados. Para alterações, consulte o histórico.</p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
@@ -281,8 +383,8 @@ export default function FolhaPagamento() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">R$ {fmt(totalBruto)}</div>
-              <p className="text-xs text-muted-foreground">Salários + extras + comissões</p>
+              <div className="text-2xl font-bold">R$ {fmt(isFechada ? Number(folhaFechada.total_bruto) : totalBruto)}</div>
+              <p className="text-xs text-muted-foreground">Salários + extras + comissões + bônus</p>
             </CardContent>
           </Card>
           <Card>
@@ -291,7 +393,7 @@ export default function FolhaPagamento() {
               <DollarSign className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">R$ {fmt(totalComissoes)}</div>
+              <div className="text-2xl font-bold text-success">R$ {fmt(isFechada ? Number(folhaFechada.total_comissoes) : totalComissoes)}</div>
               <p className="text-xs text-muted-foreground">Do mês</p>
             </CardContent>
           </Card>
@@ -301,7 +403,7 @@ export default function FolhaPagamento() {
               <DollarSign className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">R$ {fmt(totalDescontos)}</div>
+              <div className="text-2xl font-bold text-destructive">R$ {fmt(isFechada ? Number(folhaFechada.total_descontos) : totalDescontos)}</div>
               <p className="text-xs text-muted-foreground">INSS + IR + Vales + Outros</p>
             </CardContent>
           </Card>
@@ -311,7 +413,7 @@ export default function FolhaPagamento() {
               <DollarSign className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">R$ {fmt(totalLiquido)}</div>
+              <div className="text-2xl font-bold text-primary">R$ {fmt(isFechada ? Number(folhaFechada.total_liquido) : totalLiquido)}</div>
               <p className="text-xs text-muted-foreground">A pagar</p>
             </CardContent>
           </Card>
@@ -321,7 +423,7 @@ export default function FolhaPagamento() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dadosFolha.length}</div>
+              <div className="text-2xl font-bold">{isFechada ? folhaFechada.total_funcionarios : dadosFolha.length}</div>
               <p className="text-xs text-muted-foreground">Na folha</p>
             </CardContent>
           </Card>
@@ -334,7 +436,7 @@ export default function FolhaPagamento() {
                 <Calendar className="h-5 w-5" />
                 <CardTitle>Folha de {mesAtual}</CardTitle>
               </div>
-              <Badge>Em aberto</Badge>
+              <Badge variant={isFechada ? "secondary" : "default"}>{isFechada ? "Fechada" : "Em aberto"}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -353,6 +455,7 @@ export default function FolhaPagamento() {
                         <TableHead className="text-right">Salário</TableHead>
                         <TableHead className="text-right">H. Extras</TableHead>
                         <TableHead className="text-right">Comissão</TableHead>
+                        <TableHead className="text-right">Bônus</TableHead>
                         <TableHead className="text-right">Bruto</TableHead>
                         <TableHead className="text-right">
                           <span className="flex items-center justify-end gap-1">
@@ -382,24 +485,35 @@ export default function FolhaPagamento() {
                           <TableCell className="text-right text-success">
                             {func.comissao > 0 ? `+ R$ ${fmt(func.comissao)}` : "-"}
                           </TableCell>
+                          <TableCell className="text-right text-success">
+                            {func.bonusVal > 0 ? `+ R$ ${fmt(func.bonusVal)}` : "-"}
+                          </TableCell>
                           <TableCell className="text-right font-medium">R$ {fmt(func.bruto)}</TableCell>
                           <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              className="w-20 h-7 text-xs text-right ml-auto"
-                              placeholder={String(Math.round(func.salarioBase * 0.11))}
-                              value={descontosEdit[func.id]?.inss ?? ""}
-                              onChange={e => updateDesconto(func.id, "inss", e.target.value)}
-                            />
+                            {isFechada ? (
+                              <span className="text-sm">R$ {fmt(func.inss)}</span>
+                            ) : (
+                              <Input
+                                type="number"
+                                className="w-20 h-7 text-xs text-right ml-auto"
+                                placeholder={String(Math.round(func.salarioBase * 0.11))}
+                                value={descontosEdit[func.id]?.inss ?? ""}
+                                onChange={e => updateDesconto(func.id, "inss", e.target.value)}
+                              />
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              className="w-20 h-7 text-xs text-right ml-auto"
-                              placeholder="0"
-                              value={descontosEdit[func.id]?.ir ?? ""}
-                              onChange={e => updateDesconto(func.id, "ir", e.target.value)}
-                            />
+                            {isFechada ? (
+                              <span className="text-sm">R$ {fmt(func.ir)}</span>
+                            ) : (
+                              <Input
+                                type="number"
+                                className="w-20 h-7 text-xs text-right ml-auto"
+                                placeholder="0"
+                                value={descontosEdit[func.id]?.ir ?? ""}
+                                onChange={e => updateDesconto(func.id, "ir", e.target.value)}
+                              />
+                            )}
                           </TableCell>
                           <TableCell className="text-right text-destructive">
                             {func.valesDesconto > 0 ? (
@@ -412,13 +526,17 @@ export default function FolhaPagamento() {
                             ) : "-"}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              className="w-20 h-7 text-xs text-right ml-auto"
-                              placeholder="0"
-                              value={descontosEdit[func.id]?.outros ?? ""}
-                              onChange={e => updateDesconto(func.id, "outros", e.target.value)}
-                            />
+                            {isFechada ? (
+                              <span className="text-sm">R$ {fmt(func.outros)}</span>
+                            ) : (
+                              <Input
+                                type="number"
+                                className="w-20 h-7 text-xs text-right ml-auto"
+                                placeholder="0"
+                                value={descontosEdit[func.id]?.outros ?? ""}
+                                onChange={e => updateDesconto(func.id, "outros", e.target.value)}
+                              />
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-bold text-primary">
                             R$ {fmt(func.liquido)}
@@ -437,6 +555,7 @@ export default function FolhaPagamento() {
                         <TableCell className="text-right">R$ {fmt(dadosFolha.reduce((a, f) => a + f.salarioBase, 0))}</TableCell>
                         <TableCell className="text-right text-success">R$ {fmt(dadosFolha.reduce((a, f) => a + f.horasExtras, 0))}</TableCell>
                         <TableCell className="text-right text-success">R$ {fmt(totalComissoes)}</TableCell>
+                        <TableCell className="text-right text-success">R$ {fmt(dadosFolha.reduce((a, f) => a + f.bonusVal, 0))}</TableCell>
                         <TableCell className="text-right">R$ {fmt(totalBruto)}</TableCell>
                         <TableCell className="text-right text-destructive">R$ {fmt(dadosFolha.reduce((a, f) => a + f.inss, 0))}</TableCell>
                         <TableCell className="text-right text-destructive">R$ {fmt(dadosFolha.reduce((a, f) => a + f.ir, 0))}</TableCell>
@@ -452,6 +571,78 @@ export default function FolhaPagamento() {
             )}
           </CardContent>
         </Card>
+
+        {/* Confirm close dialog */}
+        <Dialog open={showConfirmFechar} onOpenChange={setShowConfirmFechar}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Fechar Folha de {mesAtual}?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Ao fechar a folha, os valores serão congelados e salvos no histórico. 
+              Esta ação não pode ser desfeita.
+            </p>
+            <div className="grid grid-cols-2 gap-4 my-4">
+              <div className="text-center p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">Total Bruto</p>
+                <p className="text-lg font-bold">R$ {fmt(totalBruto)}</p>
+              </div>
+              <div className="text-center p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">Total Líquido</p>
+                <p className="text-lg font-bold text-primary">R$ {fmt(totalLiquido)}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowConfirmFechar(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={() => fecharFolhaMutation.mutate()} disabled={fecharFolhaMutation.isPending}>
+                {fecharFolhaMutation.isPending ? "Fechando..." : "Confirmar Fechamento"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* History dialog */}
+        <Dialog open={showHistorico} onOpenChange={setShowHistorico}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Histórico de Folhas</DialogTitle>
+            </DialogHeader>
+            {historicoFolhas.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhuma folha fechada</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mês</TableHead>
+                    <TableHead className="text-right">Funcionários</TableHead>
+                    <TableHead className="text-right">Bruto</TableHead>
+                    <TableHead className="text-right">Descontos</TableHead>
+                    <TableHead className="text-right">Líquido</TableHead>
+                    <TableHead>Fechado em</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historicoFolhas.map((f: any) => (
+                    <TableRow key={f.id} className="cursor-pointer hover:bg-muted/50" onClick={() => {
+                      const [year, month] = f.mes_referencia.split("-");
+                      setMesSelecionado(new Date(parseInt(year), parseInt(month) - 1, 1));
+                      setShowHistorico(false);
+                    }}>
+                      <TableCell className="font-medium capitalize">
+                        {format(new Date(parseInt(f.mes_referencia.split("-")[0]), parseInt(f.mes_referencia.split("-")[1]) - 1, 1), "MMMM yyyy", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="text-right">{f.total_funcionarios}</TableCell>
+                      <TableCell className="text-right">R$ {fmt(Number(f.total_bruto))}</TableCell>
+                      <TableCell className="text-right text-destructive">R$ {fmt(Number(f.total_descontos))}</TableCell>
+                      <TableCell className="text-right text-primary font-bold">R$ {fmt(Number(f.total_liquido))}</TableCell>
+                      <TableCell>{format(new Date(f.data_fechamento), "dd/MM/yyyy")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

@@ -70,6 +70,11 @@ import {
   Cog,
   Lock,
   ClipboardCheck,
+  Fingerprint,
+  FileWarning,
+  Star,
+  UserCheck as UserCheckIcon,
+  BarChart2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -190,9 +195,11 @@ export const menuItems: MenuItem[] = [
     icon: HardHat,
     label: "Gestão de RH",
     submenu: [
+      { icon: BarChart2, label: "Dashboard RH", path: "/rh/dashboard" },
       { icon: UserCog, label: "Funcionários", path: "/cadastros/funcionarios" },
       { icon: Truck, label: "Entregadores", path: "/cadastros/entregadores" },
       { icon: Banknote, label: "Folha de Pagamento", path: "/rh/folha" },
+      { icon: Fingerprint, label: "Ponto Eletrônico", path: "/rh/ponto" },
       { icon: CreditCardIcon, label: "Vale Funcionário", path: "/rh/vale" },
       { icon: DollarSign, label: "Comissão do Entregador", path: "/rh/comissao" },
       { icon: Award, label: "Premiação", path: "/rh/premiacao" },
@@ -200,9 +207,12 @@ export const menuItems: MenuItem[] = [
       { icon: Clock, label: "Alerta Jornada", path: "/rh/jornada" },
       { icon: Timer, label: "Banco de Horas", path: "/rh/banco-horas" },
       { icon: CalendarClock, label: "Horários", path: "/rh/horarios" },
+      { icon: CalendarDays, label: "Controle de Férias", path: "/rh/ferias" },
+      { icon: FileWarning, label: "Atestados e Faltas", path: "/rh/atestados" },
+      { icon: Star, label: "Avaliação de Desempenho", path: "/rh/avaliacao" },
+      { icon: UserCheckIcon, label: "Onboarding / Offboarding", path: "/rh/onboarding" },
       { icon: ShieldAlert, label: "Prevenção Trabalhista - IA", path: "/rh/prevencao-ia" },
       { icon: Zap, label: "Produtividade - IA", path: "/rh/produtividade-ia" },
-      { icon: CalendarDays, label: "Controle de Férias", path: "/rh/ferias" },
     ],
   },
   {
