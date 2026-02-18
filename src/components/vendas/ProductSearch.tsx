@@ -120,6 +120,13 @@ export function ProductSearch({ itens, onChange, unidadeId }: ProductSearchProps
     onChange(newItens);
   };
 
+  const updatePrecoUnitario = (index: number, valor: number) => {
+    const newItens = [...itens];
+    newItens[index].preco_unitario = valor;
+    newItens[index].total = newItens[index].quantidade * valor;
+    onChange(newItens);
+  };
+
   const removeItem = (index: number) => {
     const newItens = itens.filter((_, i) => i !== index);
     onChange(newItens);
@@ -218,7 +225,14 @@ export function ProductSearch({ itens, onChange, unidadeId }: ProductSearchProps
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      R$ {item.preco_unitario.toFixed(2)}
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.preco_unitario}
+                        onChange={(e) => updatePrecoUnitario(index, Number(e.target.value))}
+                        className="w-24 text-right h-8 text-sm"
+                      />
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       R$ {item.total.toFixed(2)}
