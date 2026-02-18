@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Save, Loader2, MapPin, Map } from "lucide-react";
+import { ArrowLeft, Save, Loader2, MapPin, Map, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
@@ -43,6 +44,15 @@ interface EnderecoFields {
   cep: string;
 }
 
+const formasPagamento = [
+  { value: "dinheiro", label: "Dinheiro" },
+  { value: "pix", label: "PIX" },
+  { value: "cartao_credito", label: "Cartão Crédito" },
+  { value: "cartao_debito", label: "Cartão Débito" },
+  { value: "fiado", label: "Fiado" },
+  { value: "Vale Gás", label: "Vale Gás" },
+];
+
 export default function EditarPedido() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -58,6 +68,7 @@ export default function EditarPedido() {
   });
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [observacoes, setObservacoes] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState<string>("");
   const [entregador, setEntregador] = useState<{ id: string | null; nome: string | null }>({ id: null, nome: null });
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -119,6 +130,7 @@ export default function EditarPedido() {
       setEnderecoFields(endFields);
       setCoords({ lat: pedidoData.latitude || null, lng: pedidoData.longitude || null });
       setObservacoes(pedidoData.observacoes || "");
+      setFormaPagamento(pedidoData.forma_pagamento || "");
       setEntregador({ id: pedidoData.entregador_id, nome: pedidoData.entregadores?.nome || null });
 
       const itensFormatados: ItemVenda[] = (itensData || []).map((item) => ({
@@ -223,6 +235,7 @@ export default function EditarPedido() {
           latitude: coords.lat,
           longitude: coords.lng,
           observacoes,
+          forma_pagamento: formaPagamento || null,
           entregador_id: entregador.id,
           valor_total: novoTotal,
         })
@@ -424,6 +437,28 @@ export default function EditarPedido() {
                 </CardContent>
               </Card>
 
+              {/* Forma de Pagamento */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CreditCard className="h-5 w-5" />
+                    Forma de Pagamento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Select value={formaPagamento} onValueChange={setFormaPagamento} disabled={isDisabled}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a forma de pagamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formasPagamento.map((f) => (
+                        <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
               <DeliveryPersonSelect
                 value={entregador.id}
                 onChange={handleSelecionarEntregador}
@@ -452,6 +487,10 @@ export default function EditarPedido() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Itens</span>
                       <span className="font-medium">{itens.length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Pagamento</span>
+                      <span className="font-medium">{formasPagamento.find(f => f.value === formaPagamento)?.label || "Não informado"}</span>
                     </div>
                   </div>
 
