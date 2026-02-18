@@ -9,13 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Save, Loader2, MapPin, FileEdit } from "lucide-react";
+import { ArrowLeft, Save, Loader2, MapPin, Map } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
 import { DeliveryPersonSelect } from "@/components/vendas/DeliveryPersonSelect";
 import { PedidoStatus } from "@/types/pedido";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { geocodeAddress } from "@/lib/geocoding";
+import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
+import type { GeocodingResult } from "@/lib/geocoding";
 
 interface PedidoData {
   id: string;
@@ -27,6 +30,17 @@ interface PedidoData {
   entregador_id: string | null;
   entregador_nome: string | null;
   valor_total: number;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+interface EnderecoFields {
+  endereco: string;
+  numero: string;
+  bairro: string;
+  complemento: string;
+  cidade: string;
+  cep: string;
 }
 
 export default function EditarPedido() {
@@ -39,27 +53,26 @@ export default function EditarPedido() {
   const [saving, setSaving] = useState(false);
   const [pedido, setPedido] = useState<PedidoData | null>(null);
   const [itens, setItens] = useState<ItemVenda[]>([]);
-  const [endereco, setEndereco] = useState("");
-  const [observacoes, setObservacoes] = useState("");
-  const [entregador, setEntregador] = useState<{ id: string | null; nome: string | null }>({
-    id: null,
-    nome: null,
+  const [enderecoFields, setEnderecoFields] = useState<EnderecoFields>({
+    endereco: "", numero: "", bairro: "", complemento: "", cidade: "", cep: "",
   });
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+  const [observacoes, setObservacoes] = useState("");
+  const [entregador, setEntregador] = useState<{ id: string | null; nome: string | null }>({ id: null, nome: null });
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      fetchPedido(id);
-    }
+    if (id) fetchPedido(id);
   }, [id]);
 
   const fetchPedido = async (pedidoId: string) => {
     try {
-      // Buscar pedido com cliente e entregador
       const { data: pedidoData, error: pedidoError } = await supabase
         .from("pedidos")
         .select(`
           *,
-          clientes (id, nome, endereco, bairro, cidade),
+          clientes (id, nome, endereco, numero, bairro, cidade, cep),
           entregadores (id, nome)
         `)
         .eq("id", pedidoId)
@@ -67,19 +80,25 @@ export default function EditarPedido() {
 
       if (pedidoError) throw pedidoError;
 
-      // Buscar itens do pedido
       const { data: itensData, error: itensError } = await supabase
         .from("pedido_itens")
-        .select(`
-          *,
-          produtos (id, nome, preco)
-        `)
+        .select(`*, produtos (id, nome, preco)`)
         .eq("pedido_id", pedidoId);
 
       if (itensError) throw itensError;
 
-      // Montar dados do pedido
       const cliente = pedidoData.clientes;
+
+      // Populate separate address fields from pedido columns or fallback to client
+      const endFields: EnderecoFields = {
+        endereco: pedidoData.endereco_entrega || cliente?.endereco || "",
+        numero: pedidoData.numero_entrega || cliente?.numero || "",
+        bairro: pedidoData.bairro_entrega || cliente?.bairro || "",
+        complemento: pedidoData.complemento_entrega || "",
+        cidade: pedidoData.cidade_entrega || cliente?.cidade || "",
+        cep: pedidoData.cep_entrega || cliente?.cep || "",
+      };
+
       const enderecoCompleto = pedidoData.endereco_entrega ||
         (cliente ? [cliente.endereco, cliente.bairro, cliente.cidade].filter(Boolean).join(", ") : "");
 
@@ -93,16 +112,15 @@ export default function EditarPedido() {
         entregador_id: pedidoData.entregador_id,
         entregador_nome: pedidoData.entregadores?.nome || null,
         valor_total: Number(pedidoData.valor_total) || 0,
+        latitude: pedidoData.latitude || null,
+        longitude: pedidoData.longitude || null,
       });
 
-      setEndereco(enderecoCompleto);
+      setEnderecoFields(endFields);
+      setCoords({ lat: pedidoData.latitude || null, lng: pedidoData.longitude || null });
       setObservacoes(pedidoData.observacoes || "");
-      setEntregador({
-        id: pedidoData.entregador_id,
-        nome: pedidoData.entregadores?.nome || null,
-      });
+      setEntregador({ id: pedidoData.entregador_id, nome: pedidoData.entregadores?.nome || null });
 
-      // Montar itens
       const itensFormatados: ItemVenda[] = (itensData || []).map((item) => ({
         id: item.id,
         produto_id: item.produto_id || "",
@@ -115,26 +133,75 @@ export default function EditarPedido() {
       setItens(itensFormatados);
     } catch (error: any) {
       console.error("Erro ao buscar pedido:", error);
-      toast({
-        title: "Erro ao carregar pedido",
-        description: error.message || "Não foi possível carregar os dados do pedido.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao carregar pedido", description: error.message, variant: "destructive" });
       navigate("/vendas/pedidos");
     } finally {
       setLoading(false);
     }
   };
 
+  const updateField = (field: keyof EnderecoFields, value: string) => {
+    setEnderecoFields((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddressBlur = async () => {
+    const addr = [enderecoFields.endereco, enderecoFields.numero, enderecoFields.bairro, enderecoFields.cidade].filter(Boolean).join(", ");
+    if (addr.length < 5) return;
+    setIsGeocoding(true);
+    const result = await geocodeAddress(addr);
+    if (result) {
+      setCoords({ lat: result.latitude, lng: result.longitude });
+      setEnderecoFields((prev) => ({
+        ...prev,
+        bairro: prev.bairro || result.bairro || "",
+        cep: prev.cep || result.cep || "",
+      }));
+    }
+    setIsGeocoding(false);
+  };
+
+  const handleCepBlur = async () => {
+    const cep = (enderecoFields.cep || "").replace(/\D/g, "");
+    if (cep.length !== 8) return;
+    setIsGeocoding(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setEnderecoFields((prev) => ({
+          ...prev,
+          endereco: data.logradouro || prev.endereco,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade || prev.cidade,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    }
+    setIsGeocoding(false);
+  };
+
+  const handleMapConfirm = (result: GeocodingResult) => {
+    setCoords({ lat: result.latitude, lng: result.longitude });
+    setEnderecoFields((prev) => ({
+      ...prev,
+      endereco: result.endereco || prev.endereco,
+      bairro: result.bairro || prev.bairro,
+      cidade: result.cidade || prev.cidade,
+      cep: result.cep || prev.cep,
+    }));
+  };
+
+  const buildEnderecoCompleto = () => {
+    return [enderecoFields.endereco, enderecoFields.numero, enderecoFields.bairro, enderecoFields.cidade]
+      .filter(Boolean).join(", ");
+  };
+
   const handleSalvar = async () => {
     if (!pedido || !id) return;
 
     if (itens.length === 0) {
-      toast({
-        title: "Erro",
-        description: "O pedido deve ter pelo menos um produto.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "O pedido deve ter pelo menos um produto.", variant: "destructive" });
       return;
     }
 
@@ -142,12 +209,19 @@ export default function EditarPedido() {
 
     try {
       const novoTotal = itens.reduce((acc, item) => acc + item.total, 0);
+      const enderecoCompleto = buildEnderecoCompleto();
 
-      // Atualizar pedido
       const { error: pedidoError } = await supabase
         .from("pedidos")
         .update({
-          endereco_entrega: endereco,
+          endereco_entrega: enderecoCompleto,
+          numero_entrega: enderecoFields.numero || null,
+          bairro_entrega: enderecoFields.bairro || null,
+          complemento_entrega: enderecoFields.complemento || null,
+          cidade_entrega: enderecoFields.cidade || null,
+          cep_entrega: enderecoFields.cep || null,
+          latitude: coords.lat,
+          longitude: coords.lng,
           observacoes,
           entregador_id: entregador.id,
           valor_total: novoTotal,
@@ -156,15 +230,9 @@ export default function EditarPedido() {
 
       if (pedidoError) throw pedidoError;
 
-      // Deletar itens antigos
-      const { error: deleteError } = await supabase
-        .from("pedido_itens")
-        .delete()
-        .eq("pedido_id", id);
-
+      const { error: deleteError } = await supabase.from("pedido_itens").delete().eq("pedido_id", id);
       if (deleteError) throw deleteError;
 
-      // Inserir novos itens
       const novosItens = itens.map((item) => ({
         pedido_id: id,
         produto_id: item.produto_id,
@@ -172,25 +240,14 @@ export default function EditarPedido() {
         preco_unitario: item.preco_unitario,
       }));
 
-      const { error: insertError } = await supabase
-        .from("pedido_itens")
-        .insert(novosItens);
-
+      const { error: insertError } = await supabase.from("pedido_itens").insert(novosItens);
       if (insertError) throw insertError;
 
-      toast({
-        title: "Pedido atualizado!",
-        description: `Pedido #${id.slice(0, 6)} foi salvo com sucesso.`,
-      });
-
+      toast({ title: "Pedido atualizado!", description: `Pedido #${id.slice(0, 6)} foi salvo com sucesso.` });
       navigate("/vendas/pedidos");
     } catch (error: any) {
       console.error("Erro ao salvar pedido:", error);
-      toast({
-        title: "Erro ao salvar",
-        description: error.message || "Não foi possível salvar as alterações.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -201,6 +258,7 @@ export default function EditarPedido() {
   };
 
   const totalVenda = itens.reduce((acc, item) => acc + item.total, 0);
+  const isDisabled = pedido?.status === "entregue" || pedido?.status === "cancelado";
 
   const getStatusBadge = (status: PedidoStatus) => {
     const statusConfig = {
@@ -235,146 +293,207 @@ export default function EditarPedido() {
     return (
       <MainLayout>
         <Header title="Pedido não encontrado" />
-        <div className="p-6">
-          <p className="text-muted-foreground">Pedido não encontrado.</p>
-        </div>
+        <div className="p-6"><p className="text-muted-foreground">Pedido não encontrado.</p></div>
       </MainLayout>
     );
   }
 
   return (
-    <MainLayout>
-      <Header title="Editar Pedido" subtitle={`#${pedido.id.slice(0, 6)} • ${pedido.cliente_nome}`} />
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/vendas/pedidos")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          {getStatusBadge(pedido.status)}
-        </div>
-
-        {/* Aviso de status */}
-        {(pedido.status === "entregue" || pedido.status === "cancelado") && (
-          <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">
-            ⚠️ Este pedido já foi {pedido.status === "entregue" ? "entregue" : "cancelado"} e não pode ser editado.
-          </div>
-        )}
-
-        {/* Layout Principal */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Coluna Esquerda - Formulário */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Endereço de Entrega */}
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <MapPin className="h-5 w-5" />
-                  Endereço de Entrega
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Endereço Completo</Label>
-                  <Textarea
-                    value={endereco}
-                    onChange={(e) => setEndereco(e.target.value)}
-                    placeholder="Rua, número, bairro, cidade..."
-                    className="mt-1"
-                    disabled={pedido.status === "entregue" || pedido.status === "cancelado"}
-                  />
-                </div>
-                <div>
-                  <Label>Observações</Label>
-                  <Textarea
-                    value={observacoes}
-                    onChange={(e) => setObservacoes(e.target.value)}
-                    placeholder="Observações do pedido..."
-                    className="mt-1"
-                    disabled={pedido.status === "entregue" || pedido.status === "cancelado"}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Entregador */}
-            <DeliveryPersonSelect
-              value={entregador.id}
-              onChange={handleSelecionarEntregador}
-              endereco={endereco}
-            />
-
-            {/* Produtos */}
-            <ProductSearch itens={itens} onChange={setItens} unidadeId={unidadeAtual?.id} />
+    <>
+      <MainLayout>
+        <Header title="Editar Pedido" subtitle={`#${pedido.id.slice(0, 6)} • ${pedido.cliente_nome}`} />
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/vendas/pedidos")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            {getStatusBadge(pedido.status)}
           </div>
 
-          {/* Coluna Direita - Resumo */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Resumo do Pedido</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Cliente</span>
-                    <span className="font-medium">{pedido.cliente_nome}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Entregador</span>
-                    <span className="font-medium">{entregador.nome || "Não atribuído"}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Itens</span>
-                    <span className="font-medium">{itens.length}</span>
-                  </div>
-                </div>
+          {isDisabled && (
+            <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">
+              ⚠️ Este pedido já foi {pedido.status === "entregue" ? "entregue" : "cancelado"} e não pode ser editado.
+            </div>
+          )}
 
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold">Total</span>
-                    <span className="text-2xl font-bold text-primary">
-                      R$ {totalVenda.toFixed(2)}
-                    </span>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Endereço de Entrega */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <MapPin className="h-5 w-5" />
+                    Endereço de Entrega
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="col-span-3 grid gap-1.5">
+                      <Label className="text-xs">Logradouro</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          value={enderecoFields.endereco}
+                          onChange={(e) => updateField("endereco", e.target.value)}
+                          onBlur={handleAddressBlur}
+                          placeholder="Rua, Avenida..."
+                          className="flex-1"
+                          disabled={isDisabled}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() => setMapPickerOpen(true)}
+                          disabled={isDisabled}
+                        >
+                          {isGeocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Map className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Nº</Label>
+                      <Input
+                        value={enderecoFields.numero}
+                        onChange={(e) => updateField("numero", e.target.value)}
+                        placeholder="123"
+                        disabled={isDisabled}
+                      />
+                    </div>
                   </div>
-                  {pedido.valor_total !== totalVenda && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Valor original: R$ {pedido.valor_total.toFixed(2)}
-                    </p>
-                  )}
-                </div>
 
-                <div className="space-y-2 pt-4">
-                  <Button
-                    className="w-full"
-                    onClick={handleSalvar}
-                    disabled={saving || pedido.status === "entregue" || pedido.status === "cancelado"}
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvar Alterações
-                      </>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Bairro</Label>
+                      <Input
+                        value={enderecoFields.bairro}
+                        onChange={(e) => updateField("bairro", e.target.value)}
+                        placeholder="Bairro"
+                        disabled={isDisabled}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input
+                        value={enderecoFields.cidade}
+                        onChange={(e) => updateField("cidade", e.target.value)}
+                        placeholder="Cidade"
+                        disabled={isDisabled}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">CEP</Label>
+                      <Input
+                        value={enderecoFields.cep}
+                        onChange={(e) => updateField("cep", e.target.value)}
+                        onBlur={handleCepBlur}
+                        placeholder="00000-000"
+                        disabled={isDisabled}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Complemento</Label>
+                      <Input
+                        value={enderecoFields.complemento}
+                        onChange={(e) => updateField("complemento", e.target.value)}
+                        placeholder="Apto, Bloco..."
+                        disabled={isDisabled}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      {coords.lat && coords.lng && (
+                        <p className="text-[10px] text-muted-foreground pb-2">
+                          📍 {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Observações</Label>
+                    <Textarea
+                      value={observacoes}
+                      onChange={(e) => setObservacoes(e.target.value)}
+                      placeholder="Observações do pedido..."
+                      className="mt-1"
+                      disabled={isDisabled}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <DeliveryPersonSelect
+                value={entregador.id}
+                onChange={handleSelecionarEntregador}
+                endereco={buildEnderecoCompleto()}
+              />
+
+              <ProductSearch itens={itens} onChange={setItens} unidadeId={unidadeAtual?.id} />
+            </div>
+
+            {/* Resumo */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Resumo do Pedido</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Cliente</span>
+                      <span className="font-medium">{pedido.cliente_nome}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Entregador</span>
+                      <span className="font-medium">{entregador.nome || "Não atribuído"}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Itens</span>
+                      <span className="font-medium">{itens.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">Total</span>
+                      <span className="text-2xl font-bold text-primary">
+                        R$ {totalVenda.toFixed(2)}
+                      </span>
+                    </div>
+                    {pedido.valor_total !== totalVenda && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Valor original: R$ {pedido.valor_total.toFixed(2)}
+                      </p>
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate("/vendas/pedidos")}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+
+                  <div className="space-y-2 pt-4">
+                    <Button className="w-full" onClick={handleSalvar} disabled={saving || isDisabled}>
+                      {saving ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+                      ) : (
+                        <><Save className="h-4 w-4 mr-2" />Salvar Alterações</>
+                      )}
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={() => navigate("/vendas/pedidos")}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
-    </MainLayout>
+      </MainLayout>
+
+      <MapPickerDialog
+        open={mapPickerOpen}
+        onOpenChange={setMapPickerOpen}
+        initialPosition={coords.lat && coords.lng ? { lat: coords.lat, lng: coords.lng } : null}
+        onConfirm={handleMapConfirm}
+      />
+    </>
   );
 }
