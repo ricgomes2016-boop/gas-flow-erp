@@ -222,6 +222,7 @@ export const menuItems: MenuItem[] = [
       { icon: Store, label: "Unidades / Lojas", path: "/config/unidades" },
       { icon: ClipboardCheck, label: "Auditoria", path: "/config/auditoria" },
       { icon: Lock, label: "Permissões", path: "/config/permissoes" },
+      { icon: FileSpreadsheet, label: "Categorias de Despesas", path: "/config/categorias-despesa" },
     ],
   },
 ];
