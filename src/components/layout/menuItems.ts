@@ -227,6 +227,7 @@ export const menuItems: MenuItem[] = [
       { icon: ClipboardCheck, label: "Auditoria", path: "/config/auditoria" },
       { icon: Lock, label: "Permissões", path: "/config/permissoes" },
       { icon: FileSpreadsheet, label: "Categorias de Despesas", path: "/config/categorias-despesa" },
+      { icon: FileText, label: "Documentos da Empresa", path: "/config/documentos" },
     ],
   },
 ];

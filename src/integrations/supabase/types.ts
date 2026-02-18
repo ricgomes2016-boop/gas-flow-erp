@@ -1112,6 +1112,56 @@ export type Database = {
           },
         ]
       }
+      documentos_empresa: {
+        Row: {
+          arquivo_nome: string
+          arquivo_tamanho: number | null
+          arquivo_url: string
+          categoria: string
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          unidade_id: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          arquivo_nome: string
+          arquivo_tamanho?: number | null
+          arquivo_url: string
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          unidade_id?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          arquivo_nome?: string
+          arquivo_tamanho?: number | null
+          arquivo_url?: string
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          unidade_id?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_empresa_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entregadores: {
         Row: {
           ativo: boolean | null
