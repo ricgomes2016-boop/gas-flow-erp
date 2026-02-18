@@ -1,3 +1,5 @@
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +35,9 @@ const topDestinatarios = [
 
 export default function RelatoriosNotas() {
   return (
-    <div className="space-y-6">
+    <MainLayout>
+      <Header title="Relatórios de Notas" subtitle="Gestão Fiscal" />
+      <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" />
@@ -156,6 +160,7 @@ export default function RelatoriosNotas() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

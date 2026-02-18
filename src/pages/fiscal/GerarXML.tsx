@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +46,9 @@ export default function GerarXML() {
   };
 
   return (
-    <div className="space-y-6">
+    <MainLayout>
+      <Header title="Gerar XML" subtitle="Gestão Fiscal" />
+      <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <FileSpreadsheet className="h-6 w-6 text-primary" />
@@ -134,6 +138,7 @@ export default function GerarXML() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   );
 }
