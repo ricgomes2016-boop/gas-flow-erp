@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Truck, RefreshCw, Clock, Package, AlertTriangle, CheckCircle, Maximize2, Minimize2, Radio, Phone } from "lucide-react";
+import { MapPin, Truck, RefreshCw, Clock, Package, AlertTriangle, CheckCircle, Maximize2, Minimize2, Radio, Phone, WifiOff } from "lucide-react";
 import { DeliveryRoutesMap, Entregador, ClienteEntrega } from "@/components/mapa/DeliveryRoutesMap";
 import { NearestDriversPanel } from "@/components/mapa/NearestDriversPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,10 +76,18 @@ export default function MapaOperacional() {
 
   useEffect(() => { fetchData(); const interval = setInterval(fetchData, 30000); return () => clearInterval(interval); }, [fetchData]);
 
-  const entregadoresMapa: Entregador[] = entregadoresData.filter(e => e.latitude && e.longitude).map((e) => ({
-    id: e.id, nome: e.nome, status: e.status || "disponivel",
-    lat: e.latitude, lng: e.longitude, ultimaAtualizacao: "agora",
-  }));
+  const GPS_OFFLINE_MS = 5 * 60 * 1000;
+
+  const entregadoresMapa: Entregador[] = entregadoresData.filter(e => e.latitude && e.longitude).map((e) => {
+    const diffMs = Date.now() - new Date(e.updated_at).getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const ultimaAtt = diffMin < 1 ? "agora" : diffMin < 60 ? `há ${diffMin}min` : `há ${Math.floor(diffMin / 60)}h`;
+    return {
+      id: e.id, nome: e.nome, status: e.status || "disponivel",
+      lat: e.latitude, lng: e.longitude, ultimaAtualizacao: ultimaAtt,
+      updatedAt: e.updated_at,
+    };
+  });
 
   // Build client markers from pedidos - use pedido lat/lng or fallback to client lat/lng
   const clientesMapa: ClienteEntrega[] = pedidosAtivos
@@ -263,7 +271,11 @@ export default function MapaOperacional() {
               </CardHeader>
               <CardContent className="max-h-[200px] overflow-y-auto space-y-1.5">
                 {entregadoresData.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum entregador ativo</p>}
-                {entregadoresData.map((e, idx) => (
+                {entregadoresData.map((e, idx) => {
+                  const gpsOff = e.latitude && e.longitude && e.updated_at
+                    ? (Date.now() - new Date(e.updated_at).getTime() > GPS_OFFLINE_MS)
+                    : false;
+                  return (
                   <button
                     key={e.id}
                     onClick={() => {
@@ -273,20 +285,29 @@ export default function MapaOperacional() {
                     }}
                     className={cn(
                       "flex items-center justify-between p-2 rounded-lg border text-sm w-full text-left transition-colors hover:bg-accent/50",
-                      selectedEntregador === e.id && "bg-primary/10 border-primary/30"
+                      selectedEntregador === e.id && "bg-primary/10 border-primary/30",
+                      gpsOff && "border-destructive/30 bg-destructive/5"
                     )}
                   >
                     <div className="flex items-center gap-2">
                       <div className={cn(
                         "h-2.5 w-2.5 rounded-full",
-                        e.status === "em_rota" ? "bg-chart-3 animate-pulse" : "bg-primary"
+                        gpsOff ? "bg-destructive" : e.status === "em_rota" ? "bg-chart-3 animate-pulse" : "bg-primary"
                       )} />
                       <div>
                         <span className="font-medium block">{e.nome}</span>
                         {!e.latitude && <span className="text-[10px] text-muted-foreground">Sem localização</span>}
+                        {gpsOff && (
+                          <span className="text-[10px] text-destructive flex items-center gap-0.5">
+                            <WifiOff className="h-2.5 w-2.5" /> GPS Offline
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {gpsOff && (
+                        <Badge variant="destructive" className="text-[10px]">Offline</Badge>
+                      )}
                       <Badge variant={e.status === "em_rota" ? "default" : "secondary"} className="text-[10px]">
                         {e.status === "em_rota" ? "Em Rota" : "Livre"}
                       </Badge>
@@ -297,7 +318,8 @@ export default function MapaOperacional() {
                       )}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 
