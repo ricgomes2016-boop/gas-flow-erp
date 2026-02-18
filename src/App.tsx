@@ -82,6 +82,7 @@ const AprovarDespesas = lazy(() => import("./pages/financeiro/AprovarDespesas"))
 const Conciliacao = lazy(() => import("./pages/financeiro/Conciliacao"));
 const Contador = lazy(() => import("./pages/financeiro/Contador"));
 const TerminaisCartao = lazy(() => import("./pages/financeiro/TerminaisCartao"));
+const EmissaoBoleto = lazy(() => import("./pages/financeiro/EmissaoBoleto"));
 const ValeGasParceiros = lazy(() => import("./pages/financeiro/ValeGasParceiros"));
 const ValeGasEmissao = lazy(() => import("./pages/financeiro/ValeGasEmissao"));
 const ValeGasControle = lazy(() => import("./pages/financeiro/ValeGasControle"));
@@ -445,6 +446,11 @@ const App = () => (
                   <Route path="/financeiro/terminais" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
                       <TerminaisCartao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/boletos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <EmissaoBoleto />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/vale-gas/parceiros" element={
