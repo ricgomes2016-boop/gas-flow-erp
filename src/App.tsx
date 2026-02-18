@@ -125,6 +125,9 @@ const Permissoes = lazy(() => import("./pages/config/Permissoes"));
 const UnidadesConfig = lazy(() => import("./pages/config/Unidades"));
 const Usuarios = lazy(() => import("./pages/config/Usuarios"));
 
+// Assistente IA
+const AssistenteIA = lazy(() => import("./pages/AssistenteIA"));
+
 // App Entregador
 const EntregadorDashboard = lazy(() => import("./pages/entregador/EntregadorDashboard"));
 const EntregadorEntregas = lazy(() => import("./pages/entregador/EntregadorEntregas"));
@@ -612,6 +615,13 @@ const App = () => (
                   <Route path="/configuracoes" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <Configuracoes />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Assistente IA */}
+                  <Route path="/assistente-ia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <AssistenteIA />
                     </ProtectedRoute>
                   } />
                   
