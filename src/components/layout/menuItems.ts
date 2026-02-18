@@ -125,6 +125,7 @@ export const menuItems: MenuItem[] = [
       { icon: DollarSign, label: "Planejamento Financeiro - Mês", path: "/operacional/mensal" },
       { icon: Store, label: "Canais de Venda", path: "/operacional/canais-venda" },
       { icon: Factory, label: "Fornecedores", path: "/cadastros/fornecedores" },
+      { icon: Calculator, label: "Ponto de Equilíbrio", path: "/operacional/ponto-equilibrio" },
     ],
   },
   {
