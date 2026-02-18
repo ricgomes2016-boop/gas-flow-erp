@@ -50,9 +50,18 @@ export function useDeliveryAlarm() {
     osc3.stop(now + 0.6);
   }, []);
 
+  const vibrate = useCallback(() => {
+    if ("vibrate" in navigator) {
+      navigator.vibrate([300, 100, 300, 100, 500]);
+    }
+  }, []);
+
   const startAlarm = useCallback(() => {
     if (isPlayingRef.current) return;
     isPlayingRef.current = true;
+
+    // Vibrate on mobile
+    vibrate();
 
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -67,11 +76,12 @@ export function useDeliveryAlarm() {
           ctx.resume();
         }
         playBeep(ctx);
+        vibrate();
       }, 2000);
     } catch (e) {
       console.warn("Web Audio API não disponível:", e);
     }
-  }, [playBeep]);
+  }, [playBeep, vibrate]);
 
   const stopAlarm = useCallback(() => {
     isPlayingRef.current = false;
