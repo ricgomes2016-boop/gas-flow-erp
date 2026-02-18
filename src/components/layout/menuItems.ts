@@ -198,6 +198,18 @@ export const menuItems: MenuItem[] = [
     ],
   },
   {
+    icon: FileText,
+    label: "Gestão Fiscal",
+    submenu: [
+      { icon: Receipt, label: "Emitir NF-e", path: "/fiscal/nfe" },
+      { icon: Monitor, label: "Emitir NFC-e", path: "/fiscal/nfce" },
+      { icon: Truck, label: "Emitir MDF-e", path: "/fiscal/mdfe" },
+      { icon: Route, label: "Emitir CT-e", path: "/fiscal/cte" },
+      { icon: FileSpreadsheet, label: "Gerar XML", path: "/fiscal/xml" },
+      { icon: BarChart3, label: "Relatórios de Notas", path: "/fiscal/relatorios" },
+    ],
+  },
+  {
     icon: Settings,
     label: "Configurações",
     submenu: [
