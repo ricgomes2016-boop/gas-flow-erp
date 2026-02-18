@@ -150,6 +150,45 @@ export type Database = {
           },
         ]
       }
+      anotacoes: {
+        Row: {
+          concluido: boolean
+          conteudo: string | null
+          cor: string
+          created_at: string
+          fixado: boolean
+          id: string
+          lembrete_data: string | null
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concluido?: boolean
+          conteudo?: string | null
+          cor?: string
+          created_at?: string
+          fixado?: boolean
+          id?: string
+          lembrete_data?: string | null
+          titulo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concluido?: boolean
+          conteudo?: string | null
+          cor?: string
+          created_at?: string
+          fixado?: boolean
+          id?: string
+          lembrete_data?: string | null
+          titulo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       banco_horas: {
         Row: {
           created_at: string
