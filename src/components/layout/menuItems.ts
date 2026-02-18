@@ -162,6 +162,7 @@ export const menuItems: MenuItem[] = [
       { icon: FileSpreadsheet, label: "Conciliação (OFX / CSV)", path: "/financeiro/conciliacao" },
       { icon: Calculator, label: "Contador", path: "/financeiro/contador" },
       { icon: CreditCardIcon, label: "Terminais de Cartão", path: "/financeiro/terminais" },
+      { icon: Banknote, label: "Emissão de Boletos", path: "/financeiro/boletos" },
       { icon: Users2, label: "Vale Gás - Parceiros", path: "/financeiro/vale-gas/parceiros" },
       { icon: Ticket, label: "Vale Gás - Emissão", path: "/financeiro/vale-gas/emissao" },
       { icon: BadgeCheck, label: "Vale Gás - Controle", path: "/financeiro/vale-gas/controle" },
