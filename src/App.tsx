@@ -110,6 +110,7 @@ const BancoHoras = lazy(() => import("./pages/rh/BancoHoras"));
 const Horarios = lazy(() => import("./pages/rh/Horarios"));
 const PrevencaoTrabalhistaIA = lazy(() => import("./pages/rh/PrevencaoTrabalhistaIA"));
 const ProdutividadeIA = lazy(() => import("./pages/rh/ProdutividadeIA"));
+const Ferias = lazy(() => import("./pages/rh/Ferias"));
 
 // Fiscal
 const EmitirNFe = lazy(() => import("./pages/fiscal/EmitirNFe"));
@@ -563,6 +564,11 @@ const App = () => (
                   <Route path="/rh/produtividade-ia" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <ProdutividadeIA />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rh/ferias" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Ferias />
                     </ProtectedRoute>
                   } />
                   

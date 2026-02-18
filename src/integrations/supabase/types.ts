@@ -1250,6 +1250,78 @@ export type Database = {
           },
         ]
       }
+      ferias: {
+        Row: {
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          dias_direito: number
+          dias_gozados: number
+          dias_vendidos: number
+          funcionario_id: string
+          id: string
+          observacoes: string | null
+          periodo_aquisitivo_fim: string
+          periodo_aquisitivo_inicio: string
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor_abono: number | null
+          valor_ferias: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          dias_direito?: number
+          dias_gozados?: number
+          dias_vendidos?: number
+          funcionario_id: string
+          id?: string
+          observacoes?: string | null
+          periodo_aquisitivo_fim: string
+          periodo_aquisitivo_inicio: string
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_abono?: number | null
+          valor_ferias?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          dias_direito?: number
+          dias_gozados?: number
+          dias_vendidos?: number
+          funcionario_id?: string
+          id?: string
+          observacoes?: string | null
+          periodo_aquisitivo_fim?: string
+          periodo_aquisitivo_inicio?: string
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_abono?: number | null
+          valor_ferias?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ferias_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ferias_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fidelidade_clientes: {
         Row: {
           cliente_id: string

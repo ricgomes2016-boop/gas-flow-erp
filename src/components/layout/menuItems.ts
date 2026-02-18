@@ -201,6 +201,7 @@ export const menuItems: MenuItem[] = [
       { icon: CalendarClock, label: "Horários", path: "/rh/horarios" },
       { icon: ShieldAlert, label: "Prevenção Trabalhista - IA", path: "/rh/prevencao-ia" },
       { icon: Zap, label: "Produtividade - IA", path: "/rh/produtividade-ia" },
+      { icon: CalendarDays, label: "Controle de Férias", path: "/rh/ferias" },
     ],
   },
   {
