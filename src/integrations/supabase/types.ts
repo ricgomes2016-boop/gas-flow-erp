@@ -1980,8 +1980,12 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          bairro_entrega: string | null
           canal_venda: string | null
+          cep_entrega: string | null
+          cidade_entrega: string | null
           cliente_id: string | null
+          complemento_entrega: string | null
           created_at: string
           endereco_entrega: string | null
           entregador_id: string | null
@@ -1989,6 +1993,7 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          numero_entrega: string | null
           observacoes: string | null
           status: string | null
           unidade_id: string | null
@@ -1996,8 +2001,12 @@ export type Database = {
           valor_total: number | null
         }
         Insert: {
+          bairro_entrega?: string | null
           canal_venda?: string | null
+          cep_entrega?: string | null
+          cidade_entrega?: string | null
           cliente_id?: string | null
+          complemento_entrega?: string | null
           created_at?: string
           endereco_entrega?: string | null
           entregador_id?: string | null
@@ -2005,6 +2014,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          numero_entrega?: string | null
           observacoes?: string | null
           status?: string | null
           unidade_id?: string | null
@@ -2012,8 +2022,12 @@ export type Database = {
           valor_total?: number | null
         }
         Update: {
+          bairro_entrega?: string | null
           canal_venda?: string | null
+          cep_entrega?: string | null
+          cidade_entrega?: string | null
           cliente_id?: string | null
+          complemento_entrega?: string | null
           created_at?: string
           endereco_entrega?: string | null
           entregador_id?: string | null
@@ -2021,6 +2035,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          numero_entrega?: string | null
           observacoes?: string | null
           status?: string | null
           unidade_id?: string | null
