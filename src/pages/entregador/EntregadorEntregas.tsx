@@ -25,6 +25,7 @@ export default function EntregadorEntregas() {
   const { startAlarm, stopAlarm, isPlaying } = useDeliveryAlarm();
   const { permission, requestPermission, sendNotification } = useNotifications();
   const prevPendentesRef = useRef<string[]>([]);
+  const isFirstLoadRef = useRef(true);
 
   const fetchEntregas = useCallback(async () => {
     if (!user) return;
@@ -77,19 +78,23 @@ export default function EntregadorEntregas() {
     const prevIds = prevPendentesRef.current;
     const newIds = currentPendentes.filter(id => !prevIds.includes(id));
 
-    if (newIds.length > 0 && prevIds.length > 0 && alarmEnabled) {
-      // New pending delivery arrived — start alarm + push notification
-      startAlarm();
-      if (permission === "granted") {
-        const newEntrega = entregas.find(e => e.id === newIds[0]);
-        sendNotification({
-          title: "🚚 Nova Entrega!",
-          body: `${newEntrega?.clientes?.nome || "Cliente"} - ${newEntrega?.endereco_entrega || ""}`,
-          tag: `new-delivery-${newIds[0]}`,
-        });
+    if (currentPendentes.length > 0 && alarmEnabled) {
+      // On first load: alarm if there are already pending deliveries
+      // On subsequent loads: alarm only if NEW pending deliveries appeared
+      if (isFirstLoadRef.current || newIds.length > 0) {
+        startAlarm();
+        if (permission === "granted") {
+          const targetEntrega = entregas.find(e => e.id === (newIds[0] || currentPendentes[0]));
+          sendNotification({
+            title: "🚚 Nova Entrega!",
+            body: `${targetEntrega?.clientes?.nome || "Cliente"} - ${targetEntrega?.endereco_entrega || ""}`,
+            tag: `new-delivery-${newIds[0] || currentPendentes[0]}`,
+          });
+        }
       }
     }
 
+    isFirstLoadRef.current = false;
     prevPendentesRef.current = currentPendentes;
   }, [entregas, alarmEnabled, startAlarm, permission, sendNotification]);
 
