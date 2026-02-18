@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building, MapPin, Phone, Mail, Edit, Loader2, Store } from "lucide-react";
+import { Building, MapPin, Phone, Mail, Edit, Loader2, Store, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Unidade } from "@/contexts/UnidadeContext";
@@ -64,6 +64,7 @@ export default function UnidadesConfig() {
           cidade: editingUnidade.cidade,
           estado: editingUnidade.estado,
           cep: editingUnidade.cep,
+          chave_pix: (editingUnidade as any).chave_pix || null,
         })
         .eq("id", editingUnidade.id);
 
@@ -142,6 +143,12 @@ export default function UnidadesConfig() {
                       </span>
                     </div>
                   )}
+                  {(unidade as any).chave_pix && (
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Smartphone className="h-3.5 w-3.5" />
+                      PIX: {(unidade as any).chave_pix}
+                    </div>
+                  )}
                   {!unidade.cnpj && !unidade.telefone && !unidade.endereco && (
                     <p className="text-muted-foreground italic">Dados não preenchidos</p>
                   )}
@@ -203,6 +210,18 @@ export default function UnidadesConfig() {
                     <Label>Estado</Label>
                     <Input value={editingUnidade.estado || ""} onChange={(e) => updateField("estado", e.target.value)} placeholder="UF" maxLength={2} />
                   </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Smartphone className="h-4 w-4" />
+                    Chave PIX
+                  </Label>
+                  <Input
+                    value={(editingUnidade as any).chave_pix || ""}
+                    onChange={(e) => updateField("chave_pix" as any, e.target.value)}
+                    placeholder="CPF, CNPJ, email, telefone ou chave aleatória"
+                  />
+                  <p className="text-xs text-muted-foreground">Será usada para gerar QR Code de pagamento PIX</p>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setEditingUnidade(null)}>Cancelar</Button>

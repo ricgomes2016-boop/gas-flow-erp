@@ -20,6 +20,7 @@ import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PixQRCode } from "@/components/pix/PixQRCode";
 
 const formasPagamento = [
   "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás",
@@ -70,6 +71,9 @@ export default function FinalizarEntrega() {
   // Editable items state
   const [editableItens, setEditableItens] = useState<PedidoItem[]>([]);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [chavePix, setChavePix] = useState<string | null>(null);
+  const [nomeUnidade, setNomeUnidade] = useState<string | null>(null);
+  const [showPixQR, setShowPixQR] = useState(false);
 
   // Fetch real pedido data
   useEffect(() => {
@@ -78,7 +82,7 @@ export default function FinalizarEntrega() {
       const { data, error } = await supabase
         .from("pedidos")
         .select(`
-          id, valor_total, endereco_entrega, observacoes, forma_pagamento,
+          id, valor_total, endereco_entrega, observacoes, forma_pagamento, unidade_id,
           clientes:cliente_id (nome, telefone, bairro),
           pedido_itens (
             id, quantidade, preco_unitario,
@@ -97,6 +101,18 @@ export default function FinalizarEntrega() {
         const total = Number(data.valor_total) || 0;
         if (total > 0) {
           setPagamentos([{ forma: "Dinheiro", valor: total }]);
+        }
+        // Fetch chave_pix from unidade
+        if ((data as any).unidade_id) {
+          const { data: unidadeData } = await supabase
+            .from("unidades")
+            .select("chave_pix, nome")
+            .eq("id", (data as any).unidade_id)
+            .maybeSingle();
+          if (unidadeData) {
+            setChavePix((unidadeData as any).chave_pix || null);
+            setNomeUnidade(unidadeData.nome || null);
+          }
         }
       }
       setIsLoading(false);
@@ -434,9 +450,9 @@ export default function FinalizarEntrega() {
                   <DialogContent>
                     <DialogHeader><DialogTitle>Adicionar Pagamento</DialogTitle></DialogHeader>
                     <div className="space-y-4">
-                      <div>
+                     <div>
                         <Label>Forma de Pagamento</Label>
-                        <Select value={novoPagamentoForma} onValueChange={setNovoPagamentoForma}>
+                        <Select value={novoPagamentoForma} onValueChange={(v) => { setNovoPagamentoForma(v); if (v === "PIX" && chavePix) setShowPixQR(true); else setShowPixQR(false); }}>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
                             {formasPagamento.filter((f) => f !== "Vale Gás").map((forma) => (
@@ -445,6 +461,18 @@ export default function FinalizarEntrega() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {novoPagamentoForma === "PIX" && chavePix && (
+                        <PixQRCode
+                          chavePix={chavePix}
+                          valor={diferenca > 0 ? diferenca : totalItens}
+                          beneficiario={nomeUnidade || undefined}
+                        />
+                      )}
+                      {novoPagamentoForma === "PIX" && !chavePix && (
+                        <div className="p-3 rounded-lg bg-warning/10 text-warning text-sm text-center">
+                          Chave PIX não configurada para esta unidade.
+                        </div>
+                      )}
                       <div>
                         <Label>Valor (R$)</Label>
                         <Input type="number" step="0.01" value={novoPagamentoValor} onChange={(e) => setNovoPagamentoValor(e.target.value)} placeholder="0,00" />
