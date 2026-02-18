@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Package, Truck, CheckCircle, RefreshCw } from "lucide-react";
+import { Package, Truck, CheckCircle, RefreshCw, BellRing, BellOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { IniciarRotaModal } from "@/components/entregador/IniciarRotaModal";
 import { EntregaCard, type EntregaDB } from "@/components/entregador/EntregaCard";
+import { useDeliveryAlarm } from "@/hooks/useDeliveryAlarm";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export default function EntregadorEntregas() {
   const [entregas, setEntregas] = useState<EntregaDB[]>([]);
@@ -17,8 +19,12 @@ export default function EntregadorEntregas() {
   const [modalIniciarRota, setModalIniciarRota] = useState(false);
   const [entregaParaIniciar, setEntregaParaIniciar] = useState<EntregaDB | null>(null);
   const [entregadorId, setEntregadorId] = useState<string | null>(null);
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { startAlarm, stopAlarm, isPlaying } = useDeliveryAlarm();
+  const { permission, requestPermission, sendNotification } = useNotifications();
+  const prevPendentesRef = useRef<string[]>([]);
 
   const fetchEntregas = useCallback(async () => {
     if (!user) return;
@@ -60,6 +66,28 @@ export default function EntregadorEntregas() {
 
   useEffect(() => { fetchEntregas(); }, [fetchEntregas]);
 
+  // Detect new pending deliveries and trigger alarm
+  useEffect(() => {
+    const currentPendentes = entregas.filter(e => e.status === "pendente").map(e => e.id);
+    const prevIds = prevPendentesRef.current;
+    const newIds = currentPendentes.filter(id => !prevIds.includes(id));
+
+    if (newIds.length > 0 && prevIds.length > 0 && alarmEnabled) {
+      // New pending delivery arrived — start alarm + push notification
+      startAlarm();
+      if (permission === "granted") {
+        const newEntrega = entregas.find(e => e.id === newIds[0]);
+        sendNotification({
+          title: "🚚 Nova Entrega!",
+          body: `${newEntrega?.clientes?.nome || "Cliente"} - ${newEntrega?.endereco_entrega || ""}`,
+          tag: `new-delivery-${newIds[0]}`,
+        });
+      }
+    }
+
+    prevPendentesRef.current = currentPendentes;
+  }, [entregas, alarmEnabled, startAlarm, permission, sendNotification]);
+
   // Realtime
   useEffect(() => {
     const channel = supabase
@@ -70,6 +98,7 @@ export default function EntregadorEntregas() {
   }, [fetchEntregas]);
 
   const aceitarEntrega = async (pedidoId: string) => {
+    stopAlarm(); // Stop alarm when driver interacts
     if (!entregadorId) {
       toast({ title: "Erro", description: "Você não está cadastrado como entregador.", variant: "destructive" });
       return;
@@ -124,7 +153,32 @@ export default function EntregadorEntregas() {
   return (
     <EntregadorLayout title="Entregas">
       <div className="p-3 sm:p-4">
-        <div className="flex justify-end mb-2">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-1">
+            {permission !== "granted" && (
+              <Button variant="outline" size="sm" onClick={requestPermission} className="text-xs">
+                <BellRing className="h-4 w-4 mr-1" />
+                Ativar Notificações
+              </Button>
+            )}
+            <Button
+              variant={alarmEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setAlarmEnabled(!alarmEnabled);
+                if (alarmEnabled) stopAlarm();
+              }}
+              className="text-xs"
+            >
+              {alarmEnabled ? <BellRing className="h-4 w-4 mr-1" /> : <BellOff className="h-4 w-4 mr-1" />}
+              {alarmEnabled ? "Som Ativo" : "Som Mudo"}
+            </Button>
+            {isPlaying.current && (
+              <Button variant="destructive" size="sm" onClick={stopAlarm} className="text-xs animate-pulse">
+                🔔 Parar Alarme
+              </Button>
+            )}
+          </div>
           <Button variant="ghost" size="sm" onClick={() => { setIsLoading(true); fetchEntregas(); }}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Atualizar
@@ -138,7 +192,7 @@ export default function EntregadorEntregas() {
             ))}
           </div>
         ) : (
-          <Tabs value={tabAtiva} onValueChange={setTabAtiva}>
+          <Tabs value={tabAtiva} onValueChange={(v) => { setTabAtiva(v); if (v === "pendentes") stopAlarm(); }}>
             <TabsList className="w-full grid grid-cols-3 mb-4">
               <TabsTrigger value="pendentes" className="relative text-xs sm:text-sm">
                 Pendentes
