@@ -23,7 +23,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X, Mic, MicOff, AudioLines } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X, Mic, MicOff, AudioLines, FileText, Eye, Copy, FileUp } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -45,10 +45,20 @@ interface ContaPagar {
   categoria: string | null;
   observacoes: string | null;
   created_at: string;
+  boleto_url: string | null;
+  boleto_codigo_barras: string | null;
+  boleto_linha_digitavel: string | null;
+}
+
+interface CategoriaDesp {
+  id: string;
+  nome: string;
+  grupo: string;
+  ativo: boolean;
 }
 
 const FORMAS_PAGAMENTO = ["Boleto", "PIX", "Transferência", "Dinheiro", "Cartão", "Cheque"];
-const CATEGORIAS = ["Fornecedores", "Frota", "Infraestrutura", "Utilidades", "RH", "Compras", "Outros"];
+const CATEGORIAS_FALLBACK = ["Fornecedores", "Frota", "Infraestrutura", "Utilidades", "RH", "Compras", "Outros"];
 
 export default function ContasPagar() {
   const [contas, setContas] = useState<ContaPagar[]>([]);
@@ -67,6 +77,23 @@ export default function ContasPagar() {
   const [agrupar, setAgrupar] = useState(false);
   const [resumoOpen, setResumoOpen] = useState(false);
   const { unidadeAtual } = useUnidade();
+
+  // Categories from database
+  const [categoriasDB, setCategoriasDB] = useState<CategoriaDesp[]>([]);
+  const categoriasNomes = categoriasDB.length > 0 ? categoriasDB.filter(c => c.ativo).map(c => c.nome) : CATEGORIAS_FALLBACK;
+
+  // Boleto states
+  const [boletoDialogOpen, setBoletoDialogOpen] = useState(false);
+  const [boletoProcessing, setBoletoProcessing] = useState(false);
+  const [boletoPreview, setBoletoPreview] = useState<string | null>(null);
+  const [boletoData, setBoletoData] = useState<any>(null);
+  const [boletoFile, setBoletoFile] = useState<File | null>(null);
+  const boletoInputRef = useRef<HTMLInputElement>(null);
+  const boletoPdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Boleto view dialog
+  const [viewBoletoUrl, setViewBoletoUrl] = useState<string | null>(null);
+  const [viewBoletoConta, setViewBoletoConta] = useState<ContaPagar | null>(null);
 
   // Photo AI states
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
@@ -285,7 +312,12 @@ export default function ContasPagar() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchContas(); }, [unidadeAtual]);
+  const fetchCategorias = async () => {
+    const { data } = await supabase.from("categorias_despesa").select("id,nome,grupo,ativo").eq("ativo", true).order("ordem");
+    if (data) setCategoriasDB(data as CategoriaDesp[]);
+  };
+
+  useEffect(() => { fetchContas(); fetchCategorias(); }, [unidadeAtual]);
 
   const handleSubmit = async () => {
     if (!form.fornecedor || !form.descricao || !form.valor || !form.vencimento) {
@@ -484,6 +516,117 @@ export default function ContasPagar() {
     fetchContas();
   };
 
+  // Boleto import handlers
+  const handleBoletoCapture = async (e: React.ChangeEvent<HTMLInputElement>, isPdf = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setBoletoFile(file);
+    setBoletoDialogOpen(true);
+    setBoletoProcessing(true);
+    setBoletoData(null);
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = ev.target?.result as string;
+      if (!isPdf) setBoletoPreview(base64);
+      else setBoletoPreview(null);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("parse-boleto", {
+          body: { imageBase64: base64, isPdf },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        setBoletoData({
+          fornecedor: data.fornecedor || "",
+          descricao: data.descricao || "",
+          valor: data.valor || 0,
+          vencimento: data.vencimento || "",
+          codigo_barras: data.codigo_barras || "",
+          linha_digitavel: data.linha_digitavel || "",
+          categoria: data.categoria || "Outros",
+          observacoes: data.observacoes || "",
+        });
+        toast.success("Boleto lido com sucesso!");
+      } catch (err: any) {
+        console.error("Erro ao processar boleto:", err);
+        toast.error("Erro ao ler o boleto. Tente novamente.");
+      } finally {
+        setBoletoProcessing(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = "";
+  };
+
+  const handleSaveBoleto = async () => {
+    if (!boletoData || !boletoData.fornecedor || !boletoData.valor) {
+      toast.error("Fornecedor e valor são obrigatórios");
+      return;
+    }
+
+    let boletoUrl: string | null = null;
+
+    // Upload boleto file to storage
+    if (boletoFile) {
+      const ext = boletoFile.name.split(".").pop() || "pdf";
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("boletos").upload(fileName, boletoFile);
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from("boletos").getPublicUrl(fileName);
+        boletoUrl = urlData.publicUrl;
+      }
+    }
+
+    const payload = {
+      fornecedor: boletoData.fornecedor,
+      descricao: boletoData.descricao,
+      valor: boletoData.valor,
+      vencimento: boletoData.vencimento || new Date().toISOString().split("T")[0],
+      categoria: boletoData.categoria || null,
+      observacoes: boletoData.observacoes || null,
+      boleto_url: boletoUrl,
+      boleto_codigo_barras: boletoData.codigo_barras || null,
+      boleto_linha_digitavel: boletoData.linha_digitavel || null,
+      unidade_id: unidadeAtual?.id || null,
+    };
+
+    const { error } = await supabase.from("contas_pagar").insert(payload);
+    if (error) {
+      toast.error("Erro ao salvar boleto");
+      console.error(error);
+    } else {
+      toast.success("Boleto importado com sucesso!");
+      setBoletoDialogOpen(false);
+      setBoletoData(null);
+      setBoletoFile(null);
+      setBoletoPreview(null);
+      fetchContas();
+    }
+  };
+
+  const handleViewBoleto = async (conta: ContaPagar) => {
+    setViewBoletoConta(conta);
+    if (conta.boleto_url) {
+      // For private bucket, create signed URL
+      const urlParts = conta.boleto_url.split("/boletos/");
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        const { data } = await supabase.storage.from("boletos").createSignedUrl(filePath, 3600);
+        setViewBoletoUrl(data?.signedUrl || conta.boleto_url);
+      } else {
+        setViewBoletoUrl(conta.boleto_url);
+      }
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copiado!");
+  };
+
   const hoje = new Date().toISOString().split("T")[0];
 
   // Unique fornecedores and categorias for filter dropdowns
@@ -601,6 +744,21 @@ export default function ContasPagar() {
             className="hidden"
             onChange={handlePhotoCapture}
           />
+          <input
+            ref={boletoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => handleBoletoCapture(e, false)}
+          />
+          <input
+            ref={boletoPdfInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => handleBoletoCapture(e, true)}
+          />
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2 flex-1 sm:flex-none"><Plus className="h-4 w-4" /><span className="hidden sm:inline">Nova Conta</span><span className="sm:hidden">Nova</span></Button>
@@ -619,7 +777,7 @@ export default function ContasPagar() {
                   <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
-                      {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {categoriasNomes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -643,6 +801,14 @@ export default function ContasPagar() {
             {voiceListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             <span className="hidden sm:inline">{voiceListening ? "Parar" : "Voz"}</span>
             <span className="sm:hidden">{voiceListening ? "Parar" : "Voz"}</span>
+          </Button>
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => boletoInputRef.current?.click()}>
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Ler Boleto</span><span className="sm:hidden">Boleto</span>
+          </Button>
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => boletoPdfInputRef.current?.click()}>
+            <FileUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar PDF</span><span className="sm:hidden">PDF</span>
           </Button>
           {fornecedoresComMultiplas.length > 0 && (
             <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={openUnificarDialog}>
@@ -820,6 +986,7 @@ export default function ContasPagar() {
                                     <DropdownMenuContent align="end">
                                       {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
                                       <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                      {(conta.boleto_url || conta.boleto_linha_digitavel) && <DropdownMenuItem onClick={() => handleViewBoleto(conta)}><Eye className="h-4 w-4 mr-2" />Ver Boleto</DropdownMenuItem>}
                                       <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -854,6 +1021,7 @@ export default function ContasPagar() {
                               <DropdownMenuContent align="end">
                                 {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
                                 <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                {(conta.boleto_url || conta.boleto_linha_digitavel) && <DropdownMenuItem onClick={() => handleViewBoleto(conta)}><Eye className="h-4 w-4 mr-2" />Ver Boleto</DropdownMenuItem>}
                                 <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -912,6 +1080,7 @@ export default function ContasPagar() {
                                         <DropdownMenuContent align="end">
                                           {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
                                           <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                          {(conta.boleto_url || conta.boleto_linha_digitavel) && <DropdownMenuItem onClick={() => handleViewBoleto(conta)}><Eye className="h-4 w-4 mr-2" />Ver Boleto</DropdownMenuItem>}
                                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>
@@ -940,6 +1109,7 @@ export default function ContasPagar() {
                                   <DropdownMenuContent align="end">
                                     {conta.status !== "paga" && <DropdownMenuItem onClick={() => openPagarDialog(conta)}><DollarSign className="h-4 w-4 mr-2" />Pagar</DropdownMenuItem>}
                                     <DropdownMenuItem onClick={() => handleEdit(conta)}><Pencil className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                    {(conta.boleto_url || conta.boleto_linha_digitavel) && <DropdownMenuItem onClick={() => handleViewBoleto(conta)}><Eye className="h-4 w-4 mr-2" />Ver Boleto</DropdownMenuItem>}
                                     <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(conta.id)}><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1138,7 +1308,7 @@ export default function ContasPagar() {
                         <Select value={expense.categoria} onValueChange={v => updateExtractedField(idx, "categoria", v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            {categoriasNomes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1311,6 +1481,182 @@ export default function ContasPagar() {
                   <Layers className="h-4 w-4" />
                   Unificar {selectedContasIds.size} Contas
                 </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Boleto Import Dialog */}
+      <Dialog open={boletoDialogOpen} onOpenChange={(open) => { if (!boletoProcessing) { setBoletoDialogOpen(open); if (!open) { setBoletoData(null); setBoletoPreview(null); setBoletoFile(null); } } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Importar Boleto
+            </DialogTitle>
+          </DialogHeader>
+
+          {boletoProcessing && (
+            <div className="flex flex-col items-center gap-4 py-12">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-muted-foreground">Lendo boleto com IA...</p>
+              {boletoPreview && (
+                <img src={boletoPreview} alt="Boleto" className="max-h-40 rounded-lg opacity-50" />
+              )}
+            </div>
+          )}
+
+          {!boletoProcessing && boletoData && (
+            <div className="space-y-4">
+              {boletoPreview && (
+                <div className="flex justify-center">
+                  <img src={boletoPreview} alt="Boleto" className="max-h-32 rounded-lg border" />
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">Fornecedor / Beneficiário</Label>
+                  <Input value={boletoData.fornecedor} onChange={e => setBoletoData((p: any) => ({ ...p, fornecedor: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Descrição</Label>
+                  <Input value={boletoData.descricao} onChange={e => setBoletoData((p: any) => ({ ...p, descricao: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Valor (R$)</Label>
+                    <Input type="number" step="0.01" value={boletoData.valor} onChange={e => setBoletoData((p: any) => ({ ...p, valor: parseFloat(e.target.value) || 0 }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Vencimento</Label>
+                    <Input type="date" value={boletoData.vencimento} onChange={e => setBoletoData((p: any) => ({ ...p, vencimento: e.target.value }))} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Categoria</Label>
+                  <Select value={boletoData.categoria} onValueChange={v => setBoletoData((p: any) => ({ ...p, categoria: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {categoriasNomes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {boletoData.linha_digitavel && (
+                  <div>
+                    <Label className="text-xs">Linha Digitável</Label>
+                    <div className="flex gap-2">
+                      <Input value={boletoData.linha_digitavel} onChange={e => setBoletoData((p: any) => ({ ...p, linha_digitavel: e.target.value }))} className="font-mono text-xs" />
+                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(boletoData.linha_digitavel)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {boletoData.codigo_barras && (
+                  <div>
+                    <Label className="text-xs">Código de Barras</Label>
+                    <div className="flex gap-2">
+                      <Input value={boletoData.codigo_barras} onChange={e => setBoletoData((p: any) => ({ ...p, codigo_barras: e.target.value }))} className="font-mono text-xs" />
+                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(boletoData.codigo_barras)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs">Observações</Label>
+                  <Textarea value={boletoData.observacoes || ""} onChange={e => setBoletoData((p: any) => ({ ...p, observacoes: e.target.value }))} rows={2} />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setBoletoDialogOpen(false); setBoletoData(null); setBoletoFile(null); setBoletoPreview(null); }}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveBoleto} className="gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Salvar Boleto
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Boleto Dialog */}
+      <Dialog open={!!viewBoletoConta} onOpenChange={(open) => { if (!open) { setViewBoletoConta(null); setViewBoletoUrl(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Boleto — {viewBoletoConta?.fornecedor}
+            </DialogTitle>
+          </DialogHeader>
+          {viewBoletoConta && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Valor:</span>
+                  <p className="font-bold text-lg">R$ {Number(viewBoletoConta.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Vencimento:</span>
+                  <p className="font-medium">{format(new Date(viewBoletoConta.vencimento + "T12:00:00"), "dd/MM/yyyy")}</p>
+                </div>
+              </div>
+
+              {viewBoletoConta.boleto_linha_digitavel && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Linha Digitável</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 p-2 bg-muted rounded-md font-mono text-xs break-all">
+                      {viewBoletoConta.boleto_linha_digitavel}
+                    </div>
+                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(viewBoletoConta.boleto_linha_digitavel!)}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {viewBoletoConta.boleto_codigo_barras && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Código de Barras</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 p-2 bg-muted rounded-md font-mono text-xs break-all">
+                      {viewBoletoConta.boleto_codigo_barras}
+                    </div>
+                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(viewBoletoConta.boleto_codigo_barras!)}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {viewBoletoUrl && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Arquivo do Boleto</Label>
+                  <div className="mt-1">
+                    {viewBoletoUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
+                      <img src={viewBoletoUrl} alt="Boleto" className="max-h-60 rounded-lg border w-full object-contain" />
+                    ) : (
+                      <a href={viewBoletoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline">
+                        <FileText className="h-4 w-4" /> Abrir PDF do Boleto
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setViewBoletoConta(null); setViewBoletoUrl(null); }}>Fechar</Button>
+                {viewBoletoConta.status !== "paga" && (
+                  <Button onClick={() => { setViewBoletoConta(null); setViewBoletoUrl(null); openPagarDialog(viewBoletoConta); }}>
+                    <DollarSign className="h-4 w-4 mr-2" /> Pagar
+                  </Button>
+                )}
               </div>
             </div>
           )}
