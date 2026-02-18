@@ -50,6 +50,7 @@ const MapaEntregadores = lazy(() => import("./pages/operacional/MapaEntregadores
 const PlanejamentoAnual = lazy(() => import("./pages/operacional/PlanejamentoAnual"));
 const PlanejamentoMensal = lazy(() => import("./pages/operacional/PlanejamentoMensal"));
 const CanaisVenda = lazy(() => import("./pages/operacional/CanaisVenda"));
+const PontoEquilibrio = lazy(() => import("./pages/operacional/PontoEquilibrio"));
 
 // Clientes
 const CadastroClientes = lazy(() => import("./pages/clientes/CadastroClientes"));
@@ -621,6 +622,11 @@ const App = () => (
                   <Route path="/operacional/escalas" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <GestaoEscalas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/ponto-equilibrio" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PontoEquilibrio />
                     </ProtectedRoute>
                   } />
                   
