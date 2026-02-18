@@ -113,16 +113,22 @@ export default function Compras() {
   };
 
   const fetchProdutos = async () => {
-    const { data } = await supabase.from("produtos").select("id, nome, preco").eq("ativo", true);
+    let query = supabase.from("produtos").select("id, nome, preco").eq("ativo", true);
+    if (unidadeAtual?.id) {
+      query = query.eq("unidade_id", unidadeAtual.id);
+    }
+    const { data } = await query;
     setProdutos(data || []);
   };
 
   useEffect(() => {
     fetchFornecedores();
-    fetchProdutos();
   }, []);
 
-  useEffect(() => { fetchCompras(); }, [unidadeAtual?.id]);
+  useEffect(() => {
+    fetchCompras();
+    fetchProdutos();
+  }, [unidadeAtual?.id]);
 
   const subtotalItens = itens.reduce((a, i) => a + i.preco_unitario * i.quantidade, 0);
   const valorFrete = parseCurrency(form.valor_frete);
