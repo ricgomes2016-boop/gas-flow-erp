@@ -7,7 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, TrendingUp, Package, Calculator, FileText } from "lucide-react";
+import { DollarSign, TrendingUp, Package, Calculator, Printer } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,10 +17,32 @@ import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState, useMemo } from "react";
 import { ComissaoConfigEditor } from "@/components/rh/ComissaoConfigEditor";
+import { generateComissaoRecibo } from "@/services/receiptRhService";
+import { toast } from "sonner";
 
 export default function ComissaoEntregador() {
   const { unidadeAtual } = useUnidade();
   const now = new Date();
+
+  const { data: empresaConfig } = useQuery({
+    queryKey: ["empresa-config"],
+    queryFn: async () => {
+      const { data } = await supabase.from("configuracoes_empresa").select("*").limit(1).single();
+      return data;
+    },
+  });
+
+  const handlePrintComissao = (entregador: any) => {
+    if (!empresaConfig) { toast.error("Configure os dados da empresa primeiro"); return; }
+    generateComissaoRecibo({
+      empresa: { nome_empresa: empresaConfig.nome_empresa, cnpj: empresaConfig.cnpj, telefone: empresaConfig.telefone, endereco: empresaConfig.endereco },
+      entregador: entregador.nome,
+      mesReferencia: mesesDisponiveis.find(m => m.value === mesSelecionado)?.label || mesSelecionado,
+      linhas: entregador.linhas,
+      totalComissao: entregador.totalComissao,
+    });
+    toast.success("Recibo de comissão gerado!");
+  };
 
   // Filtros
   const [mesSelecionado, setMesSelecionado] = useState(format(now, "yyyy-MM"));
@@ -229,7 +251,6 @@ export default function ComissaoEntregador() {
           </div>
           <div className="flex items-end pt-5 gap-2">
             <ComissaoConfigEditor />
-            <Button variant="outline" className="gap-2"><FileText className="h-4 w-4" />Gerar Recibo</Button>
           </div>
         </div>
 
@@ -289,8 +310,11 @@ export default function ComissaoEntregador() {
         ) : (
           dadosAgrupados.map((entregador) => (
             <Card key={entregador.id}>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">{entregador.nome}</CardTitle>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => handlePrintComissao(entregador)}>
+                  <Printer className="h-3 w-3" />Recibo
+                </Button>
               </CardHeader>
               <CardContent>
                 <Table>

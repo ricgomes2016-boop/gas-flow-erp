@@ -6,24 +6,38 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { DollarSign, Users, Download, Calendar, Calculator } from "lucide-react";
+import { DollarSign, Users, Download, Calendar, Calculator, Printer } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { generateFolhaRecibo, type FolhaReciboData } from "@/services/receiptRhService";
+import { toast } from "sonner";
 
 export default function FolhaPagamento() {
   const mesAtual = format(new Date(), "MMMM yyyy", { locale: ptBR });
+  const { unidadeAtual } = useUnidade();
+
+  const { data: empresaConfig } = useQuery({
+    queryKey: ["empresa-config"],
+    queryFn: async () => {
+      const { data } = await supabase.from("configuracoes_empresa").select("*").limit(1).single();
+      return data;
+    },
+  });
 
   const { data: funcionarios = [], isLoading } = useQuery({
-    queryKey: ["folha-pagamento"],
+    queryKey: ["folha-pagamento", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("funcionarios")
         .select("*")
         .eq("ativo", true)
         .order("nome");
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []).map((f) => ({
         id: f.id,
@@ -37,9 +51,54 @@ export default function FolhaPagamento() {
     },
   });
 
-  const totalBruto = funcionarios.reduce((acc, f) => acc + f.salarioBase + f.horasExtras, 0);
-  const totalDescontos = funcionarios.reduce((acc, f) => acc + f.descontos, 0);
-  const totalLiquido = funcionarios.reduce((acc, f) => acc + f.liquido, 0);
+  // Buscar banco de horas para agregar horas extras
+  const { data: bancoHoras = [] } = useQuery({
+    queryKey: ["folha-banco-horas", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase.from("banco_horas").select("funcionario_id, saldo_positivo");
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
+  // Enriquecer com horas extras do banco de horas
+  const funcionariosComExtras = funcionarios.map((f) => {
+    const bh = bancoHoras.find((b: any) => b.funcionario_id === f.id);
+    const horasExtras = bh ? Math.round(Number(bh.saldo_positivo) * 15) : 0; // R$15/h extra estimado
+    return {
+      ...f,
+      horasExtras,
+      get liquido() { return this.salarioBase + this.horasExtras - this.descontos; },
+    };
+  });
+
+  const totalBruto = funcionariosComExtras.reduce((acc, f) => acc + f.salarioBase + f.horasExtras, 0);
+  const totalDescontos = funcionariosComExtras.reduce((acc, f) => acc + f.descontos, 0);
+  const totalLiquido = funcionariosComExtras.reduce((acc, f) => acc + f.liquido, 0);
+
+  const handlePrintRecibo = (func: typeof funcionariosComExtras[0]) => {
+    if (!empresaConfig) {
+      toast.error("Configure os dados da empresa primeiro");
+      return;
+    }
+    generateFolhaRecibo({
+      empresa: {
+        nome_empresa: empresaConfig.nome_empresa,
+        cnpj: empresaConfig.cnpj,
+        telefone: empresaConfig.telefone,
+        endereco: empresaConfig.endereco,
+      },
+      funcionario: func.funcionario,
+      cargo: func.cargo,
+      mesReferencia: mesAtual,
+      salarioBase: func.salarioBase,
+      horasExtras: func.horasExtras,
+      descontos: func.descontos,
+      liquido: func.liquido,
+    });
+    toast.success("Recibo gerado com sucesso!");
+  };
 
   return (
     <MainLayout>
@@ -89,7 +148,7 @@ export default function FolhaPagamento() {
               <Users className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{funcionarios.length}</div>
+              <div className="text-2xl font-bold text-primary">{funcionariosComExtras.length}</div>
               <p className="text-xs text-muted-foreground">Na folha</p>
             </CardContent>
           </Card>
@@ -108,7 +167,7 @@ export default function FolhaPagamento() {
           <CardContent>
             {isLoading ? (
               <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : funcionarios.length === 0 ? (
+            ) : funcionariosComExtras.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Nenhum funcionário ativo cadastrado</p>
             ) : (
               <Table>
@@ -124,7 +183,7 @@ export default function FolhaPagamento() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {funcionarios.map((func) => (
+                  {funcionariosComExtras.map((func) => (
                     <TableRow key={func.id}>
                       <TableCell className="font-medium">{func.funcionario}</TableCell>
                       <TableCell>{func.cargo}</TableCell>
@@ -133,7 +192,10 @@ export default function FolhaPagamento() {
                       <TableCell className="text-destructive">- R$ {func.descontos.toLocaleString('pt-BR')}</TableCell>
                       <TableCell className="font-bold">R$ {func.liquido.toLocaleString('pt-BR')}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">Detalhes</Button>
+                        <Button variant="ghost" size="sm" className="gap-1" onClick={() => handlePrintRecibo(func)}>
+                          <Printer className="h-3 w-3" />
+                          Recibo
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
