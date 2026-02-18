@@ -105,6 +105,14 @@ const Horarios = lazy(() => import("./pages/rh/Horarios"));
 const PrevencaoTrabalhistaIA = lazy(() => import("./pages/rh/PrevencaoTrabalhistaIA"));
 const ProdutividadeIA = lazy(() => import("./pages/rh/ProdutividadeIA"));
 
+// Fiscal
+const EmitirNFe = lazy(() => import("./pages/fiscal/EmitirNFe"));
+const EmitirNFCe = lazy(() => import("./pages/fiscal/EmitirNFCe"));
+const EmitirMDFe = lazy(() => import("./pages/fiscal/EmitirMDFe"));
+const EmitirCTe = lazy(() => import("./pages/fiscal/EmitirCTe"));
+const GerarXML = lazy(() => import("./pages/fiscal/GerarXML"));
+const RelatoriosNotas = lazy(() => import("./pages/fiscal/RelatoriosNotas"));
+
 // Configurações
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Auditoria = lazy(() => import("./pages/config/Auditoria"));
@@ -533,6 +541,38 @@ const App = () => (
                     </ProtectedRoute>
                   } />
                   
+                  {/* Fiscal - Admin/Gestor */}
+                  <Route path="/fiscal/nfe" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <EmitirNFe />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/fiscal/nfce" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <EmitirNFCe />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/fiscal/mdfe" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <EmitirMDFe />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/fiscal/cte" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <EmitirCTe />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/fiscal/xml" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <GerarXML />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/fiscal/relatorios" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <RelatoriosNotas />
+                    </ProtectedRoute>
+                  } />
+
                   {/* Configurações - Admin */}
                   <Route path="/config/auditoria" element={
                     <ProtectedRoute allowedRoles={["admin"]}>
