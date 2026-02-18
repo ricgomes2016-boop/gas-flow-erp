@@ -68,6 +68,7 @@ const Compras = lazy(() => import("./pages/estoque/Compras"));
 const Comodatos = lazy(() => import("./pages/estoque/Comodatos"));
 const EstoqueRota = lazy(() => import("./pages/estoque/EstoqueRota"));
 const MCMM = lazy(() => import("./pages/estoque/MCMM"));
+const TransferenciaEstoque = lazy(() => import("./pages/estoque/TransferenciaEstoque"));
 
 // Cadastros
 const Entregadores = lazy(() => import("./pages/cadastros/Entregadores"));
@@ -140,6 +141,7 @@ const EntregadorHistorico = lazy(() => import("./pages/entregador/EntregadorHist
 const EntregadorIniciarJornada = lazy(() => import("./pages/entregador/EntregadorIniciarJornada"));
 const EntregadorConfiguracoes = lazy(() => import("./pages/entregador/EntregadorConfiguracoes"));
 const EntregadorEstoque = lazy(() => import("./pages/entregador/EntregadorEstoque"));
+const EntregadorTransferencia = lazy(() => import("./pages/entregador/EntregadorTransferencia"));
 
 // Gestão Operacional
 const GestaoRotas = lazy(() => import("./pages/operacional/GestaoRotas"));
@@ -376,6 +378,11 @@ const App = () => (
                   <Route path="/estoque/mcmm" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <MCMM />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/estoque/transferencia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <TransferenciaEstoque />
                     </ProtectedRoute>
                   } />
                   
@@ -706,6 +713,11 @@ const App = () => (
                   <Route path="/entregador/estoque" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <EntregadorEstoque />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/transferencia" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorTransferencia />
                     </ProtectedRoute>
                   } />
                   

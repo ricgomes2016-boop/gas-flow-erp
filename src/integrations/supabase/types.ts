@@ -2277,6 +2277,125 @@ export type Database = {
           },
         ]
       }
+      transferencia_estoque_itens: {
+        Row: {
+          created_at: string
+          id: string
+          preco_compra: number
+          produto_id: string
+          quantidade: number
+          transferencia_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          preco_compra?: number
+          produto_id: string
+          quantidade?: number
+          transferencia_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          preco_compra?: number
+          produto_id?: string
+          quantidade?: number
+          transferencia_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transferencia_estoque_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transferencia_estoque_itens_transferencia_id_fkey"
+            columns: ["transferencia_id"]
+            isOneToOne: false
+            referencedRelation: "transferencias_estoque"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transferencias_estoque: {
+        Row: {
+          compra_gerada_id: string | null
+          created_at: string
+          data_envio: string | null
+          data_recebimento: string | null
+          entregador_id: string | null
+          id: string
+          observacoes: string | null
+          solicitante_id: string
+          status: string
+          unidade_destino_id: string
+          unidade_origem_id: string
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          compra_gerada_id?: string | null
+          created_at?: string
+          data_envio?: string | null
+          data_recebimento?: string | null
+          entregador_id?: string | null
+          id?: string
+          observacoes?: string | null
+          solicitante_id: string
+          status?: string
+          unidade_destino_id: string
+          unidade_origem_id: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          compra_gerada_id?: string | null
+          created_at?: string
+          data_envio?: string | null
+          data_recebimento?: string | null
+          entregador_id?: string | null
+          id?: string
+          observacoes?: string | null
+          solicitante_id?: string
+          status?: string
+          unidade_destino_id?: string
+          unidade_origem_id?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transferencias_estoque_compra_gerada_id_fkey"
+            columns: ["compra_gerada_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transferencias_estoque_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transferencias_estoque_unidade_destino_id_fkey"
+            columns: ["unidade_destino_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transferencias_estoque_unidade_origem_id_fkey"
+            columns: ["unidade_origem_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unidades: {
         Row: {
           ativo: boolean | null

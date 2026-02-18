@@ -12,6 +12,7 @@ import {
   History,
   Fuel,
   BoxesIcon,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -31,6 +32,7 @@ const menuItems = [
   { path: "/entregador/entregas", icon: Package, label: "Entregas" },
   { path: "/entregador/estoque", icon: BoxesIcon, label: "Estoque" },
   { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
+  { path: "/entregador/transferencia", icon: ArrowRightLeft, label: "Transferir" },
   { path: "/entregador/despesas", icon: Receipt, label: "Despesas" },
   { path: "/entregador/combustivel", icon: Fuel, label: "Combustível" },
   { path: "/entregador/historico", icon: History, label: "Histórico" },
