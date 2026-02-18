@@ -514,6 +514,59 @@ export type Database = {
           },
         ]
       }
+      categorias_despesa: {
+        Row: {
+          ativo: boolean
+          codigo_contabil: string | null
+          created_at: string
+          descricao: string | null
+          grupo: string
+          id: string
+          nome: string
+          ordem: number
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor_padrao: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          codigo_contabil?: string | null
+          created_at?: string
+          descricao?: string | null
+          grupo?: string
+          id?: string
+          nome: string
+          ordem?: number
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_padrao?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          codigo_contabil?: string | null
+          created_at?: string
+          descricao?: string | null
+          grupo?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_padrao?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categorias_despesa_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           ativo: boolean | null
