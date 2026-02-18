@@ -91,3 +91,53 @@ export async function atualizarEstoqueVenda(itens: ItemEstoque[], unidadeId?: st
     }
   }
 }
+
+/**
+ * Atualiza o estoque de produtos após uma compra.
+ * Incrementa o estoque do produto (cheio) e decrementa o vazio (troca de vasilhame).
+ */
+export async function atualizarEstoqueCompra(itens: ItemEstoque[], unidadeId?: string | null) {
+  for (const item of itens) {
+    const { data: produto, error: fetchError } = await supabase
+      .from("produtos")
+      .select("id, estoque, categoria, tipo_botijao, botijao_par_id, unidade_id")
+      .eq("id", item.produto_id)
+      .single();
+
+    if (fetchError) {
+      console.error(`Erro ao buscar produto ${item.produto_id}:`, fetchError);
+      continue;
+    }
+
+    if (!produto) continue;
+
+    // Incrementar estoque do produto comprado
+    const novoEstoque = (produto.estoque || 0) + item.quantidade;
+    const { error: updateError } = await supabase
+      .from("produtos")
+      .update({ estoque: novoEstoque })
+      .eq("id", item.produto_id);
+
+    if (updateError) {
+      console.error(`Erro ao atualizar estoque do produto ${item.produto_id}:`, updateError);
+      continue;
+    }
+
+    // Para gás/água cheio: decrementar vazios (troca de vasilhame)
+    if ((produto.categoria === "gas" || produto.categoria === "agua") && produto.tipo_botijao === "cheio" && produto.botijao_par_id) {
+      const { data: produtoVazio } = await supabase
+        .from("produtos")
+        .select("id, estoque")
+        .eq("id", produto.botijao_par_id)
+        .single();
+
+      if (produtoVazio) {
+        const novoEstoqueVazio = Math.max(0, (produtoVazio.estoque || 0) - item.quantidade);
+        await supabase
+          .from("produtos")
+          .update({ estoque: novoEstoqueVazio })
+          .eq("id", produtoVazio.id);
+      }
+    }
+  }
+}

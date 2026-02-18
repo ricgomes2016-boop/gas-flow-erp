@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 import { formatCurrency, parseCurrency, formatCNPJ } from "@/hooks/useInputMasks";
+import { atualizarEstoqueCompra } from "@/services/estoqueService";
 
 interface Compra {
   id: string;
@@ -228,6 +229,12 @@ export default function Compras() {
       }));
       const { error: itensError } = await supabase.from("compra_itens").insert(itensData);
       if (itensError) { toast.error("Erro nos itens: " + itensError.message); }
+
+      // Atualizar estoque dos produtos comprados
+      await atualizarEstoqueCompra(
+        resolvedItens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
+        unidadeAtual?.id
+      );
     }
 
     // Criar conta a pagar se tem data de pagamento
