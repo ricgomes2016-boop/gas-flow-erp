@@ -35,6 +35,8 @@ import { format } from "date-fns";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { SmartImportButtons } from "@/components/import/SmartImportButtons";
+import { ImportReviewDialog } from "@/components/import/ImportReviewDialog";
 
 interface ContaReceber {
   id: string;
@@ -71,6 +73,43 @@ export default function ContasReceber() {
   const [showFilters, setShowFilters] = useState(false);
   const [mainTab, setMainTab] = useState("recebiveis");
   const { unidadeAtual } = useUnidade();
+
+  // Import states
+  const [importItems, setImportItems] = useState<Array<{
+    cliente: string; descricao: string; valor: number; vencimento: string; forma_pagamento: string; observacoes: string;
+  }>>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
+
+  const handleImportData = (data: any) => {
+    const items = data?.recebiveis || [data];
+    setImportItems(items.map((d: any) => ({
+      cliente: d.cliente || "", descricao: d.descricao || "", valor: d.valor || 0,
+      vencimento: d.vencimento || "", forma_pagamento: d.forma_pagamento || "", observacoes: d.observacoes || "",
+    })));
+    setImportDialogOpen(true);
+    toast.success(`${items.length} recebível(is) identificado(s)!`);
+  };
+
+  const saveImportedReceivables = async () => {
+    const valid = importItems.filter(d => d.cliente && d.valor > 0);
+    if (valid.length === 0) return;
+    setImportSaving(true);
+    try {
+      const rows = valid.map(d => ({
+        cliente: d.cliente, descricao: d.descricao, valor: d.valor,
+        vencimento: d.vencimento || new Date().toISOString().split("T")[0],
+        forma_pagamento: d.forma_pagamento || null, observacoes: d.observacoes || null,
+        unidade_id: unidadeAtual?.id || null,
+      }));
+      const { error } = await supabase.from("contas_receber").insert(rows);
+      if (error) throw error;
+      toast.success(`${valid.length} recebível(is) importado(s)!`);
+      setImportDialogOpen(false); setImportItems([]); fetchContas();
+    } catch (err: any) {
+      toast.error("Erro ao importar: " + (err.message || "erro"));
+    } finally { setImportSaving(false); }
+  };
 
   const [form, setForm] = useState({
     cliente: "", descricao: "", valor: "", vencimento: "", forma_pagamento: "", observacoes: "",
@@ -321,6 +360,7 @@ export default function ContasReceber() {
             <DialogTrigger asChild>
               <Button className="gap-2" size="sm"><Plus className="h-4 w-4" /><span className="hidden sm:inline">Novo Recebível</span><span className="sm:hidden">Novo</span></Button>
             </DialogTrigger>
+            <SmartImportButtons edgeFunctionName="parse-receivables-import" onDataExtracted={handleImportData} />
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editId ? "Editar Recebível" : "Novo Recebível"}</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
@@ -667,6 +707,25 @@ export default function ContasReceber() {
         </AlertDialogContent>
       </AlertDialog>
       </div>
+
+      <ImportReviewDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        title="Importar Contas a Receber"
+        description={`${importItems.length} recebível(is) identificado(s). Revise antes de importar.`}
+        items={importItems}
+        columns={[
+          { key: "cliente", label: "Cliente", width: "25%" },
+          { key: "descricao", label: "Descrição", width: "25%" },
+          { key: "valor", label: "Valor", type: "number", width: "15%" },
+          { key: "vencimento", label: "Vencimento", type: "date", width: "15%" },
+          { key: "forma_pagamento", label: "Pagamento", width: "15%" },
+        ]}
+        onUpdateItem={(i, field, value) => setImportItems(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))}
+        onRemoveItem={(i) => setImportItems(prev => prev.filter((_, idx) => idx !== i))}
+        onConfirm={saveImportedReceivables}
+        saving={importSaving}
+      />
     </MainLayout>
   );
 }

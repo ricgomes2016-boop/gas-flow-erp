@@ -37,6 +37,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { BarcodeScanner } from "@/components/pdv/BarcodeScanner";
+import { SmartImportButtons } from "@/components/import/SmartImportButtons";
+import { ImportReviewDialog } from "@/components/import/ImportReviewDialog";
+import { toast as sonnerToast } from "sonner";
 
 interface Produto {
   id: string;
@@ -85,8 +88,59 @@ export default function Produtos() {
   const { unidadeAtual } = useUnidade();
   const [scannerAtivo, setScannerAtivo] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+  
+  // Import states
+  const [importItems, setImportItems] = useState<Array<{
+    nome: string; categoria: string; preco: number; estoque: number;
+    codigo_barras: string; descricao: string; tipo_botijao: string;
+  }>>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
 
-  // Buscar produtos do Supabase filtrados por unidade
+  const handleImportData = (data: any) => {
+    const produtos = data?.produtos || [data];
+    setImportItems(produtos.map((p: any) => ({
+      nome: p.nome || "",
+      categoria: p.categoria || "outro",
+      preco: p.preco || 0,
+      estoque: p.estoque || 0,
+      codigo_barras: p.codigo_barras || "",
+      descricao: p.descricao || "",
+      tipo_botijao: p.tipo_botijao || "",
+    })));
+    setImportDialogOpen(true);
+    sonnerToast.success(`${produtos.length} produto(s) identificado(s)!`);
+  };
+
+  const saveImportedProducts = async () => {
+    const valid = importItems.filter(p => p.nome.trim());
+    if (valid.length === 0) return;
+    setImportSaving(true);
+    try {
+      const rows = valid.map(p => ({
+        nome: p.nome,
+        categoria: p.categoria || null,
+        preco: p.preco,
+        estoque: p.estoque,
+        codigo_barras: p.codigo_barras || null,
+        descricao: p.descricao || null,
+        tipo_botijao: p.tipo_botijao || null,
+        ativo: true,
+        unidade_id: unidadeAtual?.id || null,
+      }));
+      const { error } = await supabase.from("produtos").insert(rows);
+      if (error) throw error;
+      sonnerToast.success(`${valid.length} produto(s) importado(s)!`);
+      setImportDialogOpen(false);
+      setImportItems([]);
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+    } catch (err: any) {
+      sonnerToast.error("Erro ao importar: " + (err.message || "erro desconhecido"));
+    } finally {
+      setImportSaving(false);
+    }
+  };
+
   const { data: produtos = [], isLoading } = useQuery({
     queryKey: ["produtos", unidadeAtual?.id],
     queryFn: async () => {
@@ -323,13 +377,17 @@ export default function Produtos() {
       <Header title="Produtos" subtitle="Catálogo de produtos" />
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button className="gap-2" onClick={handleNovoClick}>
+              <Plus className="h-4 w-4" />
+              Novo Produto
+            </Button>
+            <SmartImportButtons
+              edgeFunctionName="parse-products-import"
+              onDataExtracted={handleImportData}
+            />
+          </div>
           <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
-            <DialogTrigger asChild>
-              <Button className="gap-2" onClick={handleNovoClick}>
-                <Plus className="h-4 w-4" />
-                Novo Produto
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
@@ -705,6 +763,25 @@ export default function Produtos() {
           </CardContent>
         </Card>
       </div>
+
+      <ImportReviewDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        title="Importar Produtos"
+        description={`${importItems.length} produto(s) identificado(s). Revise antes de importar.`}
+        items={importItems}
+        columns={[
+          { key: "nome", label: "Nome", width: "30%" },
+          { key: "categoria", label: "Categoria", width: "15%" },
+          { key: "preco", label: "Preço", type: "number", width: "15%" },
+          { key: "estoque", label: "Estoque", type: "number", width: "10%" },
+          { key: "tipo_botijao", label: "Tipo", width: "10%" },
+        ]}
+        onUpdateItem={(i, field, value) => setImportItems(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))}
+        onRemoveItem={(i) => setImportItems(prev => prev.filter((_, idx) => idx !== i))}
+        onConfirm={saveImportedProducts}
+        saving={importSaving}
+      />
     </MainLayout>
   );
 }

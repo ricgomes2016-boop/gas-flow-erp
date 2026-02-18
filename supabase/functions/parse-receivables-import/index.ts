@@ -1,0 +1,122 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { imageBase64, text, mode } = await req.json();
+
+    if (!imageBase64 && !text) {
+      return new Response(JSON.stringify({ error: "Imagem ou texto não fornecido" }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const systemPrompt = `Você é um assistente especializado em extrair dados de contas a receber (valores que clientes devem pagar) de distribuidoras de gás.
+
+A data de hoje é ${today}.
+
+Extraia TODOS os registros e retorne EXCLUSIVAMENTE um JSON válido:
+{
+  "recebiveis": [
+    {
+      "cliente": "string (nome do cliente)",
+      "descricao": "string (descrição, ex: Compra de gás P13 - Ref. Jan/2026)",
+      "valor": number (valor em decimal),
+      "vencimento": "YYYY-MM-DD (data de vencimento)",
+      "forma_pagamento": "string (Boleto, PIX, Dinheiro, Cartão, Cheque, Fiado ou null)",
+      "observacoes": "string ou null"
+    }
+  ]
+}
+
+Regras:
+- Se houver múltiplos registros, retorne todos.
+- RESPEITE as datas originais do documento. Se a data é 15/03/2025, retorne "2025-03-15".
+- Se a data não for legível, use 30 dias a partir de hoje.
+- Valores monetários em número decimal.
+- Interprete valores falados como "duzentos reais" = 200.
+- Se o cliente não for claro, use "Cliente não identificado".`;
+
+    const messages: any[] = [{ role: "system", content: systemPrompt }];
+
+    if (mode === "voice" && text) {
+      messages.push({ role: "user", content: text });
+    } else if (imageBase64) {
+      const imageContent = imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
+      messages.push({
+        role: "user",
+        content: [
+          { type: "text", text: "Extraia todos os valores a receber deste documento:" },
+          { type: "image_url", image_url: { url: imageContent } },
+        ],
+      });
+    }
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages,
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido." }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error(`AI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    let parsed;
+    try {
+      const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
+    } catch {
+      console.error("Failed to parse:", content);
+      return new Response(JSON.stringify({ error: "Não foi possível interpretar os dados" }), {
+        status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify(parsed), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

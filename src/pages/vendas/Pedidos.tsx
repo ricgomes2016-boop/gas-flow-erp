@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -36,6 +36,9 @@ import { usePedidos } from "@/hooks/usePedidos";
 import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { SmartImportButtons } from "@/components/import/SmartImportButtons";
+import { ImportReviewDialog } from "@/components/import/ImportReviewDialog";
+import { toast as sonnerToast } from "sonner";
 
 interface Entregador {
   id: string;
@@ -79,6 +82,57 @@ export default function Pedidos() {
   const [senhaErro, setSenhaErro] = useState("");
 
   const { unidadeAtual } = useUnidade();
+
+  // Import history states
+  const [importItems, setImportItems] = useState<Array<{
+    cliente_nome: string; data: string; valor_total: number; forma_pagamento: string; observacoes: string;
+  }>>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
+
+  const handleImportData = (data: any) => {
+    const pedidos = data?.pedidos || [data];
+    setImportItems(pedidos.map((p: any) => ({
+      cliente_nome: p.cliente_nome || "", data: p.data || "", valor_total: p.valor_total || 0,
+      forma_pagamento: p.forma_pagamento || "", observacoes: p.observacoes || "",
+      _itens: p.itens || [], _cliente_id: p.cliente_id || null, _endereco: p.endereco || null,
+    })));
+    setImportDialogOpen(true);
+    sonnerToast.success(`${pedidos.length} pedido(s) identificado(s)!`);
+  };
+
+  const saveImportedOrders = async () => {
+    const valid = importItems.filter((p: any) => p.cliente_nome && p.valor_total > 0);
+    if (valid.length === 0) return;
+    setImportSaving(true);
+    try {
+      let count = 0;
+      for (const p of valid as any[]) {
+        const { data: pedido, error } = await supabase.from("pedidos").insert({
+          cliente_id: p._cliente_id || null, cliente_nome: p.cliente_nome,
+          endereco: p._endereco || null, valor_total: p.valor_total,
+          forma_pagamento: p.forma_pagamento || null, status: "entregue",
+          observacoes: p.observacoes || "Importado do sistema anterior",
+          created_at: p.data ? new Date(p.data + "T12:00:00-03:00").toISOString() : undefined,
+          unidade_id: unidadeAtual?.id || null,
+        }).select("id").single();
+        if (error) { console.error(error); continue; }
+        if (pedido && p._itens?.length > 0) {
+          await supabase.from("pedido_itens").insert(
+            p._itens.map((it: any) => ({
+              pedido_id: pedido.id, produto_id: it.produto_id || null,
+              quantidade: it.quantidade || 1, preco_unitario: it.preco_unitario || 0,
+            }))
+          );
+        }
+        count++;
+      }
+      sonnerToast.success(`${count} pedido(s) importado(s)!`);
+      setImportDialogOpen(false); setImportItems([]);
+    } catch (err: any) {
+      sonnerToast.error("Erro ao importar: " + (err.message || "erro"));
+    } finally { setImportSaving(false); }
+  };
 
   useEffect(() => {
     const fetchEntregadores = async () => {
@@ -317,7 +371,8 @@ export default function Pedidos() {
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
 
         {/* Top action */}
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          <SmartImportButtons edgeFunctionName="parse-orders-history" onDataExtracted={handleImportData} />
           <Button onClick={() => navigate("/vendas/nova")}>Nova Venda</Button>
         </div>
 
@@ -767,6 +822,24 @@ export default function Pedidos() {
           </DialogContent>
         </Dialog>
       </div>
+      <ImportReviewDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        title="Importar Pedidos Históricos"
+        description={`${importItems.length} pedido(s) identificado(s). As datas originais serão preservadas.`}
+        items={importItems}
+        columns={[
+          { key: "cliente_nome", label: "Cliente", width: "25%" },
+          { key: "data", label: "Data", type: "date", width: "15%" },
+          { key: "valor_total", label: "Valor", type: "number", width: "15%" },
+          { key: "forma_pagamento", label: "Pagamento", width: "15%" },
+          { key: "observacoes", label: "Obs", width: "20%" },
+        ]}
+        onUpdateItem={(i, field, value) => setImportItems(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))}
+        onRemoveItem={(i) => setImportItems(prev => prev.filter((_, idx) => idx !== i))}
+        onConfirm={saveImportedOrders}
+        saving={importSaving}
+      />
     </MainLayout>
   );
 }
