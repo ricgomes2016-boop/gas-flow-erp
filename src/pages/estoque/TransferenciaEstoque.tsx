@@ -19,7 +19,7 @@ import { toast } from "sonner";
 interface Produto {
   id: string;
   nome: string;
-  preco_custo?: number;
+  preco?: number;
   estoque: number;
 }
 
@@ -68,7 +68,7 @@ export default function TransferenciaEstoque() {
     if (!unidadeAtual) return;
     const { data } = await supabase
       .from("produtos")
-      .select("id, nome, preco_custo, estoque")
+      .select("id, nome, preco, estoque")
       .eq("unidade_id", unidadeAtual.id)
       .eq("ativo", true)
       .order("nome");
@@ -137,7 +137,7 @@ export default function TransferenciaEstoque() {
       produto_id: prod.id,
       produto_nome: prod.nome,
       quantidade: qtdSel,
-      preco_compra: prod.preco_custo || 0,
+      preco_compra: prod.preco || 0,
     }]);
     setProdutoSel("");
     setQtdSel(1);
