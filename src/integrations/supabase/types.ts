@@ -912,6 +912,9 @@ export type Database = {
       }
       contas_pagar: {
         Row: {
+          boleto_codigo_barras: string | null
+          boleto_linha_digitavel: string | null
+          boleto_url: string | null
           categoria: string | null
           created_at: string
           descricao: string
@@ -925,6 +928,9 @@ export type Database = {
           vencimento: string
         }
         Insert: {
+          boleto_codigo_barras?: string | null
+          boleto_linha_digitavel?: string | null
+          boleto_url?: string | null
           categoria?: string | null
           created_at?: string
           descricao: string
@@ -938,6 +944,9 @@ export type Database = {
           vencimento: string
         }
         Update: {
+          boleto_codigo_barras?: string | null
+          boleto_linha_digitavel?: string | null
+          boleto_url?: string | null
           categoria?: string | null
           created_at?: string
           descricao?: string
