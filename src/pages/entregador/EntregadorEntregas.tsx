@@ -64,7 +64,12 @@ export default function EntregadorEntregas() {
     }
   }, [user]);
 
-  useEffect(() => { fetchEntregas(); }, [fetchEntregas]);
+  // Initial fetch + polling every 15 seconds
+  useEffect(() => {
+    fetchEntregas();
+    const interval = setInterval(() => fetchEntregas(), 15000);
+    return () => clearInterval(interval);
+  }, [fetchEntregas]);
 
   // Detect new pending deliveries and trigger alarm
   useEffect(() => {
