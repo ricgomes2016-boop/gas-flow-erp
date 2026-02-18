@@ -2,3 +2,12 @@ project_id = "scqenurznkatvrqxqjmt"
 
 [functions.parse-fuel-photo]
 verify_jwt = false
+
+[functions.parse-products-import]
+verify_jwt = false
+
+[functions.parse-receivables-import]
+verify_jwt = false
+
+[functions.parse-orders-history]
+verify_jwt = false
