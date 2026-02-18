@@ -71,7 +71,6 @@ export default function TransferenciaEstoque() {
       .select("id, nome, preco_custo, estoque")
       .eq("unidade_id", unidadeAtual.id)
       .eq("ativo", true)
-      .gt("estoque", 0)
       .order("nome");
     setProdutos((data as any[]) || []);
   };
@@ -127,7 +126,11 @@ export default function TransferenciaEstoque() {
       return;
     }
     if (qtdSel > prod.estoque) {
-      toast.error(`Estoque disponível: ${prod.estoque}`);
+      toast.error(`Estoque insuficiente! Disponível: ${prod.estoque}`);
+      return;
+    }
+    if (prod.estoque <= 0) {
+      toast.error(`Produto sem estoque disponível`);
       return;
     }
     setItens([...itens, {
