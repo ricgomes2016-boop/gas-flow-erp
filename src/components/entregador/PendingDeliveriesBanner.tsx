@@ -23,8 +23,7 @@ export function PendingDeliveriesBanner() {
     const { count } = await supabase
       .from("pedidos")
       .select("id", { count: "exact", head: true })
-      .or(`entregador_id.eq.${entregador.id},and(entregador_id.is.null,status.eq.pendente)`)
-      .eq("status", "pendente");
+      .or(`and(entregador_id.eq.${entregador.id},status.eq.pendente),and(entregador_id.is.null,status.eq.pendente)`);
 
     setPendingCount(count ?? 0);
   }, [user]);
