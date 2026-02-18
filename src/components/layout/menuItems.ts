@@ -88,6 +88,7 @@ export interface MenuItem {
 
 export const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: Brain, label: "Assistente IA", path: "/assistente-ia" },
   {
     icon: ShoppingCart,
     label: "Vendas",

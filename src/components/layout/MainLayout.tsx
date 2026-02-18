@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { SidebarProvider, useSidebarContext } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AiFloatingButton } from "@/components/ai/AiFloatingButton";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ function MainLayoutContent({ children }: MainLayoutProps) {
       >
         {children}
       </main>
+      <AiFloatingButton />
     </div>
   );
 }
