@@ -826,7 +826,7 @@ export default function NovaVenda() {
 
             <CustomerSearch value={customer} onChange={setCustomer} />
             <DeliveryPersonSelect value={entregador.id} onChange={handleSelecionarEntregador} endereco={customer.endereco} />
-            <ProductSearch itens={itens} onChange={setItens} unidadeId={unidadeAtual?.id} />
+            <ProductSearch itens={itens} onChange={setItens} unidadeId={unidadeAtual?.id} clienteId={customer.id} />
             <PaymentSection pagamentos={pagamentos} onChange={setPagamentos} totalVenda={totalVenda} />
           </div>
 

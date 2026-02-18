@@ -33,9 +33,10 @@ interface ProductSearchProps {
   itens: ItemVenda[];
   onChange: (itens: ItemVenda[]) => void;
   unidadeId?: string | null;
+  clienteId?: string | null;
 }
 
-export function ProductSearch({ itens, onChange, unidadeId }: ProductSearchProps) {
+export function ProductSearch({ itens, onChange, unidadeId, clienteId }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Produto[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -83,7 +84,7 @@ export function ProductSearch({ itens, onChange, unidadeId }: ProductSearchProps
     }
   };
 
-  const addItem = (produto: Produto) => {
+  const addItem = async (produto: Produto) => {
     const existingIndex = itens.findIndex((i) => i.produto_id === produto.id);
 
     if (existingIndex >= 0) {
@@ -94,14 +95,33 @@ export function ProductSearch({ itens, onChange, unidadeId }: ProductSearchProps
         newItens[existingIndex].quantidade * newItens[existingIndex].preco_unitario;
       onChange(newItens);
     } else {
-      // Add new item
+      // Try to get last price paid by this customer for this product
+      let precoUnitario = produto.preco;
+      if (clienteId) {
+        try {
+          const { data: lastItem } = await supabase
+            .from("pedido_itens")
+            .select("preco_unitario, pedidos!inner(cliente_id)")
+            .eq("produto_id", produto.id)
+            .eq("pedidos.cliente_id", clienteId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastItem) {
+            precoUnitario = Number(lastItem.preco_unitario);
+          }
+        } catch (err) {
+          console.error("Erro ao buscar último preço:", err);
+        }
+      }
+
       const newItem: ItemVenda = {
         id: crypto.randomUUID(),
         produto_id: produto.id,
         nome: produto.nome,
         quantidade: 1,
-        preco_unitario: produto.preco,
-        total: produto.preco,
+        preco_unitario: precoUnitario,
+        total: precoUnitario,
       };
       onChange([...itens, newItem]);
     }
