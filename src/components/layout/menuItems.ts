@@ -150,6 +150,7 @@ export const menuItems: MenuItem[] = [
       { icon: ShoppingBasket, label: "Compras", path: "/estoque/compras" },
       { icon: Handshake, label: "Comodatos", path: "/estoque/comodatos" },
       { icon: MapPin, label: "Estoque em Rota", path: "/estoque/rota" },
+      { icon: ArrowUpDown, label: "Transferência entre Filiais", path: "/estoque/transferencia" },
       { icon: TrendingUp, label: "MCMM", path: "/estoque/mcmm" },
     ],
   },
