@@ -96,9 +96,9 @@ export default function Estoque() {
 
       let comprasQuery = supabase
         .from("compra_itens")
-        .select("produto_id, quantidade, compras!inner(created_at, status, unidade_id)")
-        .gte("compras.created_at", inicioStr)
-        .lte("compras.created_at", fimStr)
+        .select("produto_id, quantidade, compras!inner(data_compra, created_at, status, unidade_id)")
+        .gte("compras.data_compra", format(dataInicio, "yyyy-MM-dd"))
+        .lte("compras.data_compra", format(dataFim, "yyyy-MM-dd"))
         .neq("compras.status", "cancelada");
 
       if (unidadeAtual?.id) {
@@ -143,7 +143,7 @@ export default function Estoque() {
         (comprasData || []).map((c: any) => ({
           produto_id: c.produto_id,
           quantidade: c.quantidade,
-          created_at: c.compras?.created_at || "",
+          created_at: c.compras?.data_compra ? `${c.compras.data_compra}T12:00:00` : (c.compras?.created_at || ""),
         }))
       );
 
