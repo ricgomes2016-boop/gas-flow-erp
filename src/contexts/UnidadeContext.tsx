@@ -17,6 +17,7 @@ export interface Unidade {
   ativo: boolean;
   latitude: number | null;
   longitude: number | null;
+  chave_pix: string | null;
 }
 
 interface UnidadeContextType {

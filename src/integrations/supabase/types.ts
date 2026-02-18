@@ -2282,6 +2282,7 @@ export type Database = {
           ativo: boolean | null
           bairro: string | null
           cep: string | null
+          chave_pix: string | null
           cidade: string | null
           cnpj: string | null
           created_at: string
@@ -2300,6 +2301,7 @@ export type Database = {
           ativo?: boolean | null
           bairro?: string | null
           cep?: string | null
+          chave_pix?: string | null
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
@@ -2318,6 +2320,7 @@ export type Database = {
           ativo?: boolean | null
           bairro?: string | null
           cep?: string | null
+          chave_pix?: string | null
           cidade?: string | null
           cnpj?: string | null
           created_at?: string

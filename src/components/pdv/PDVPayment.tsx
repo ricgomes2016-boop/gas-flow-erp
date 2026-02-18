@@ -8,14 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Banknote, CreditCard, Smartphone, Receipt } from "lucide-react";
+import { PixQRCode } from "@/components/pix/PixQRCode";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface PDVPaymentProps {
   open: boolean;
@@ -35,6 +30,9 @@ const formasPagamento = [
 export function PDVPayment({ open, onClose, total, onConfirm, isLoading }: PDVPaymentProps) {
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
   const [valorRecebido, setValorRecebido] = useState("");
+  const { unidadeAtual } = useUnidade();
+
+  const chavePix = (unidadeAtual as any)?.chave_pix as string | null;
 
   const valorRecebidoNum = parseFloat(valorRecebido.replace(",", ".")) || 0;
   const troco = formaPagamento === "dinheiro" ? Math.max(0, valorRecebidoNum - total) : 0;
@@ -50,7 +48,7 @@ export function PDVPayment({ open, onClose, total, onConfirm, isLoading }: PDVPa
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
@@ -87,6 +85,21 @@ export function PDVPayment({ open, onClose, total, onConfirm, isLoading }: PDVPa
               })}
             </div>
           </div>
+
+          {/* PIX QR Code */}
+          {formaPagamento === "pix" && chavePix && (
+            <PixQRCode
+              chavePix={chavePix}
+              valor={total}
+              beneficiario={unidadeAtual?.nome}
+            />
+          )}
+
+          {formaPagamento === "pix" && !chavePix && (
+            <div className="p-3 rounded-lg bg-warning/10 text-warning text-sm text-center">
+              Chave PIX não configurada para esta unidade. Configure em Configurações → Unidades.
+            </div>
+          )}
 
           {/* Valor Recebido (só para dinheiro) */}
           {formaPagamento === "dinheiro" && (
