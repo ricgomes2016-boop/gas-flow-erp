@@ -7,6 +7,7 @@ import { StockOverview } from "@/components/dashboard/StockOverview";
 import { DeliveriesMap } from "@/components/dashboard/DeliveriesMap";
 import { SalesChart } from "@/components/dashboard/SalesChart";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { NotesWidget } from "@/components/dashboard/NotesWidget";
 import { DeliveryDriverStatus } from "@/components/dashboard/DeliveryDriverStatus";
 import { DailySalesGoal } from "@/components/dashboard/DailySalesGoal";
 import { StockAlerts } from "@/components/dashboard/StockAlerts";
@@ -157,12 +158,16 @@ export default function Dashboard() {
         </div>
 
         {/* Vendas recentes + Estoque + Entregas */}
-        <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
-          <RecentSales />
-          <div className="space-y-4 md:space-y-6">
-            <StockOverview />
-            <DeliveriesMap />
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <RecentSales />
           </div>
+          <NotesWidget />
+        </div>
+
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+          <StockOverview />
+          <DeliveriesMap />
         </div>
       </div>
     </MainLayout>
