@@ -10,15 +10,20 @@ import { Clock, TrendingUp, TrendingDown, Users, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 export default function BancoHoras() {
+  const { unidadeAtual } = useUnidade();
+
   const { data: bancoHoras = [], isLoading } = useQuery({
-    queryKey: ["banco-horas"],
+    queryKey: ["banco-horas", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("banco_horas")
         .select("*, funcionarios(nome)")
         .order("ultima_atualizacao", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },

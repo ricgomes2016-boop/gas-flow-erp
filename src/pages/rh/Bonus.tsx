@@ -6,11 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Gift, Plus, DollarSign, Users, Target } from "lucide-react";
+import { Gift, Plus, DollarSign, Users, Target, Printer } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { generateBonusRecibo } from "@/services/receiptRhService";
 
 const tipoLabel: Record<string, string> = {
   meta_vendas: "Meta Vendas",
@@ -21,14 +23,25 @@ const tipoLabel: Record<string, string> = {
 
 export default function Bonus() {
   const queryClient = useQueryClient();
+  const { unidadeAtual } = useUnidade();
+
+  const { data: empresaConfig } = useQuery({
+    queryKey: ["empresa-config"],
+    queryFn: async () => {
+      const { data } = await supabase.from("configuracoes_empresa").select("*").limit(1).single();
+      return data;
+    },
+  });
 
   const { data: bonusList = [], isLoading } = useQuery({
-    queryKey: ["bonus"],
+    queryKey: ["bonus", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("bonus")
         .select("*, funcionarios(nome)")
         .order("created_at", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -44,6 +57,27 @@ export default function Bonus() {
       toast.success("Bônus marcado como pago");
     },
   });
+
+  const handlePrintRecibo = (bonus: any) => {
+    if (!empresaConfig) {
+      toast.error("Configure os dados da empresa primeiro");
+      return;
+    }
+    generateBonusRecibo({
+      empresa: {
+        nome_empresa: empresaConfig.nome_empresa,
+        cnpj: empresaConfig.cnpj,
+        telefone: empresaConfig.telefone,
+        endereco: empresaConfig.endereco,
+      },
+      funcionario: bonus.funcionarios?.nome || "N/A",
+      tipo: tipoLabel[bonus.tipo] || bonus.tipo,
+      valor: Number(bonus.valor),
+      mesReferencia: bonus.mes_referencia || "-",
+      observacoes: bonus.observacoes,
+    });
+    toast.success("Recibo gerado!");
+  };
 
   const totalPago = bonusList.filter((b: any) => b.status === "pago").reduce((acc: number, b: any) => acc + Number(b.valor), 0);
   const totalPendente = bonusList.filter((b: any) => b.status === "pendente").reduce((acc: number, b: any) => acc + Number(b.valor), 0);
@@ -127,9 +161,14 @@ export default function Bonus() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {bonus.status === "pendente" && (
-                          <Button size="sm" onClick={() => pagarMutation.mutate(bonus.id)}>Pagar</Button>
-                        )}
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="gap-1" onClick={() => handlePrintRecibo(bonus)}>
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                          {bonus.status === "pendente" && (
+                            <Button size="sm" onClick={() => pagarMutation.mutate(bonus.id)}>Pagar</Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

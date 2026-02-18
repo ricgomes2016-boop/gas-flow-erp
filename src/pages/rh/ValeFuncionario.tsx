@@ -7,24 +7,37 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { DollarSign, Plus, Search, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { DollarSign, Plus, Search, CheckCircle2, Clock, AlertCircle, Printer } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { generateValeRecibo } from "@/services/receiptRhService";
 
 export default function ValeFuncionario() {
   const [busca, setBusca] = useState("");
   const queryClient = useQueryClient();
+  const { unidadeAtual } = useUnidade();
+
+  const { data: empresaConfig } = useQuery({
+    queryKey: ["empresa-config"],
+    queryFn: async () => {
+      const { data } = await supabase.from("configuracoes_empresa").select("*").limit(1).single();
+      return data;
+    },
+  });
 
   const { data: vales = [], isLoading } = useQuery({
-    queryKey: ["vales-funcionario"],
+    queryKey: ["vales-funcionario", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("vales_funcionario")
         .select("*, funcionarios(nome)")
         .order("created_at", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -44,6 +57,35 @@ export default function ValeFuncionario() {
     },
   });
 
+  const tipoLabel: Record<string, string> = {
+    adiantamento: "Adiantamento",
+    vale_alimentacao: "Vale Alimentação",
+    vale_transporte: "Vale Transporte",
+    emprestimo: "Empréstimo",
+  };
+
+  const handlePrintRecibo = (vale: any) => {
+    if (!empresaConfig) {
+      toast.error("Configure os dados da empresa primeiro");
+      return;
+    }
+    generateValeRecibo({
+      empresa: {
+        nome_empresa: empresaConfig.nome_empresa,
+        cnpj: empresaConfig.cnpj,
+        telefone: empresaConfig.telefone,
+        endereco: empresaConfig.endereco,
+      },
+      funcionario: vale.funcionarios?.nome || "N/A",
+      tipo: tipoLabel[vale.tipo] || vale.tipo,
+      valor: Number(vale.valor),
+      data: new Date(vale.data).toLocaleDateString("pt-BR"),
+      desconto_referencia: vale.desconto_referencia,
+      observacoes: vale.observacoes,
+    });
+    toast.success("Recibo gerado!");
+  };
+
   const filtrados = vales.filter((v: any) =>
     v.funcionarios?.nome?.toLowerCase().includes(busca.toLowerCase())
   );
@@ -51,13 +93,6 @@ export default function ValeFuncionario() {
   const totalPendente = filtrados.filter((v: any) => v.status === "pendente").reduce((acc: number, v: any) => acc + Number(v.valor), 0);
   const totalPago = filtrados.filter((v: any) => v.status === "pago").reduce((acc: number, v: any) => acc + Number(v.valor), 0);
   const totalMes = totalPendente + totalPago;
-
-  const tipoLabel: Record<string, string> = {
-    adiantamento: "Adiantamento",
-    vale_alimentacao: "Vale Alimentação",
-    vale_transporte: "Vale Transporte",
-    emprestimo: "Empréstimo",
-  };
 
   return (
     <MainLayout>
@@ -160,9 +195,14 @@ export default function ValeFuncionario() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {vale.status === "pendente" && (
-                          <Button size="sm" onClick={() => pagarMutation.mutate(vale.id)}>Pagar</Button>
-                        )}
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="gap-1" onClick={() => handlePrintRecibo(vale)}>
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                          {vale.status === "pendente" && (
+                            <Button size="sm" onClick={() => pagarMutation.mutate(vale.id)}>Pagar</Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -6,16 +6,21 @@ import { AlertTriangle, Clock, Users, Shield, Bell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 export default function AlertaJornada() {
+  const { unidadeAtual } = useUnidade();
+
   const { data: alertas = [], isLoading } = useQuery({
-    queryKey: ["alertas-jornada"],
+    queryKey: ["alertas-jornada", unidadeAtual?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("alertas_jornada")
         .select("*, funcionarios(nome)")
         .eq("resolvido", false)
         .order("data", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
