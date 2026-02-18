@@ -31,7 +31,7 @@ export function PendingDeliveriesBanner() {
   // Poll every 15 seconds
   useEffect(() => {
     fetchPending();
-    const interval = setInterval(fetchPending, 15000);
+    const interval = setInterval(fetchPending, 5000);
     return () => clearInterval(interval);
   }, [fetchPending]);
 

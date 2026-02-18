@@ -68,7 +68,7 @@ export default function EntregadorEntregas() {
   // Initial fetch + polling every 15 seconds
   useEffect(() => {
     fetchEntregas();
-    const interval = setInterval(() => fetchEntregas(), 15000);
+    const interval = setInterval(() => fetchEntregas(), 5000);
     return () => clearInterval(interval);
   }, [fetchEntregas]);
 
