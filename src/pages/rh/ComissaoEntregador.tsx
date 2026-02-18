@@ -68,11 +68,15 @@ export default function ComissaoEntregador() {
     },
   });
 
-  // Map config for fast lookup: key = "produto_id|canal_venda"
+  // Normalize canal name: lowercase, remove accents
+  const normalizeCanal = (canal: string) =>
+    canal?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() || "";
+
+  // Map config for fast lookup: key = "produto_id|normalized_canal"
   const comissaoMap = useMemo(() => {
     const map = new Map<string, number>();
     comissaoConfig.forEach((c: any) => {
-      map.set(`${c.produto_id}|${c.canal_venda}`, Number(c.valor));
+      map.set(`${c.produto_id}|${normalizeCanal(c.canal_venda)}`, Number(c.valor));
     });
     return map;
   }, [comissaoConfig]);
@@ -147,7 +151,7 @@ export default function ComissaoEntregador() {
       const eId = item.entregador_id;
       const canal = item.canal_venda || "balcao";
       const prodNome = item.produtos?.nome || "Produto";
-      const comissaoUnit = comissaoMap.get(`${item.produto_id}|${canal}`) ?? 0;
+      const comissaoUnit = comissaoMap.get(`${item.produto_id}|${normalizeCanal(canal)}`) ?? 0;
 
       if (!porEntregador.has(eId)) {
         porEntregador.set(eId, { nome: item.entregador_nome, produtos: new Map() });
