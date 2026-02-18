@@ -61,8 +61,10 @@ export default function ComissaoEntregador() {
   const { data: comissaoConfig = [] } = useQuery({
     queryKey: ["comissao-config", unidadeAtual?.id],
     queryFn: async () => {
-      let query = supabase.from("comissao_config").select("produto_id, canal_venda, valor");
-      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      let query = supabase.from("comissao_config").select("produto_id, canal_venda, valor, unidade_id");
+      if (unidadeAtual?.id) {
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      }
       const { data } = await query;
       return data || [];
     },
@@ -75,7 +77,9 @@ export default function ComissaoEntregador() {
   // Map config for fast lookup: key = "produto_id|normalized_canal"
   const comissaoMap = useMemo(() => {
     const map = new Map<string, number>();
-    comissaoConfig.forEach((c: any) => {
+    // First add global (null unidade) configs, then override with unit-specific
+    const sorted = [...comissaoConfig].sort((a: any, b: any) => (a.unidade_id ? 1 : 0) - (b.unidade_id ? 1 : 0));
+    sorted.forEach((c: any) => {
       map.set(`${c.produto_id}|${normalizeCanal(c.canal_venda)}`, Number(c.valor));
     });
     return map;
