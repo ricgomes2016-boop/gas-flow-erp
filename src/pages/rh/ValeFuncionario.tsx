@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { DollarSign, Plus, Search, CheckCircle2, Clock, AlertCircle, Printer } from "lucide-react";
+import { DollarSign, Search, CheckCircle2, Clock, AlertCircle, Printer } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { generateValeRecibo } from "@/services/receiptRhService";
+import { NovoValeDialog } from "@/components/rh/NovoValeDialog";
 
 export default function ValeFuncionario() {
   const [busca, setBusca] = useState("");
@@ -99,7 +100,7 @@ export default function ValeFuncionario() {
       <Header title="Vale Funcionário" subtitle="Controle de adiantamentos e vales" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <Button className="gap-2"><Plus className="h-4 w-4" />Novo Vale</Button>
+          <NovoValeDialog />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
