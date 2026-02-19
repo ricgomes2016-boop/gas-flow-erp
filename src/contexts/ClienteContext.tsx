@@ -67,83 +67,17 @@ interface ClienteContextType {
 
 const ClienteContext = createContext<ClienteContextType | undefined>(undefined);
 
-// Mock products
-const mockProducts: Product[] = [
-  { id: "1", name: "Gás P13", description: "Botijão 13kg - Residencial", price: 110.00, image: "🔵", category: "Botijão" },
-  { id: "2", name: "Gás P45", description: "Cilindro 45kg - Comercial", price: 380.00, image: "🟢", category: "Cilindro" },
-  { id: "3", name: "Água Mineral 20L", description: "Galão 20 litros", price: 12.00, image: "💧", category: "Água" },
-];
-
 export function ClienteProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [walletBalance, setWalletBalance] = useState(25.00);
-  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([
-    {
-      id: "1",
-      type: "credit",
-      amount: 15.00,
-      description: "Bônus de indicação",
-      date: new Date(2024, 0, 15),
-      referralName: "Maria Silva"
-    },
-    {
-      id: "2",
-      type: "credit",
-      amount: 10.00,
-      description: "Bônus de indicação",
-      date: new Date(2024, 0, 20),
-      referralName: "João Santos"
-    }
-  ]);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
   
   const [referralCode] = useState("CLIENTE" + Math.random().toString(36).substring(2, 8).toUpperCase());
-  const [referralCount] = useState(2);
+  const [referralCount] = useState(0);
   
-  const [valesGas, setValesGas] = useState<ValeGas[]>([
-    {
-      id: "1",
-      code: "VG-2024-001",
-      value: 50.00,
-      partner: "Supermercado Central",
-      expiryDate: new Date(2024, 5, 30),
-      used: false
-    },
-    {
-      id: "2",
-      code: "VG-2024-002",
-      value: 110.00,
-      partner: "GásExpress",
-      expiryDate: new Date(2024, 11, 31),
-      used: false
-    }
-  ]);
+  const [valesGas] = useState<ValeGas[]>([]);
   
-  const [purchases, setPurchases] = useState<Purchase[]>([
-    {
-      id: "order-001",
-      date: new Date(),
-      items: [{ ...mockProducts[0], quantity: 1 }, { ...mockProducts[2], quantity: 2 }],
-      total: 134.00,
-      paymentMethod: "PIX",
-      status: "confirmed"
-    },
-    {
-      id: "1",
-      date: new Date(2024, 0, 10),
-      items: [{ ...mockProducts[0], quantity: 1 }],
-      total: 110.00,
-      paymentMethod: "PIX",
-      status: "delivered"
-    },
-    {
-      id: "2",
-      date: new Date(2024, 0, 25),
-      items: [{ ...mockProducts[0], quantity: 1 }, { ...mockProducts[2], quantity: 2 }],
-      total: 134.00,
-      paymentMethod: "Dinheiro",
-      status: "delivered"
-    }
-  ]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
 
   const addToCart = (product: Product, quantity = 1) => {
     setCart(prev => {
@@ -207,7 +141,6 @@ export function ClienteProvider({ children }: { children: ReactNode }) {
     const coupons: Record<string, { discount: number; message: string }> = {
       "PRIMEIRACOMPRA": { discount: 10, message: "10% de desconto na primeira compra!" },
       "FIDELIDADE": { discount: 5, message: "5% de desconto para cliente fiel!" },
-      "VERAO2024": { discount: 15, message: "15% de desconto de verão!" }
     };
     
     const coupon = coupons[code.toUpperCase()];

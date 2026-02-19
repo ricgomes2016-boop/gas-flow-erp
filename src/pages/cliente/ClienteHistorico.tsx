@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCliente } from "@/contexts/ClienteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { AvaliacaoEntregaDialog } from "@/components/cliente/AvaliacaoEntregaDialog";
 import { 
   History, 
   Package, 
@@ -16,7 +17,8 @@ import {
   Truck,
   ShoppingBag,
   RotateCcw,
-  MapPin
+  MapPin,
+  Star
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -29,6 +31,7 @@ interface PedidoDB {
   status: string | null;
   forma_pagamento: string | null;
   endereco_entrega: string | null;
+  entregador_id: string | null;
   pedido_itens: {
     id: string;
     quantidade: number;
@@ -53,6 +56,9 @@ export default function ClienteHistorico() {
   const { user } = useAuth();
   const [pedidos, setPedidos] = useState<PedidoDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [avaliadosIds, setAvaliadosIds] = useState<Set<string>>(new Set());
+  const [avaliacaoOpen, setAvaliacaoOpen] = useState(false);
+  const [avaliacaoPedido, setAvaliacaoPedido] = useState<{ id: string; entregadorId: string | null } | null>(null);
 
   useEffect(() => {
     const fetchPedidos = async () => {
@@ -72,7 +78,7 @@ export default function ClienteHistorico() {
         let query = supabase
           .from("pedidos")
           .select(`
-            id, created_at, valor_total, status, forma_pagamento, endereco_entrega,
+            id, created_at, valor_total, status, forma_pagamento, endereco_entrega, entregador_id,
             pedido_itens (
               id, quantidade, preco_unitario, produto_id,
               produtos:produto_id (nome, image_url)
@@ -100,8 +106,20 @@ export default function ClienteHistorico() {
       }
     };
     fetchPedidos();
-  }, [user]);
 
+    // Fetch already reviewed pedidos
+    const fetchAvaliados = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("avaliacoes_entrega")
+        .select("pedido_id")
+        .eq("user_id", user.id);
+      if (data) {
+        setAvaliadosIds(new Set(data.map(a => a.pedido_id).filter(Boolean) as string[]));
+      }
+    };
+    fetchAvaliados();
+  }, [user]);
   const handleRepetirPedido = (pedido: PedidoDB) => {
     pedido.pedido_itens.forEach(item => {
       if (item.produtos) {
@@ -219,7 +237,7 @@ export default function ClienteHistorico() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex gap-2 mt-4 flex-wrap">
                       <Button 
                         variant="outline" 
                         className="flex-1 gap-2" 
@@ -227,10 +245,30 @@ export default function ClienteHistorico() {
                         onClick={() => handleRepetirPedido(pedido)}
                       >
                         <RotateCcw className="h-4 w-4" />
-                        Repetir Pedido
+                        Repetir
                       </Button>
+                      {pedido.status === "entregue" && !avaliadosIds.has(pedido.id) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2 border-amber-300 text-amber-600 hover:bg-amber-50"
+                          onClick={() => {
+                            setAvaliacaoPedido({ id: pedido.id, entregadorId: pedido.entregador_id });
+                            setAvaliacaoOpen(true);
+                          }}
+                        >
+                          <Star className="h-4 w-4" />
+                          Avaliar
+                        </Button>
+                      )}
+                      {pedido.status === "entregue" && avaliadosIds.has(pedido.id) && (
+                        <Badge variant="secondary" className="gap-1 self-center">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          Avaliado
+                        </Badge>
+                      )}
                       {pedido.status !== "entregue" && pedido.status !== "cancelado" && (
-                        <Button asChild variant="default" size="sm" className="gap-1">
+                        <Button asChild variant="default" size="sm" className="flex-1 gap-1">
                           <Link to={`/cliente/rastreamento/${pedido.id}`}>
                             <MapPin className="h-4 w-4" />
                             Rastrear
@@ -245,6 +283,22 @@ export default function ClienteHistorico() {
           </div>
         )}
       </div>
+
+      {/* Avaliação Dialog */}
+      {avaliacaoPedido && (
+        <AvaliacaoEntregaDialog
+          open={avaliacaoOpen}
+          onClose={() => {
+            setAvaliacaoOpen(false);
+            if (avaliacaoPedido) {
+              setAvaliadosIds(prev => new Set([...prev, avaliacaoPedido.id]));
+            }
+            setAvaliacaoPedido(null);
+          }}
+          pedidoId={avaliacaoPedido.id}
+          entregadorId={avaliacaoPedido.entregadorId}
+        />
+      )}
     </ClienteLayout>
   );
 }

@@ -389,6 +389,54 @@ export type Database = {
           },
         ]
       }
+      avaliacoes_entrega: {
+        Row: {
+          comentario: string | null
+          created_at: string
+          entregador_id: string | null
+          id: string
+          nota_entregador: number | null
+          nota_produto: number | null
+          pedido_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comentario?: string | null
+          created_at?: string
+          entregador_id?: string | null
+          id?: string
+          nota_entregador?: number | null
+          nota_produto?: number | null
+          pedido_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comentario?: string | null
+          created_at?: string
+          entregador_id?: string | null
+          id?: string
+          nota_entregador?: number | null
+          nota_produto?: number | null
+          pedido_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaliacoes_entrega_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_entrega_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banco_horas: {
         Row: {
           created_at: string
@@ -1079,6 +1127,71 @@ export type Database = {
             columns: ["veiculo_id"]
             isOneToOne: false
             referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_enderecos: {
+        Row: {
+          apelido: string
+          bairro: string
+          cep: string | null
+          cidade: string | null
+          cliente_id: string | null
+          complemento: string | null
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          numero: string
+          principal: boolean | null
+          referencia: string | null
+          rua: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          apelido?: string
+          bairro: string
+          cep?: string | null
+          cidade?: string | null
+          cliente_id?: string | null
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          numero: string
+          principal?: boolean | null
+          referencia?: string | null
+          rua: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          apelido?: string
+          bairro?: string
+          cep?: string | null
+          cidade?: string | null
+          cliente_id?: string | null
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          numero?: string
+          principal?: boolean | null
+          referencia?: string | null
+          rua?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_enderecos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
         ]

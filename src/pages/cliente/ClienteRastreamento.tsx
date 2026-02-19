@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ArrowLeft, 
   Phone, 
@@ -13,47 +14,41 @@ import {
   Clock, 
   Package,
   Truck,
-  CheckCircle2,
-  Bell
+  CheckCircle2
 } from "lucide-react";
 import { DeliveryMap } from "@/components/cliente/DeliveryMap";
 import { NotificationPermissionBanner, NotificationStatus } from "@/components/cliente/NotificationPermissionBanner";
 import { useDeliveryNotifications } from "@/hooks/useDeliveryNotifications";
-
-interface DeliveryStatus {
-  id: string;
-  status: "confirmed" | "preparing" | "on_the_way" | "arriving" | "delivered";
-  estimatedTime: string;
-  deliveryPerson: {
-    name: string;
-    phone: string;
-    photo: string;
-  };
-  currentPosition: {
-    lat: number;
-    lng: number;
-  };
-  destinationPosition: {
-    lat: number;
-    lng: number;
-  };
-  orderItems: string[];
-}
+import { supabase } from "@/integrations/supabase/client";
 
 const statusSteps = [
-  { key: "confirmed", label: "Confirmado", icon: CheckCircle2 },
-  { key: "preparing", label: "Preparando", icon: Package },
-  { key: "on_the_way", label: "A caminho", icon: Truck },
-  { key: "arriving", label: "Chegando", icon: MapPin },
+  { key: "pendente", label: "Confirmado", icon: CheckCircle2 },
+  { key: "em_rota", label: "A caminho", icon: Truck },
+  { key: "entregue", label: "Entregue", icon: MapPin },
 ];
 
 const statusProgress: Record<string, number> = {
-  confirmed: 25,
-  preparing: 50,
-  on_the_way: 75,
-  arriving: 90,
-  delivered: 100,
+  pendente: 33,
+  em_rota: 66,
+  entregue: 100,
+  cancelado: 0,
 };
+
+interface PedidoData {
+  id: string;
+  status: string;
+  endereco_entrega: string | null;
+  entregador_id: string | null;
+  created_at: string;
+  pedido_itens: { quantidade: number; produtos: { nome: string } | null }[];
+}
+
+interface EntregadorData {
+  nome: string;
+  telefone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
 
 export default function ClienteRastreamento() {
   const navigate = useNavigate();
@@ -61,84 +56,141 @@ export default function ClienteRastreamento() {
   const { notifyStatusChange, requestPermission } = useDeliveryNotifications();
   const previousStatusRef = useRef<string | null>(null);
   
-  // Simulated delivery data
-  const [delivery, setDelivery] = useState<DeliveryStatus>({
-    id: orderId || "1",
-    status: "on_the_way",
-    estimatedTime: "15-25 min",
-    deliveryPerson: {
-      name: "Carlos Silva",
-      phone: "(11) 99999-8888",
-      photo: "🧑‍💼"
-    },
-    currentPosition: {
-      lat: -23.5505,
-      lng: -46.6333
-    },
-    destinationPosition: {
-      lat: -23.5605,
-      lng: -46.6433
-    },
-    orderItems: ["1x Gás P13", "2x Água Mineral 20L"]
-  });
+  const [pedido, setPedido] = useState<PedidoData | null>(null);
+  const [entregador, setEntregador] = useState<EntregadorData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate real-time position updates
+  // Fetch pedido and entregador data
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDelivery(prev => {
-        const progress = (prev.destinationPosition.lat - prev.currentPosition.lat) * 0.1;
-        const progressLng = (prev.destinationPosition.lng - prev.currentPosition.lng) * 0.1;
-        
-        return {
-          ...prev,
-          currentPosition: {
-            lat: prev.currentPosition.lat + progress,
-            lng: prev.currentPosition.lng + progressLng
-          }
-        };
-      });
-    }, 3000);
+    const fetchData = async () => {
+      if (!orderId) return;
 
-    return () => clearInterval(interval);
-  }, []);
+      const { data: pedidoData } = await supabase
+        .from("pedidos")
+        .select(`
+          id, status, endereco_entrega, entregador_id, created_at,
+          pedido_itens (quantidade, produtos:produto_id (nome))
+        `)
+        .eq("id", orderId)
+        .maybeSingle();
 
-  // Request notification permission on mount
-  useEffect(() => {
-    requestPermission();
-  }, [requestPermission]);
+      if (pedidoData) {
+        setPedido(pedidoData as unknown as PedidoData);
 
-  // Send notification when status changes
-  useEffect(() => {
-    if (previousStatusRef.current !== null && previousStatusRef.current !== delivery.status) {
-      notifyStatusChange(delivery.status, delivery.id);
-    }
-    previousStatusRef.current = delivery.status;
-  }, [delivery.status, delivery.id, notifyStatusChange]);
-
-  // Simulate status changes
-  useEffect(() => {
-    const statusSequence: DeliveryStatus["status"][] = ["confirmed", "preparing", "on_the_way", "arriving"];
-    let currentIndex = statusSequence.indexOf(delivery.status);
-    
-    const interval = setInterval(() => {
-      if (currentIndex < statusSequence.length - 1) {
-        currentIndex++;
-        setDelivery(prev => ({
-          ...prev,
-          status: statusSequence[currentIndex]
-        }));
+        if (pedidoData.entregador_id) {
+          const { data: entregadorData } = await supabase
+            .from("entregadores")
+            .select("nome, telefone, latitude, longitude")
+            .eq("id", pedidoData.entregador_id)
+            .maybeSingle();
+          
+          if (entregadorData) setEntregador(entregadorData);
+        }
       }
-    }, 10000);
+      setIsLoading(false);
+    };
 
-    return () => clearInterval(interval);
-  }, []);
+    fetchData();
+  }, [orderId]);
 
-  const currentStepIndex = statusSteps.findIndex(step => step.key === delivery.status);
+  // Realtime subscription for pedido status changes
+  useEffect(() => {
+    if (!orderId) return;
+
+    const channel = supabase
+      .channel(`pedido-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos", filter: `id=eq.${orderId}` },
+        (payload) => {
+          const newStatus = payload.new.status;
+          setPedido(prev => prev ? { ...prev, status: newStatus, entregador_id: payload.new.entregador_id } : prev);
+          
+          if (previousStatusRef.current && previousStatusRef.current !== newStatus) {
+            notifyStatusChange(newStatus, orderId);
+          }
+          previousStatusRef.current = newStatus;
+
+          // Refresh entregador if assigned
+          if (payload.new.entregador_id && payload.new.entregador_id !== payload.old?.entregador_id) {
+            supabase
+              .from("entregadores")
+              .select("nome, telefone, latitude, longitude")
+              .eq("id", payload.new.entregador_id)
+              .maybeSingle()
+              .then(({ data }) => { if (data) setEntregador(data); });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [orderId, notifyStatusChange]);
+
+  // Realtime entregador position updates
+  useEffect(() => {
+    if (!pedido?.entregador_id) return;
+
+    const channel = supabase
+      .channel(`entregador-pos-${pedido.entregador_id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "entregadores", filter: `id=eq.${pedido.entregador_id}` },
+        (payload) => {
+          setEntregador(prev => prev ? {
+            ...prev,
+            latitude: payload.new.latitude,
+            longitude: payload.new.longitude
+          } : prev);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [pedido?.entregador_id]);
+
+  useEffect(() => { requestPermission(); }, [requestPermission]);
+
+  useEffect(() => {
+    if (pedido && previousStatusRef.current === null) {
+      previousStatusRef.current = pedido.status;
+    }
+  }, [pedido]);
+
+  const currentStepIndex = statusSteps.findIndex(step => step.key === pedido?.status);
+
+  if (isLoading) {
+    return (
+      <ClienteLayout>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-[300px] w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </ClienteLayout>
+    );
+  }
+
+  if (!pedido) {
+    return (
+      <ClienteLayout>
+        <div className="text-center py-12 text-muted-foreground">
+          <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>Pedido não encontrado</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/cliente/historico")}>
+            Ver meus pedidos
+          </Button>
+        </div>
+      </ClienteLayout>
+    );
+  }
+
+  const hasEntregadorPosition = entregador?.latitude && entregador?.longitude;
 
   return (
     <ClienteLayout>
       <div className="space-y-4">
-        {/* Notification Banner */}
         <NotificationPermissionBanner />
 
         {/* Header */}
@@ -149,37 +201,43 @@ export default function ClienteRastreamento() {
             </Button>
             <div>
               <h1 className="text-xl font-bold">Rastrear Pedido</h1>
-              <p className="text-sm text-muted-foreground">Pedido #{delivery.id}</p>
+              <p className="text-sm text-muted-foreground">
+                Pedido #{pedido.id.slice(-6).toUpperCase()}
+              </p>
             </div>
           </div>
           <NotificationStatus />
         </div>
 
         {/* Map */}
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <div className="h-[300px]">
-              <DeliveryMap 
-                deliveryPosition={delivery.currentPosition}
-                destinationPosition={delivery.destinationPosition}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {hasEntregadorPosition && (
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="h-[300px]">
+                <DeliveryMap 
+                  deliveryPosition={{ lat: entregador!.latitude!, lng: entregador!.longitude! }}
+                  destinationPosition={{ lat: entregador!.latitude! + 0.005, lng: entregador!.longitude! + 0.005 }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Estimated Time */}
+        {/* Status Info */}
         <Card className="bg-primary text-primary-foreground">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Clock className="h-6 w-6" />
                 <div>
-                  <p className="text-sm opacity-90">Tempo estimado</p>
-                  <p className="text-2xl font-bold">{delivery.estimatedTime}</p>
+                  <p className="text-sm opacity-90">Status do pedido</p>
+                  <p className="text-xl font-bold capitalize">
+                    {pedido.status === "em_rota" ? "A caminho" : pedido.status === "entregue" ? "Entregue" : "Pendente"}
+                  </p>
                 </div>
               </div>
               <Badge variant="secondary" className="text-primary">
-                {delivery.status === "arriving" ? "Quase lá!" : "Em andamento"}
+                {pedido.status === "entregue" ? "Concluído" : "Em andamento"}
               </Badge>
             </div>
           </CardContent>
@@ -188,7 +246,7 @@ export default function ClienteRastreamento() {
         {/* Progress Steps */}
         <Card>
           <CardContent className="p-4">
-            <Progress value={statusProgress[delivery.status]} className="mb-4" />
+            <Progress value={statusProgress[pedido.status] || 0} className="mb-4" />
             <div className="flex justify-between">
               {statusSteps.map((step, index) => {
                 const isActive = index <= currentStepIndex;
@@ -214,44 +272,54 @@ export default function ClienteRastreamento() {
         </Card>
 
         {/* Delivery Person */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Seu Entregador</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
-                  {delivery.deliveryPerson.photo}
+        {entregador && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Seu Entregador</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
+                    🧑‍💼
+                  </div>
+                  <div>
+                    <p className="font-medium">{entregador.nome}</p>
+                    <p className="text-sm text-muted-foreground">Entregador</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">{delivery.deliveryPerson.name}</p>
-                  <p className="text-sm text-muted-foreground">Entregador</p>
+                <div className="flex gap-2">
+                  {entregador.telefone && (
+                    <>
+                      <Button size="icon" variant="outline" className="rounded-full" asChild>
+                        <a href={`tel:${entregador.telefone}`}>
+                          <Phone className="h-4 w-4" />
+                        </a>
+                      </Button>
+                      <Button size="icon" variant="outline" className="rounded-full" asChild>
+                        <a href={`https://wa.me/55${entregador.telefone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
+                          <MessageCircle className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button size="icon" variant="outline" className="rounded-full">
-                  <Phone className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="outline" className="rounded-full">
-                  <MessageCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Order Summary */}
+        {/* Order Items */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Itens do Pedido</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {delivery.orderItems.map((item, index) => (
+              {pedido.pedido_itens.map((item, index) => (
                 <div key={index} className="flex items-center gap-2 text-sm">
                   <Package className="h-4 w-4 text-muted-foreground" />
-                  <span>{item}</span>
+                  <span>{item.quantidade}x {item.produtos?.nome || "Produto"}</span>
                 </div>
               ))}
             </div>
