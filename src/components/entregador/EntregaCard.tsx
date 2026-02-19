@@ -5,6 +5,8 @@ import {
   Package, Clock, CheckCircle, MapPin, Phone, Navigation, User, Truck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ProximityCheckinBanner } from "./ProximityCheckinBanner";
+import { useProximityCheckin } from "@/hooks/useProximityCheckin";
 
 export interface EntregaDB {
   id: string;
@@ -19,6 +21,8 @@ export interface EntregaDB {
     nome: string;
     telefone: string | null;
     bairro: string | null;
+    latitude: number | null;
+    longitude: number | null;
   } | null;
   pedido_itens: {
     id: string;
@@ -48,6 +52,12 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
   const clienteNome = entrega.clientes?.nome || "Cliente";
   const clienteTelefone = entrega.clientes?.telefone || "";
   const bairro = entrega.clientes?.bairro || "";
+
+  const proximity = useProximityCheckin(
+    entrega.status === "em_rota" ? entrega.endereco_entrega : null,
+    entrega.status === "em_rota" ? entrega.clientes?.latitude : null,
+    entrega.status === "em_rota" ? entrega.clientes?.longitude : null
+  );
 
   const productsSummary = entrega.pedido_itens
     .map(i => `${i.quantidade}x ${i.produtos?.nome || "Produto"}`)
@@ -104,6 +114,18 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
               R$ {(entrega.valor_total || 0).toFixed(2)}
             </p>
           </div>
+
+          {/* Proximity Check-in */}
+          {entrega.status === "em_rota" && proximity.distanceMeters !== null && (
+            <ProximityCheckinBanner
+              isNearby={proximity.isNearby}
+              distanceMeters={proximity.distanceMeters}
+              onCheckin={() => {
+                // Navigate to finalize page
+                window.location.href = `/entregador/entregas/${entrega.id}/finalizar`;
+              }}
+            />
+          )}
         </div>
 
         {/* Actions */}

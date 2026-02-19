@@ -13,6 +13,7 @@ import {
   Fuel,
   BoxesIcon,
   ArrowRightLeft,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -20,6 +21,7 @@ import { NotificationToggle } from "./NotificationToggle";
 import { useGeoTracking } from "@/hooks/useGeoTracking";
 import { GpsPermissionBanner } from "./GpsPermissionBanner";
 import { PendingDeliveriesBanner } from "./PendingDeliveriesBanner";
+import { ChatBase } from "./ChatBase";
 import logoImg from "@/assets/logo.png";
 
 interface EntregadorLayoutProps {
@@ -36,6 +38,7 @@ const menuItems = [
   { path: "/entregador/transferencia", icon: ArrowRightLeft, label: "Transferir" },
   { path: "/entregador/despesas", icon: Receipt, label: "Despesas" },
   { path: "/entregador/combustivel", icon: Fuel, label: "Combustível" },
+  { path: "/entregador/conquistas", icon: Trophy, label: "Conquistas" },
   { path: "/entregador/historico", icon: History, label: "Histórico" },
   { path: "/entregador/perfil", icon: User, label: "Perfil" },
 ];
@@ -110,6 +113,9 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
         <PendingDeliveriesBanner />
         {children}
       </main>
+
+      {/* Chat FAB */}
+      <ChatBase />
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">

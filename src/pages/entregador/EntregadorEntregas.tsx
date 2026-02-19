@@ -43,7 +43,7 @@ export default function EntregadorEntregas() {
         .from("pedidos")
         .select(`
           id, created_at, valor_total, status, forma_pagamento, endereco_entrega, observacoes, cliente_id,
-          clientes:cliente_id (nome, telefone, bairro),
+          clientes:cliente_id (nome, telefone, bairro, latitude, longitude),
           pedido_itens (id, quantidade, preco_unitario, produtos:produto_id (nome))
         `)
         .in("status", ["pendente", "em_rota", "entregue"])

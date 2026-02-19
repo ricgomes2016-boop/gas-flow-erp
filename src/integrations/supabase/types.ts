@@ -957,6 +957,53 @@ export type Database = {
           },
         ]
       }
+      chat_mensagens: {
+        Row: {
+          created_at: string
+          destinatario_id: string | null
+          destinatario_tipo: string
+          id: string
+          lida: boolean
+          mensagem: string
+          pedido_id: string | null
+          remetente_id: string
+          remetente_nome: string | null
+          remetente_tipo: string
+        }
+        Insert: {
+          created_at?: string
+          destinatario_id?: string | null
+          destinatario_tipo?: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          pedido_id?: string | null
+          remetente_id: string
+          remetente_nome?: string | null
+          remetente_tipo?: string
+        }
+        Update: {
+          created_at?: string
+          destinatario_id?: string | null
+          destinatario_tipo?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          pedido_id?: string | null
+          remetente_id?: string
+          remetente_nome?: string | null
+          remetente_tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_mensagens_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_saida_veiculo: {
         Row: {
           agua: boolean
@@ -1541,6 +1588,39 @@ export type Database = {
         }
         Relationships: []
       }
+      conquistas: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          icone: string | null
+          id: string
+          meta_valor: number
+          nome: string
+          pontos: number
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          icone?: string | null
+          id?: string
+          meta_valor?: number
+          nome: string
+          pontos?: number
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          icone?: string | null
+          id?: string
+          meta_valor?: number
+          nome?: string
+          pontos?: number
+          tipo?: string
+        }
+        Relationships: []
+      }
       contas_pagar: {
         Row: {
           boleto_codigo_barras: string | null
@@ -1959,6 +2039,42 @@ export type Database = {
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregador_conquistas: {
+        Row: {
+          conquista_id: string
+          desbloqueada_em: string
+          entregador_id: string
+          id: string
+        }
+        Insert: {
+          conquista_id: string
+          desbloqueada_em?: string
+          entregador_id: string
+          id?: string
+        }
+        Update: {
+          conquista_id?: string
+          desbloqueada_em?: string
+          entregador_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregador_conquistas_conquista_id_fkey"
+            columns: ["conquista_id"]
+            isOneToOne: false
+            referencedRelation: "conquistas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregador_conquistas_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
             referencedColumns: ["id"]
           },
         ]
