@@ -15,6 +15,7 @@ interface ChatMessage {
   remetente_tipo: string;
   remetente_nome: string | null;
   destinatario_id: string | null;
+  destinatario_tipo: string;
   mensagem: string;
   lida: boolean;
   created_at: string;
@@ -49,16 +50,23 @@ export function ChatBase() {
 
   const fetchMessages = async () => {
     if (!entregadorId) return;
-    const { data } = await supabase
+    // Busca mensagens enviadas pelo entregador OU recebidas por ele (direto ou broadcast para todos entregadores)
+    const { data, error } = await supabase
       .from("chat_mensagens")
       .select("*")
-      .or(`remetente_id.eq.${entregadorId},destinatario_id.eq.${entregadorId},and(destinatario_tipo.eq.entregador,destinatario_id.is.null)`)
+      .or(
+        `remetente_id.eq.${entregadorId},destinatario_id.eq.${entregadorId},and(destinatario_tipo.eq.entregador,destinatario_id.is.null)`
+      )
       .order("created_at", { ascending: true })
-      .limit(100);
+      .limit(200);
+    if (error) {
+      console.error("Erro ao buscar mensagens:", error);
+      return;
+    }
     if (data) {
       setMessages(data as ChatMessage[]);
       const unreadCount = data.filter(
-        (m) => m.remetente_tipo === "base" && !(m as any).lida
+        (m) => m.remetente_tipo === "base" && !m.lida
       ).length;
       setUnread(unreadCount);
     }
@@ -72,17 +80,32 @@ export function ChatBase() {
   useEffect(() => {
     if (!entregadorId) return;
     const channel = supabase
-      .channel("chat-entregador")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mensagens" }, (payload) => {
-        const msg = payload.new as ChatMessage;
-        if (msg.remetente_id === entregadorId || msg.destinatario_id === entregadorId) {
-          setMessages((prev) => [...prev, msg]);
-          if (msg.remetente_tipo === "base" && !open) {
-            setUnread((prev) => prev + 1);
+      .channel(`chat-entregador-${entregadorId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_mensagens" },
+        (payload) => {
+          const msg = payload.new as ChatMessage;
+          const isForMe =
+            msg.remetente_id === entregadorId ||
+            msg.destinatario_id === entregadorId ||
+            (msg.destinatario_tipo === "entregador" && !msg.destinatario_id);
+
+          if (isForMe) {
+            setMessages((prev) => {
+              // Evita duplicatas
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+            if (msg.remetente_tipo === "base" && !open) {
+              setUnread((prev) => prev + 1);
+            }
           }
         }
-      })
-      .subscribe();
+      )
+      .subscribe((status) => {
+        console.log("Chat realtime status:", status);
+      });
     return () => { supabase.removeChannel(channel); };
   }, [entregadorId, open]);
 
