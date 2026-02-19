@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCliente } from "@/contexts/ClienteContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Plus, Minus, ShoppingCart, Flame, Droplets, Package } from "lucide-react";
+import { Search, Plus, Minus, ShoppingCart, Flame, Droplets, Package, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProdutoDB {
@@ -33,13 +34,22 @@ const categoryLabels: Record<string, string> = {
   acessorios: "Acessórios",
 };
 
+interface UltimoPedido {
+  id: string;
+  valor_total: number;
+  created_at: string;
+  itens: { nome: string; quantidade: number; produto_id: string; preco: number }[];
+}
+
 export default function ClienteHome() {
   const { addToCart, cartItemsCount, cart } = useCliente();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [produtos, setProdutos] = useState<ProdutoDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [ultimoPedido, setUltimoPedido] = useState<UltimoPedido | null>(null);
 
   useEffect(() => {
     const fetchProdutos = async () => {
@@ -62,6 +72,48 @@ export default function ClienteHome() {
     };
     fetchProdutos();
   }, []);
+
+  // Fetch último pedido do cliente
+  useEffect(() => {
+    const fetchUltimoPedido = async () => {
+      if (!user) return;
+
+      const { data: clienteData } = await supabase
+        .from("clientes")
+        .select("id")
+        .eq("email", user.email || "")
+        .maybeSingle();
+
+      if (!clienteData) return;
+
+      const { data } = await supabase
+        .from("pedidos")
+        .select(`
+          id, valor_total, created_at,
+          pedido_itens (quantidade, preco_unitario, produto_id, produtos:produto_id (nome))
+        `)
+        .eq("cliente_id", clienteData.id)
+        .eq("status", "entregue")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setUltimoPedido({
+          id: data.id,
+          valor_total: data.valor_total || 0,
+          created_at: data.created_at,
+          itens: ((data as any).pedido_itens || []).map((i: any) => ({
+            nome: i.produtos?.nome || "Produto",
+            quantidade: i.quantidade,
+            produto_id: i.produto_id,
+            preco: i.preco_unitario,
+          })),
+        });
+      }
+    };
+    fetchUltimoPedido();
+  }, [user]);
 
   const filteredProducts = produtos.filter(product => {
     const matchesSearch = product.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -97,6 +149,21 @@ export default function ClienteHome() {
     return item?.quantity || 0;
   };
 
+  const handleRepetirUltimoPedido = () => {
+    if (!ultimoPedido) return;
+    ultimoPedido.itens.forEach(item => {
+      addToCart({
+        id: item.produto_id,
+        name: item.nome,
+        description: "",
+        price: item.preco,
+        image: "📦",
+        category: "",
+      }, item.quantidade);
+    });
+    toast.success("Itens do último pedido adicionados ao carrinho!");
+  };
+
   const ProductIcon = (cat: string | null) => categoryIcons[cat || ""] || Package;
 
   return (
@@ -110,6 +177,32 @@ export default function ClienteHome() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Repetir último pedido */}
+        {ultimoPedido && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm flex items-center gap-1.5">
+                    <RotateCcw className="h-4 w-4 text-primary" />
+                    Pedir de novo
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {ultimoPedido.itens.map(i => `${i.quantidade}x ${i.nome}`).join(", ")}
+                  </p>
+                  <p className="text-sm font-bold text-primary mt-1">
+                    R$ {ultimoPedido.valor_total.toFixed(2)}
+                  </p>
+                </div>
+                <Button size="sm" onClick={handleRepetirUltimoPedido} className="shrink-0 gap-1">
+                  <ShoppingCart className="h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

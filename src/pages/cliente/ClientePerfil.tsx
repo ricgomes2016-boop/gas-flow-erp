@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ClienteLayout } from "@/components/cliente/ClienteLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,38 +23,123 @@ import {
   Star
 } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ClientePerfil() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState({
-    name: "João da Silva",
-    email: "joao@email.com",
-    phone: "(11) 98765-4321",
-    cpf: "123.456.789-00",
+    name: "",
+    email: "",
+    phone: "",
+    cpf: "",
     address: {
-      street: "Rua das Flores",
-      number: "123",
-      complement: "Apto 45",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234-567"
+      street: "",
+      number: "",
+      complement: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+      zipCode: ""
     }
   });
 
   const [editedProfile, setEditedProfile] = useState(profile);
 
-  const handleSave = () => {
-    setProfile(editedProfile);
-    setIsEditing(false);
-    toast.success("Perfil atualizado com sucesso!");
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        // Get profile data
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        // Try to find matching cliente
+        const { data: clienteData } = await supabase
+          .from("clientes")
+          .select("*")
+          .eq("email", user.email || "")
+          .maybeSingle();
+
+        const name = profileData?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "";
+        const phone = profileData?.phone || clienteData?.telefone || "";
+        const cpf = clienteData?.cpf || "";
+
+        const newProfile = {
+          name,
+          email: user.email || "",
+          phone,
+          cpf,
+          address: {
+            street: clienteData?.endereco || "",
+            number: clienteData?.numero || "",
+            complement: "",
+            neighborhood: clienteData?.bairro || "",
+            city: clienteData?.cidade || "",
+            state: "",
+            zipCode: clienteData?.cep || ""
+          }
+        };
+
+        setProfile(newProfile);
+        setEditedProfile(newProfile);
+      } catch (err) {
+        console.error("Erro ao buscar perfil:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  const handleSave = async () => {
+    try {
+      // Update profiles table
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ 
+            full_name: editedProfile.name,
+            phone: editedProfile.phone 
+          })
+          .eq("user_id", user.id);
+      }
+
+      setProfile(editedProfile);
+      setIsEditing(false);
+      toast.success("Perfil atualizado com sucesso!");
+    } catch (err) {
+      toast.error("Erro ao salvar perfil");
+    }
   };
 
   const handleCancel = () => {
     setEditedProfile(profile);
     setIsEditing(false);
   };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const initials = profile.name
+    .split(" ")
+    .map(n => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const avatarUrl = user?.user_metadata?.avatar_url || "";
 
   const menuItems = [
     { icon: Bell, label: "Notificações", path: "/cliente/notificacoes" },
@@ -72,18 +157,18 @@ export default function ClientePerfil() {
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src="" />
+                <AvatarImage src={avatarUrl} />
                 <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                  {profile.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  {initials || "?"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h1 className="text-xl font-bold">{profile.name}</h1>
+                <h1 className="text-xl font-bold">{profile.name || "Carregando..."}</h1>
                 <p className="text-sm text-muted-foreground">{profile.email}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="secondary" className="gap-1">
                     <Star className="h-3 w-3 fill-current" />
-                    Cliente desde 2023
+                    Cliente Gás Fácil
                   </Badge>
                 </div>
               </div>
@@ -125,7 +210,7 @@ export default function ClientePerfil() {
                     onChange={(e) => setEditedProfile({ ...editedProfile, name: e.target.value })}
                   />
                 ) : (
-                  <p className="text-sm mt-1">{profile.name}</p>
+                  <p className="text-sm mt-1">{profile.name || "—"}</p>
                 )}
               </div>
               
@@ -134,15 +219,7 @@ export default function ClientePerfil() {
                   <Mail className="h-3 w-3" />
                   E-mail
                 </Label>
-                {isEditing ? (
-                  <Input
-                    type="email"
-                    value={editedProfile.email}
-                    onChange={(e) => setEditedProfile({ ...editedProfile, email: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-sm mt-1">{profile.email}</p>
-                )}
+                <p className="text-sm mt-1 text-muted-foreground">{profile.email}</p>
               </div>
               
               <div>
@@ -156,36 +233,40 @@ export default function ClientePerfil() {
                     onChange={(e) => setEditedProfile({ ...editedProfile, phone: e.target.value })}
                   />
                 ) : (
-                  <p className="text-sm mt-1">{profile.phone}</p>
+                  <p className="text-sm mt-1">{profile.phone || "Não informado"}</p>
                 )}
               </div>
               
-              <div>
-                <Label>CPF</Label>
-                <p className="text-sm mt-1 text-muted-foreground">{profile.cpf}</p>
-              </div>
+              {profile.cpf && (
+                <div>
+                  <Label>CPF</Label>
+                  <p className="text-sm mt-1 text-muted-foreground">{profile.cpf}</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Address */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Endereço Principal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm space-y-1">
-              <p>{profile.address.street}, {profile.address.number}</p>
-              {profile.address.complement && <p>{profile.address.complement}</p>}
-              <p>{profile.address.neighborhood}</p>
-              <p>{profile.address.city} - {profile.address.state}</p>
-              <p className="text-muted-foreground">CEP: {profile.address.zipCode}</p>
-            </div>
-          </CardContent>
-        </Card>
+        {profile.address.street && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Endereço Principal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm space-y-1">
+                <p>{profile.address.street}{profile.address.number ? `, ${profile.address.number}` : ""}</p>
+                {profile.address.complement && <p>{profile.address.complement}</p>}
+                {profile.address.neighborhood && <p>{profile.address.neighborhood}</p>}
+                {profile.address.city && <p>{profile.address.city}{profile.address.state ? ` - ${profile.address.state}` : ""}</p>}
+                {profile.address.zipCode && <p className="text-muted-foreground">CEP: {profile.address.zipCode}</p>}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Menu Items */}
         <Card>
@@ -209,14 +290,18 @@ export default function ClientePerfil() {
         </Card>
 
         {/* Logout */}
-        <Button variant="outline" className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10">
+        <Button 
+          variant="outline" 
+          className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+          onClick={handleLogout}
+        >
           <LogOut className="h-4 w-4" />
           Sair da conta
         </Button>
 
         {/* Version Info */}
         <p className="text-center text-xs text-muted-foreground">
-          GásExpress v1.0.0
+          Gás Fácil v1.0.0
         </p>
       </div>
     </ClienteLayout>
