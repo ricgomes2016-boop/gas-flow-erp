@@ -79,7 +79,7 @@ export default function FolhaPagamento() {
     queryKey: ["folha-pagamento", unidadeAtual?.id],
     queryFn: async () => {
       let query = supabase.from("funcionarios").select("*").eq("ativo", true).order("nome");
-      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      if (unidadeAtual?.id) query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
