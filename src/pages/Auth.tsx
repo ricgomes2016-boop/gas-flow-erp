@@ -40,19 +40,25 @@ export default function Auth() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   useEffect(() => {
-    if (user && !authLoading) {
-      if (roles.length === 0) return;
-      if (roles.includes("cliente") && !roles.includes("admin") && !roles.includes("gestor")) {
+    if (!user || loading) return;
+    // Wait until roles are loaded (trigger creates role async, so give it a moment)
+    if (roles.length === 0) {
+      const timer = setTimeout(() => {
+        // If still no roles after delay, default to cliente
         navigate("/cliente");
-      } else if (roles.includes("parceiro") && !roles.includes("admin") && !roles.includes("gestor")) {
-        navigate("/parceiro");
-      } else if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
-        navigate("/entregador");
-      } else {
-        navigate("/");
-      }
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [user, roles, authLoading, navigate]);
+    if (roles.includes("cliente") && !roles.includes("admin") && !roles.includes("gestor")) {
+      navigate("/cliente");
+    } else if (roles.includes("parceiro") && !roles.includes("admin") && !roles.includes("gestor")) {
+      navigate("/parceiro");
+    } else if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
+      navigate("/entregador");
+    } else {
+      navigate("/");
+    }
+  }, [user, roles, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
