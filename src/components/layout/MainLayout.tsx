@@ -4,6 +4,7 @@ import { SidebarProvider, useSidebarContext } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AiFloatingButton } from "@/components/ai/AiFloatingButton";
+import { ChatOperador } from "@/components/chat/ChatOperador";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -25,6 +26,7 @@ function MainLayoutContent({ children }: MainLayoutProps) {
         {children}
       </main>
       <AiFloatingButton />
+      <ChatOperador />
     </div>
   );
 }
