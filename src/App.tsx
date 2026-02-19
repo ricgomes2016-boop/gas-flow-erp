@@ -66,7 +66,7 @@ const Estoque = lazy(() => import("./pages/Estoque"));
 const Entregas = lazy(() => import("./pages/Entregas"));
 const Compras = lazy(() => import("./pages/estoque/Compras"));
 const Comodatos = lazy(() => import("./pages/estoque/Comodatos"));
-const EstoqueRota = lazy(() => import("./pages/estoque/EstoqueRota"));
+
 const MCMM = lazy(() => import("./pages/estoque/MCMM"));
 const TransferenciaEstoque = lazy(() => import("./pages/estoque/TransferenciaEstoque"));
 
@@ -376,11 +376,6 @@ const App = () => (
                   <Route path="/estoque/comodatos" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <Comodatos />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/estoque/rota" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional", "entregador"]}>
-                      <EstoqueRota />
                     </ProtectedRoute>
                   } />
                   <Route path="/estoque/mcmm" element={
