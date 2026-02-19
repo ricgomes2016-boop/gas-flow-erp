@@ -1,5 +1,4 @@
-import { useCliente, LojaOption } from "@/contexts/ClienteContext";
-import { Button } from "@/components/ui/button";
+import { useCliente } from "@/contexts/ClienteContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Store } from "lucide-react";
 import {
@@ -8,11 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function LojaSelector() {
   const { lojas, lojaSelecionadaId, setLojaSelecionadaId, lojasLoading } = useCliente();
-  const [open, setOpen] = useState(!lojaSelecionadaId && !lojasLoading);
+  const [open, setOpen] = useState(false);
+
+  // Abre o dialog automaticamente quando o carregamento termina e nenhuma loja está selecionada
+  useEffect(() => {
+    if (!lojasLoading && !lojaSelecionadaId && lojas.length > 1) {
+      setOpen(true);
+    }
+  }, [lojasLoading, lojaSelecionadaId, lojas.length]);
 
   const lojaSelecionada = lojas.find(l => l.id === lojaSelecionadaId);
 
