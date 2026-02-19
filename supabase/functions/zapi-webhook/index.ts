@@ -129,12 +129,14 @@ REGRAS:
 7. Seja breve nas respostas, use emojis moderadamente.
 8. NÃO invente preços. Use apenas os produtos listados acima.`;
 
+    // Generate a deterministic UUID from the phone number
+    const conversationUUID = await generateUUIDFromString(`whatsapp_${normalized}`);
+
     // Get conversation history from DB
-    const conversationKey = `whatsapp_${normalized}`;
     const { data: historyRows } = await supabase
       .from("ai_mensagens")
       .select("role, content, created_at")
-      .eq("conversa_id", conversationKey)
+      .eq("conversa_id", conversationUUID)
       .order("created_at", { ascending: true })
       .limit(20);
 
@@ -144,7 +146,7 @@ REGRAS:
 
     // Save user message
     await supabase.from("ai_mensagens").insert({
-      conversa_id: conversationKey,
+      conversa_id: conversationUUID,
       role: "user",
       content: messageText,
     });
@@ -152,7 +154,7 @@ REGRAS:
     // Ensure conversation record exists
     await supabase.from("ai_conversas").upsert(
       {
-        id: conversationKey,
+        id: conversationUUID,
         user_id: "00000000-0000-0000-0000-000000000000",
         titulo: `WhatsApp: ${clienteNome || senderName || normalized}`,
         updated_at: new Date().toISOString(),
@@ -198,7 +200,7 @@ REGRAS:
 
     // Save assistant message
     await supabase.from("ai_mensagens").insert({
-      conversa_id: conversationKey,
+      conversa_id: conversationUUID,
       role: "assistant",
       content: reply,
     });
@@ -241,10 +243,14 @@ REGRAS:
 
 async function sendWhatsAppMessage(instanceId: string, token: string, phone: string, message: string) {
   try {
+    const ZAPI_SECURITY_TOKEN = Deno.env.get("ZAPI_SECURITY_TOKEN") || "";
     const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
     const resp = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Client-Token": ZAPI_SECURITY_TOKEN,
+      },
       body: JSON.stringify({ phone, message }),
     });
     if (!resp.ok) {
@@ -339,4 +345,16 @@ async function createOrder(
   } catch (e) {
     console.error("Create order error:", e);
   }
+}
+
+async function generateUUIDFromString(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(hash);
+  // Format as UUID v4-like
+  const hex = Array.from(bytes.slice(0, 16))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${(parseInt(hex[16], 16) & 0x3 | 0x8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
