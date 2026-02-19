@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
@@ -41,6 +42,13 @@ interface Purchase {
   discountApplied?: number;
 }
 
+export interface LojaOption {
+  id: string;
+  nome: string;
+  cidade: string | null;
+  bairro: string | null;
+}
+
 interface ClienteContextType {
   cart: CartItem[];
   addToCart: (product: Product, quantity?: number) => void;
@@ -63,6 +71,12 @@ interface ClienteContextType {
   addPurchase: (purchase: Omit<Purchase, "id">) => void;
   
   applyCoupon: (code: string) => { valid: boolean; discount: number; message: string };
+
+  // Loja selecionada
+  lojas: LojaOption[];
+  lojaSelecionadaId: string | null;
+  setLojaSelecionadaId: (id: string) => void;
+  lojasLoading: boolean;
 }
 
 const ClienteContext = createContext<ClienteContextType | undefined>(undefined);
@@ -78,6 +92,41 @@ export function ClienteProvider({ children }: { children: ReactNode }) {
   const [valesGas] = useState<ValeGas[]>([]);
   
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+
+  // Loja
+  const [lojas, setLojas] = useState<LojaOption[]>([]);
+  const [lojaSelecionadaId, setLojaSelecionadaIdState] = useState<string | null>(
+    localStorage.getItem("cliente_loja_id")
+  );
+  const [lojasLoading, setLojasLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLojas = async () => {
+      const { data } = await supabase
+        .from("unidades")
+        .select("id, nome, cidade, bairro")
+        .eq("ativo", true)
+        .order("nome");
+      if (data && data.length > 0) {
+        setLojas(data);
+        // Auto-select if only one or if saved is valid
+        const saved = localStorage.getItem("cliente_loja_id");
+        if (saved && data.some(l => l.id === saved)) {
+          setLojaSelecionadaIdState(saved);
+        } else if (data.length === 1) {
+          setLojaSelecionadaIdState(data[0].id);
+          localStorage.setItem("cliente_loja_id", data[0].id);
+        }
+      }
+      setLojasLoading(false);
+    };
+    fetchLojas();
+  }, []);
+
+  const setLojaSelecionadaId = (id: string) => {
+    setLojaSelecionadaIdState(id);
+    localStorage.setItem("cliente_loja_id", id);
+  };
 
   const addToCart = (product: Product, quantity = 1) => {
     setCart(prev => {
@@ -167,7 +216,11 @@ export function ClienteProvider({ children }: { children: ReactNode }) {
       valesGas,
       purchases,
       addPurchase,
-      applyCoupon
+      applyCoupon,
+      lojas,
+      lojaSelecionadaId,
+      setLojaSelecionadaId,
+      lojasLoading,
     }}>
       {children}
     </ClienteContext.Provider>

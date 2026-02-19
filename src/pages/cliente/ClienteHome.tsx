@@ -51,15 +51,24 @@ export default function ClienteHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [ultimoPedido, setUltimoPedido] = useState<UltimoPedido | null>(null);
 
+  const { lojaSelecionadaId } = useCliente();
+
   useEffect(() => {
+    setIsLoading(true);
     const fetchProdutos = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("produtos")
           .select("id, nome, descricao, preco, categoria, image_url, estoque")
           .eq("ativo", true)
           .or("tipo_botijao.is.null,tipo_botijao.neq.vazio")
           .order("nome");
+
+        if (lojaSelecionadaId) {
+          query = query.eq("unidade_id", lojaSelecionadaId);
+        }
+
+        const { data, error } = await query;
 
         if (!error && data) {
           setProdutos(data);
@@ -71,7 +80,7 @@ export default function ClienteHome() {
       }
     };
     fetchProdutos();
-  }, []);
+  }, [lojaSelecionadaId]);
 
   // Fetch último pedido do cliente
   useEffect(() => {
