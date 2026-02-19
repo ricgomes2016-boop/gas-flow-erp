@@ -907,6 +907,98 @@ export type Database = {
           },
         ]
       }
+      cliente_observacoes: {
+        Row: {
+          autor_id: string | null
+          cliente_id: string
+          created_at: string
+          id: string
+          texto: string
+          updated_at: string
+        }
+        Insert: {
+          autor_id?: string | null
+          cliente_id: string
+          created_at?: string
+          id?: string
+          texto: string
+          updated_at?: string
+        }
+        Update: {
+          autor_id?: string | null
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          texto?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_observacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_tag_associacoes: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          tag_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          tag_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_tag_associacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_tag_associacoes_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_tags: {
+        Row: {
+          cor: string
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           ativo: boolean | null
