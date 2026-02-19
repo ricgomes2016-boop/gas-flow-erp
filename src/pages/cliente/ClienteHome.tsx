@@ -8,8 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCliente } from "@/contexts/ClienteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Plus, Minus, ShoppingCart, Flame, Droplets, Package, RotateCcw } from "lucide-react";
+import { Search, Plus, Minus, ShoppingCart, Flame, Droplets, Package, RotateCcw, Zap, Star, Clock, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface ProdutoDB {
   id: string;
@@ -29,9 +30,9 @@ const categoryIcons: Record<string, typeof Flame> = {
 const categories = ["Todos", "gas", "agua", "acessorios"];
 const categoryLabels: Record<string, string> = {
   Todos: "Todos",
-  gas: "Gás",
-  agua: "Água",
-  acessorios: "Acessórios",
+  gas: "🔥 Gás",
+  agua: "💧 Água",
+  acessorios: "🔧 Acessórios",
 };
 
 interface UltimoPedido {
@@ -44,12 +45,14 @@ interface UltimoPedido {
 export default function ClienteHome() {
   const { addToCart, cartItemsCount, cart } = useCliente();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [produtos, setProdutos] = useState<ProdutoDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [ultimoPedido, setUltimoPedido] = useState<UltimoPedido | null>(null);
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
 
   const { lojaSelecionadaId } = useCliente();
 
@@ -139,7 +142,8 @@ export default function ClienteHome() {
     setQuantities(prev => ({ ...prev, [productId]: qty }));
   };
 
-  const handleAddToCart = (product: ProdutoDB) => {
+  const handleAddToCart = async (product: ProdutoDB) => {
+    setAddingToCart(product.id);
     const qty = getQuantity(product.id);
     addToCart({
       id: product.id,
@@ -149,8 +153,14 @@ export default function ClienteHome() {
       image: product.image_url || "📦",
       category: product.categoria || "outros"
     }, qty);
-    toast.success(`${qty}x ${product.nome} adicionado ao carrinho!`);
+    toast.success(`${qty}x ${product.nome} adicionado!`, {
+      action: {
+        label: "Ver carrinho",
+        onClick: () => navigate("/cliente/carrinho"),
+      },
+    });
     setQuantities(prev => ({ ...prev, [product.id]: 1 }));
+    setTimeout(() => setAddingToCart(null), 600);
   };
 
   const getCartQuantity = (productId: string) => {
@@ -175,62 +185,94 @@ export default function ClienteHome() {
 
   const ProductIcon = (cat: string | null) => categoryIcons[cat || ""] || Package;
 
+  const gasProducts = filteredProducts.filter(p => p.categoria === "gas");
+  const otherProducts = filteredProducts.filter(p => p.categoria !== "gas");
+  const showGrouped = selectedCategory === "Todos" && !search;
+
   return (
     <ClienteLayout cartItemsCount={cartItemsCount}>
-      <div className="space-y-4">
-        <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-          <CardContent className="p-4">
-            <h1 className="text-xl font-bold">Olá! 👋</h1>
+      <div className="space-y-4 pb-24">
+        {/* Hero Banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground p-5">
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="h-4 w-4 fill-current" />
+              <span className="text-xs font-semibold uppercase tracking-wider opacity-90">Entrega rápida</span>
+            </div>
+            <h1 className="text-2xl font-bold leading-tight">Gás e Água<br />na sua porta! 🚀</h1>
             <p className="text-primary-foreground/80 text-sm mt-1">
-              Peça seu gás e receba em casa rapidinho!
+              Peça agora e receba em até 1 hora
             </p>
-          </CardContent>
-        </Card>
+          <div className="flex items-center gap-3 mt-3">
+              <div className="flex items-center gap-1 bg-primary-foreground/20 rounded-full px-2 py-0.5">
+                <Star className="h-3 w-3 fill-current" />
+                <span className="text-xs font-bold">4.9</span>
+              </div>
+              <div className="flex items-center gap-1 bg-primary-foreground/20 rounded-full px-2 py-0.5">
+                <Clock className="h-3 w-3" />
+                <span className="text-xs font-bold">30-60 min</span>
+              </div>
+            </div>
+          </div>
+          {/* Decorative circles */}
+          <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />
+          <div className="absolute -right-4 -bottom-6 w-20 h-20 bg-white/10 rounded-full" />
+        </div>
 
         {/* Repetir último pedido */}
         {ultimoPedido && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm flex items-center gap-1.5">
-                    <RotateCcw className="h-4 w-4 text-primary" />
-                    Pedir de novo
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {ultimoPedido.itens.map(i => `${i.quantidade}x ${i.nome}`).join(", ")}
-                  </p>
-                  <p className="text-sm font-bold text-primary mt-1">
-                    R$ {ultimoPedido.valor_total.toFixed(2)}
-                  </p>
+          <button
+            onClick={handleRepetirUltimoPedido}
+            className="w-full text-left"
+          >
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-accent hover:from-primary/10 transition-colors">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                      <RotateCcw className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-foreground">Pedir de novo</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {ultimoPedido.itens.map(i => `${i.quantidade}x ${i.nome}`).join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-sm font-bold text-primary">R$ {ultimoPedido.valor_total.toFixed(2)}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
-                <Button size="sm" onClick={handleRepetirUltimoPedido} className="shrink-0 gap-1">
-                  <ShoppingCart className="h-4 w-4" />
-                  Adicionar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </button>
         )}
 
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar produtos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11 rounded-xl bg-muted/50 border-0 focus-visible:bg-background"
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+        {/* Category Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
           {categories.map(category => (
             <Button
               key={category}
               variant={selectedCategory === category ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedCategory(category)}
-              className="whitespace-nowrap"
+              className={`whitespace-nowrap rounded-full h-8 px-4 text-xs font-medium transition-all ${
+                selectedCategory === category 
+                  ? "shadow-md shadow-primary/30" 
+                  : "border-border/50"
+              }`}
             >
               {categoryLabels[category] || category}
             </Button>
@@ -238,100 +280,191 @@ export default function ClienteHome() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
+              <Skeleton key={i} className="h-32 w-full rounded-2xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {filteredProducts.map(product => {
-              const cartQty = getCartQuantity(product.id);
-              const Icon = ProductIcon(product.categoria);
-              
-              return (
-                <Card key={product.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center text-3xl shrink-0">
-                        {product.image_url ? (
-                          <img src={product.image_url} alt={product.nome} className="w-full h-full object-cover rounded-lg" />
-                        ) : (
-                          <Icon className="h-10 w-10 text-primary" />
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="font-semibold">{product.nome}</h3>
-                            <p className="text-sm text-muted-foreground">{product.descricao}</p>
-                            <Badge variant="secondary" className="mt-1 text-xs">
-                              {categoryLabels[product.categoria || ""] || product.categoria || "Outros"}
-                            </Badge>
-                          </div>
-                          {cartQty > 0 && (
-                            <Badge className="bg-primary shrink-0">
-                              {cartQty} no carrinho
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center justify-between mt-3">
-                          <span className="text-lg font-bold text-primary">
-                            R$ {product.preco.toFixed(2)}
-                          </span>
-                          
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center border rounded-lg">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => setQuantity(product.id, getQuantity(product.id) - 1)}
-                              >
-                                <Minus className="h-4 w-4" />
-                              </Button>
-                              <span className="w-8 text-center text-sm font-medium">
-                                {getQuantity(product.id)}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => setQuantity(product.id, getQuantity(product.id) + 1)}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            
-                            <Button
-                              size="sm"
-                              onClick={() => handleAddToCart(product)}
-                              className="gap-1"
-                              disabled={(product.estoque ?? 0) === 0}
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                              Adicionar
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <>
+            {/* Grouped view: Gas first as featured */}
+            {showGrouped && gasProducts.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Flame className="h-4 w-4 text-destructive" />
+                  <h2 className="font-bold text-base">Gás</h2>
+                </div>
+                {gasProducts.map(product => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={getQuantity(product.id)}
+                    cartQty={getCartQuantity(product.id)}
+                    onQuantityChange={(delta) => setQuantity(product.id, getQuantity(product.id) + delta)}
+                    onAddToCart={() => handleAddToCart(product)}
+                    isAdding={addingToCart === product.id}
+                  />
+                ))}
+              </div>
+            )}
+
+            {showGrouped && otherProducts.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-primary" />
+                  <h2 className="font-bold text-base">Água & Outros</h2>
+                </div>
+                {otherProducts.map(product => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={getQuantity(product.id)}
+                    cartQty={getCartQuantity(product.id)}
+                    onQuantityChange={(delta) => setQuantity(product.id, getQuantity(product.id) + delta)}
+                    onAddToCart={() => handleAddToCart(product)}
+                    isAdding={addingToCart === product.id}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Filtered view */}
+            {!showGrouped && (
+              <div className="space-y-3">
+                {filteredProducts.map(product => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={getQuantity(product.id)}
+                    cartQty={getCartQuantity(product.id)}
+                    onQuantityChange={(delta) => setQuantity(product.id, getQuantity(product.id) + delta)}
+                    onAddToCart={() => handleAddToCart(product)}
+                    isAdding={addingToCart === product.id}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {!isLoading && filteredProducts.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>Nenhum produto encontrado</p>
+          <div className="text-center py-12 text-muted-foreground">
+            <Package className="h-14 w-14 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">Nenhum produto encontrado</p>
+            <p className="text-sm mt-1">Tente outra busca ou categoria</p>
+          </div>
+        )}
+
+        {/* Sticky cart button */}
+        {cartItemsCount > 0 && (
+          <div className="fixed bottom-20 left-4 right-4 z-40">
+            <Button
+              className="w-full h-14 rounded-2xl shadow-xl shadow-primary/40 text-base font-bold gap-3"
+              onClick={() => navigate("/cliente/carrinho")}
+            >
+              <div className="flex items-center gap-2 flex-1">
+                <ShoppingCart className="h-5 w-5" />
+                <span>Ver carrinho</span>
+              </div>
+              <Badge className="bg-white/20 text-white border-0 text-sm">
+                {cartItemsCount} {cartItemsCount === 1 ? "item" : "itens"}
+              </Badge>
+            </Button>
           </div>
         )}
       </div>
     </ClienteLayout>
+  );
+}
+
+// Product Card Component
+interface ProductCardProps {
+  product: ProdutoDB;
+  quantity: number;
+  cartQty: number;
+  onQuantityChange: (delta: number) => void;
+  onAddToCart: () => void;
+  isAdding: boolean;
+}
+
+function ProductCard({ product, quantity, cartQty, onQuantityChange, onAddToCart, isAdding }: ProductCardProps) {
+  const isOutOfStock = (product.estoque ?? 1) === 0;
+  const Icon = product.categoria === "agua" ? Droplets : product.categoria === "gas" ? Flame : Package;
+
+  return (
+    <Card className={`overflow-hidden transition-all duration-200 ${isAdding ? "scale-[0.98] shadow-sm" : "hover:shadow-md"}`}>
+      <CardContent className="p-0">
+        <div className="flex gap-0">
+          {/* Product Image */}
+          <div className="w-28 h-28 bg-muted/30 shrink-0 flex items-center justify-center rounded-l-lg overflow-hidden relative">
+            {product.image_url ? (
+              <img 
+                src={product.image_url} 
+                alt={product.nome} 
+                className="w-full h-full object-contain p-2"
+              />
+            ) : (
+              <Icon className="h-12 w-12 text-primary/40" />
+            )}
+            {isOutOfStock && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <span className="text-white text-xs font-bold">Indisponível</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Info */}
+          <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+            <div>
+              <div className="flex items-start justify-between gap-1">
+                <h3 className="font-bold text-sm leading-tight">{product.nome}</h3>
+                {cartQty > 0 && (
+                  <Badge className="bg-primary/10 text-primary border-0 shrink-0 text-xs px-1.5">
+                    {cartQty} ✓
+                  </Badge>
+                )}
+              </div>
+              {product.descricao && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{product.descricao}</p>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-lg font-black text-primary">
+                R$ {product.preco.toFixed(2)}
+              </span>
+              
+              <div className="flex items-center gap-1.5">
+                {/* Quantity selector */}
+                <div className="flex items-center border border-border rounded-lg overflow-hidden">
+                  <button
+                    className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+                    onClick={() => onQuantityChange(-1)}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-7 text-center text-sm font-bold">{quantity}</span>
+                  <button
+                    className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+                    onClick={() => onQuantityChange(1)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+                
+                <Button
+                  size="sm"
+                  onClick={onAddToCart}
+                  disabled={isOutOfStock || isAdding}
+                  className={`h-7 px-3 rounded-lg text-xs font-bold transition-all ${isAdding ? "bg-green-600 hover:bg-green-600" : ""}`}
+                >
+                  {isAdding ? "✓" : <><ShoppingCart className="h-3 w-3 mr-1" />Add</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
