@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.goto-webhook]
 verify_jwt = false
+
+[functions.zapi-webhook]
+verify_jwt = false
