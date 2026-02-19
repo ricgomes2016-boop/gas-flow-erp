@@ -87,11 +87,11 @@ export default function ClienteHistorico() {
           .order("created_at", { ascending: false })
           .limit(50);
 
-        // Filter by canal_venda=app_cliente if no cliente match, or by cliente_id
+        // Filter by canal_venda=Aplicativo if no cliente match, or by cliente_id
         if (clienteData) {
           query = query.eq("cliente_id", clienteData.id);
         } else {
-          query = query.eq("canal_venda", "app_cliente");
+          query = query.eq("canal_venda", "Aplicativo");
         }
 
         const { data, error } = await query;
