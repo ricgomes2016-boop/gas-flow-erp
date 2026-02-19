@@ -128,6 +128,7 @@ const OnboardingOffboarding = lazy(() => import("./pages/rh/OnboardingOffboardin
 const DashboardRH = lazy(() => import("./pages/rh/DashboardRH"));
 
 // Fiscal
+const DashboardFiscal = lazy(() => import("./pages/fiscal/DashboardFiscal"));
 const EmitirNFe = lazy(() => import("./pages/fiscal/EmitirNFe"));
 const EmitirNFCe = lazy(() => import("./pages/fiscal/EmitirNFCe"));
 const EmitirMDFe = lazy(() => import("./pages/fiscal/EmitirMDFe"));
@@ -663,7 +664,12 @@ const App = () => (
                     </ProtectedRoute>
                   } />
                   
-                  {/* Fiscal - Admin/Gestor */}
+                  {/* Fiscal */}
+                  <Route path="/fiscal" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "operacional"]}>
+                      <DashboardFiscal />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/fiscal/nfe" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <EmitirNFe />

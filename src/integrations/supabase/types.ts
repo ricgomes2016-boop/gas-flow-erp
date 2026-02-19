@@ -2274,6 +2274,51 @@ export type Database = {
           },
         ]
       }
+      mdfe_nfes_vinculadas: {
+        Row: {
+          chave_acesso: string
+          created_at: string
+          destinatario: string | null
+          id: string
+          mdfe_id: string
+          nfe_id: string | null
+          valor: number | null
+        }
+        Insert: {
+          chave_acesso: string
+          created_at?: string
+          destinatario?: string | null
+          id?: string
+          mdfe_id: string
+          nfe_id?: string | null
+          valor?: number | null
+        }
+        Update: {
+          chave_acesso?: string
+          created_at?: string
+          destinatario?: string | null
+          id?: string
+          mdfe_id?: string
+          nfe_id?: string | null
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdfe_nfes_vinculadas_mdfe_id_fkey"
+            columns: ["mdfe_id"]
+            isOneToOne: false
+            referencedRelation: "notas_fiscais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mdfe_nfes_vinculadas_nfe_id_fkey"
+            columns: ["nfe_id"]
+            isOneToOne: false
+            referencedRelation: "notas_fiscais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metas: {
         Row: {
           created_at: string
@@ -2517,6 +2562,224 @@ export type Database = {
             columns: ["veiculo_id"]
             isOneToOne: false
             referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nota_fiscal_itens: {
+        Row: {
+          cfop: string | null
+          created_at: string
+          descricao: string
+          id: string
+          ncm: string | null
+          nota_fiscal_id: string
+          produto_id: string | null
+          quantidade: number
+          unidade: string | null
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          cfop?: string | null
+          created_at?: string
+          descricao: string
+          id?: string
+          ncm?: string | null
+          nota_fiscal_id: string
+          produto_id?: string | null
+          quantidade?: number
+          unidade?: string | null
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          cfop?: string | null
+          created_at?: string
+          descricao?: string
+          id?: string
+          ncm?: string | null
+          nota_fiscal_id?: string
+          produto_id?: string | null
+          quantidade?: number
+          unidade?: string | null
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nota_fiscal_itens_nota_fiscal_id_fkey"
+            columns: ["nota_fiscal_id"]
+            isOneToOne: false
+            referencedRelation: "notas_fiscais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nota_fiscal_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notas_fiscais: {
+        Row: {
+          carta_correcao: string | null
+          chave_acesso: string | null
+          created_at: string
+          created_by: string | null
+          danfe_url: string | null
+          data_cancelamento: string | null
+          data_emissao: string
+          destinatario_cep: string | null
+          destinatario_cidade_uf: string | null
+          destinatario_cpf_cnpj: string | null
+          destinatario_endereco: string | null
+          destinatario_ie: string | null
+          destinatario_nome: string | null
+          destinatario_telefone: string | null
+          focus_id: string | null
+          focus_ref: string | null
+          forma_pagamento: string | null
+          id: string
+          modal: string | null
+          motivo_cancelamento: string | null
+          motivo_rejeicao: string | null
+          motorista_cpf: string | null
+          motorista_nome: string | null
+          natureza_operacao: string | null
+          numero: string | null
+          observacoes: string | null
+          peso_bruto: number | null
+          placa: string | null
+          protocolo: string | null
+          protocolo_cancelamento: string | null
+          protocolo_carta_correcao: string | null
+          remetente_cpf_cnpj: string | null
+          remetente_endereco: string | null
+          remetente_nome: string | null
+          rntrc: string | null
+          serie: string | null
+          status: string
+          tipo: string
+          uf_carregamento: string | null
+          uf_descarregamento: string | null
+          unidade_id: string | null
+          updated_at: string
+          valor_desconto: number | null
+          valor_frete: number | null
+          valor_icms: number | null
+          valor_mercadoria: number | null
+          valor_total: number
+          xml_url: string | null
+        }
+        Insert: {
+          carta_correcao?: string | null
+          chave_acesso?: string | null
+          created_at?: string
+          created_by?: string | null
+          danfe_url?: string | null
+          data_cancelamento?: string | null
+          data_emissao?: string
+          destinatario_cep?: string | null
+          destinatario_cidade_uf?: string | null
+          destinatario_cpf_cnpj?: string | null
+          destinatario_endereco?: string | null
+          destinatario_ie?: string | null
+          destinatario_nome?: string | null
+          destinatario_telefone?: string | null
+          focus_id?: string | null
+          focus_ref?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          modal?: string | null
+          motivo_cancelamento?: string | null
+          motivo_rejeicao?: string | null
+          motorista_cpf?: string | null
+          motorista_nome?: string | null
+          natureza_operacao?: string | null
+          numero?: string | null
+          observacoes?: string | null
+          peso_bruto?: number | null
+          placa?: string | null
+          protocolo?: string | null
+          protocolo_cancelamento?: string | null
+          protocolo_carta_correcao?: string | null
+          remetente_cpf_cnpj?: string | null
+          remetente_endereco?: string | null
+          remetente_nome?: string | null
+          rntrc?: string | null
+          serie?: string | null
+          status?: string
+          tipo?: string
+          uf_carregamento?: string | null
+          uf_descarregamento?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          valor_desconto?: number | null
+          valor_frete?: number | null
+          valor_icms?: number | null
+          valor_mercadoria?: number | null
+          valor_total?: number
+          xml_url?: string | null
+        }
+        Update: {
+          carta_correcao?: string | null
+          chave_acesso?: string | null
+          created_at?: string
+          created_by?: string | null
+          danfe_url?: string | null
+          data_cancelamento?: string | null
+          data_emissao?: string
+          destinatario_cep?: string | null
+          destinatario_cidade_uf?: string | null
+          destinatario_cpf_cnpj?: string | null
+          destinatario_endereco?: string | null
+          destinatario_ie?: string | null
+          destinatario_nome?: string | null
+          destinatario_telefone?: string | null
+          focus_id?: string | null
+          focus_ref?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          modal?: string | null
+          motivo_cancelamento?: string | null
+          motivo_rejeicao?: string | null
+          motorista_cpf?: string | null
+          motorista_nome?: string | null
+          natureza_operacao?: string | null
+          numero?: string | null
+          observacoes?: string | null
+          peso_bruto?: number | null
+          placa?: string | null
+          protocolo?: string | null
+          protocolo_cancelamento?: string | null
+          protocolo_carta_correcao?: string | null
+          remetente_cpf_cnpj?: string | null
+          remetente_endereco?: string | null
+          remetente_nome?: string | null
+          rntrc?: string | null
+          serie?: string | null
+          status?: string
+          tipo?: string
+          uf_carregamento?: string | null
+          uf_descarregamento?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          valor_desconto?: number | null
+          valor_frete?: number | null
+          valor_icms?: number | null
+          valor_mercadoria?: number | null
+          valor_total?: number
+          xml_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_fiscais_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
             referencedColumns: ["id"]
           },
         ]
