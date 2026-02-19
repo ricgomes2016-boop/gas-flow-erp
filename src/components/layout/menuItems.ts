@@ -143,13 +143,15 @@ export const menuItems: MenuItem[] = [
     icon: Package,
     label: "Gestão de Estoque",
     submenu: [
+      { icon: Gauge, label: "Dashboard", path: "/estoque/dashboard" },
       { icon: PackageOpen, label: "Estoque do Dia", path: "/estoque" },
       { icon: ShoppingBag, label: "Produtos", path: "/cadastros/produtos" },
       { icon: ShoppingBasket, label: "Compras", path: "/estoque/compras" },
       { icon: Factory, label: "Fornecedores", path: "/cadastros/fornecedores" },
       { icon: Handshake, label: "Comodatos", path: "/estoque/comodatos" },
       { icon: ArrowUpDown, label: "Transferência entre Filiais", path: "/estoque/transferencia" },
-      { icon: TrendingUp, label: "MCMM", path: "/estoque/mcmm" },
+      { icon: TrendingUp, label: "MCMM Inteligente", path: "/estoque/mcmm" },
+      { icon: ClipboardList, label: "Histórico Movimentações", path: "/estoque/historico" },
     ],
   },
   {
