@@ -9,7 +9,6 @@ import {
   Truck,
   HardHat,
   Settings,
-  // Submenu icons
   Monitor,
   PlusCircle,
   ClipboardList,
@@ -75,6 +74,10 @@ import {
   Plug,
   UserCheck as UserCheckIcon,
   BarChart2,
+  Phone,
+  RotateCcw,
+  RefreshCw,
+  Clipboard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -94,6 +97,7 @@ export interface MenuItem {
 export const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Brain, label: "Assistente IA", path: "/assistente-ia" },
+  { icon: Phone, label: "Central de Atendimento", path: "/atendimento" },
   {
     icon: ShoppingCart,
     label: "Vendas",
@@ -101,6 +105,7 @@ export const menuItems: MenuItem[] = [
       { icon: Monitor, label: "PDV", path: "/vendas/pdv" },
       { icon: PlusCircle, label: "Nova Venda", path: "/vendas/nova" },
       { icon: ClipboardList, label: "Pedidos", path: "/vendas/pedidos" },
+      { icon: RotateCcw, label: "Devoluções / Trocas", path: "/vendas/devolucoes" },
       { icon: BarChart3, label: "Relatório de Vendas", path: "/vendas/relatorio" },
     ],
   },
@@ -127,6 +132,7 @@ export const menuItems: MenuItem[] = [
       { icon: CalendarRange, label: "Planejamento", path: "/operacional/planejamento" },
       { icon: Target, label: "Metas e Desafios", path: "/operacional/metas" },
       { icon: Search, label: "Análise de Concorrência", path: "/operacional/concorrencia" },
+      { icon: Clipboard, label: "Relatório Gerencial", path: "/operacional/gerencial" },
     ],
   },
   {
@@ -134,6 +140,7 @@ export const menuItems: MenuItem[] = [
     label: "Gestão de Clientes",
     submenu: [
       { icon: UserPlus, label: "Clientes", path: "/clientes/cadastro" },
+      { icon: RefreshCw, label: "Contratos Recorrentes", path: "/clientes/contratos" },
       { icon: Megaphone, label: "Campanhas", path: "/clientes/campanhas" },
       { icon: Heart, label: "Fidelidade / Indicações", path: "/clientes/fidelidade" },
       { icon: MessageSquare, label: "CRM", path: "/clientes/crm" },

@@ -828,6 +828,76 @@ export type Database = {
           },
         ]
       }
+      chamadas_recebidas: {
+        Row: {
+          atendente_id: string | null
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          duracao_segundos: number | null
+          id: string
+          observacoes: string | null
+          pedido_gerado_id: string | null
+          status: string
+          telefone: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          atendente_id?: string | null
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          duracao_segundos?: number | null
+          id?: string
+          observacoes?: string | null
+          pedido_gerado_id?: string | null
+          status?: string
+          telefone: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          atendente_id?: string | null
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          duracao_segundos?: number | null
+          id?: string
+          observacoes?: string | null
+          pedido_gerado_id?: string | null
+          status?: string
+          telefone?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chamadas_recebidas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chamadas_recebidas_pedido_gerado_id_fkey"
+            columns: ["pedido_gerado_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chamadas_recebidas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_saida_veiculo: {
         Row: {
           agua: boolean
@@ -1524,6 +1594,215 @@ export type Database = {
           },
           {
             foreignKeyName: "contas_receber_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contratos_recorrentes: {
+        Row: {
+          cliente_id: string
+          cliente_nome: string
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          dia_preferencial: number | null
+          entregas_realizadas: number
+          frequencia: string
+          id: string
+          observacoes: string | null
+          produto_id: string | null
+          produto_nome: string
+          proxima_entrega: string | null
+          quantidade: number
+          status: string
+          turno_preferencial: string | null
+          unidade_id: string | null
+          updated_at: string
+          valor_unitario: number
+        }
+        Insert: {
+          cliente_id: string
+          cliente_nome: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          dia_preferencial?: number | null
+          entregas_realizadas?: number
+          frequencia?: string
+          id?: string
+          observacoes?: string | null
+          produto_id?: string | null
+          produto_nome: string
+          proxima_entrega?: string | null
+          quantidade?: number
+          status?: string
+          turno_preferencial?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          valor_unitario?: number
+        }
+        Update: {
+          cliente_id?: string
+          cliente_nome?: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          dia_preferencial?: number | null
+          entregas_realizadas?: number
+          frequencia?: string
+          id?: string
+          observacoes?: string | null
+          produto_id?: string | null
+          produto_nome?: string
+          proxima_entrega?: string | null
+          quantidade?: number
+          status?: string
+          turno_preferencial?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_recorrentes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_recorrentes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_recorrentes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      devolucao_itens: {
+        Row: {
+          created_at: string
+          devolucao_id: string
+          id: string
+          motivo_item: string | null
+          produto_id: string | null
+          produto_nome: string
+          quantidade: number
+          valor_unitario: number
+        }
+        Insert: {
+          created_at?: string
+          devolucao_id: string
+          id?: string
+          motivo_item?: string | null
+          produto_id?: string | null
+          produto_nome: string
+          quantidade?: number
+          valor_unitario?: number
+        }
+        Update: {
+          created_at?: string
+          devolucao_id?: string
+          id?: string
+          motivo_item?: string | null
+          produto_id?: string | null
+          produto_nome?: string
+          quantidade?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devolucao_itens_devolucao_id_fkey"
+            columns: ["devolucao_id"]
+            isOneToOne: false
+            referencedRelation: "devolucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devolucao_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      devolucoes: {
+        Row: {
+          aprovado_por: string | null
+          cliente_id: string | null
+          cliente_nome: string
+          created_at: string
+          data_aprovacao: string | null
+          id: string
+          motivo: string
+          observacoes: string | null
+          pedido_id: string | null
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          aprovado_por?: string | null
+          cliente_id?: string | null
+          cliente_nome: string
+          created_at?: string
+          data_aprovacao?: string | null
+          id?: string
+          motivo: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          aprovado_por?: string | null
+          cliente_id?: string | null
+          cliente_nome?: string
+          created_at?: string
+          data_aprovacao?: string | null
+          id?: string
+          motivo?: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devolucoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devolucoes_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devolucoes_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"

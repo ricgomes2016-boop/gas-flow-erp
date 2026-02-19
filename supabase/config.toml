@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.parse-orders-history]
 verify_jwt = false
+
+[functions.goto-webhook]
+verify_jwt = false
