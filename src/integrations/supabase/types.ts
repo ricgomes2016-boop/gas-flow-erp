@@ -747,6 +747,85 @@ export type Database = {
           },
         ]
       }
+      checklist_saida_veiculo: {
+        Row: {
+          agua: boolean
+          aprovado: boolean
+          avarias: boolean
+          created_at: string
+          data: string
+          documentos: boolean
+          entregador_id: string
+          freios: boolean
+          id: string
+          limpeza: boolean
+          luzes: boolean
+          observacoes: string | null
+          oleo: boolean
+          pneus: boolean
+          unidade_id: string | null
+          veiculo_id: string
+        }
+        Insert: {
+          agua?: boolean
+          aprovado?: boolean
+          avarias?: boolean
+          created_at?: string
+          data?: string
+          documentos?: boolean
+          entregador_id: string
+          freios?: boolean
+          id?: string
+          limpeza?: boolean
+          luzes?: boolean
+          observacoes?: string | null
+          oleo?: boolean
+          pneus?: boolean
+          unidade_id?: string | null
+          veiculo_id: string
+        }
+        Update: {
+          agua?: boolean
+          aprovado?: boolean
+          avarias?: boolean
+          created_at?: string
+          data?: string
+          documentos?: boolean
+          entregador_id?: string
+          freios?: boolean
+          id?: string
+          limpeza?: boolean
+          luzes?: boolean
+          observacoes?: string | null
+          oleo?: boolean
+          pneus?: boolean
+          unidade_id?: string | null
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_saida_veiculo_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_saida_veiculo_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_saida_veiculo_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           ativo: boolean | null
@@ -1307,6 +1386,7 @@ export type Database = {
         Row: {
           ativo: boolean | null
           cnh: string | null
+          cnh_vencimento: string | null
           cpf: string | null
           created_at: string
           email: string | null
@@ -1324,6 +1404,7 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           cnh?: string | null
+          cnh_vencimento?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
@@ -1341,6 +1422,7 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           cnh?: string | null
+          cnh_vencimento?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
@@ -2211,6 +2293,79 @@ export type Database = {
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multas_frota: {
+        Row: {
+          created_at: string
+          data_infracao: string
+          data_vencimento: string | null
+          descricao: string
+          entregador_id: string | null
+          id: string
+          observacoes: string | null
+          pontos: number
+          responsavel: string
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          veiculo_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_infracao?: string
+          data_vencimento?: string | null
+          descricao: string
+          entregador_id?: string | null
+          id?: string
+          observacoes?: string | null
+          pontos?: number
+          responsavel?: string
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          veiculo_id: string
+        }
+        Update: {
+          created_at?: string
+          data_infracao?: string
+          data_vencimento?: string | null
+          descricao?: string
+          entregador_id?: string | null
+          id?: string
+          observacoes?: string | null
+          pontos?: number
+          responsavel?: string
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multas_frota_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multas_frota_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multas_frota_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
             referencedColumns: ["id"]
           },
         ]
@@ -3574,12 +3729,15 @@ export type Database = {
           ano: number | null
           ativo: boolean | null
           created_at: string
+          crlv_vencimento: string | null
           entregador_id: string | null
           id: string
           km_atual: number | null
           marca: string | null
           modelo: string
           placa: string
+          seguro_empresa: string | null
+          seguro_vencimento: string | null
           tipo: string | null
           unidade_id: string | null
           updated_at: string
@@ -3588,12 +3746,15 @@ export type Database = {
           ano?: number | null
           ativo?: boolean | null
           created_at?: string
+          crlv_vencimento?: string | null
           entregador_id?: string | null
           id?: string
           km_atual?: number | null
           marca?: string | null
           modelo: string
           placa: string
+          seguro_empresa?: string | null
+          seguro_vencimento?: string | null
           tipo?: string | null
           unidade_id?: string | null
           updated_at?: string
@@ -3602,12 +3763,15 @@ export type Database = {
           ano?: number | null
           ativo?: boolean | null
           created_at?: string
+          crlv_vencimento?: string | null
           entregador_id?: string | null
           id?: string
           km_atual?: number | null
           marca?: string | null
           modelo?: string
           placa?: string
+          seguro_empresa?: string | null
+          seguro_vencimento?: string | null
           tipo?: string | null
           unidade_id?: string | null
           updated_at?: string
