@@ -56,6 +56,7 @@ export function ClienteLayout({ children, cartItemsCount: cartItemsCountProp }: 
   const { cartItemsCount: ctxCount } = useCliente();
   const cartItemsCount = cartItemsCountProp ?? ctxCount;
   const isCarrinhoPage = location.pathname === "/cliente/carrinho";
+  const isCheckoutPage = location.pathname === "/cliente/checkout";
   const isHomeOrCategoria = location.pathname === "/cliente";
 
   return (
@@ -128,7 +129,7 @@ export function ClienteLayout({ children, cartItemsCount: cartItemsCountProp }: 
       </main>
 
       {/* Floating Cart Button - visible on home when cart has items, not on cart page */}
-      {cartItemsCount > 0 && !isCarrinhoPage && (
+      {cartItemsCount > 0 && !isCarrinhoPage && !isCheckoutPage && (
         <div className="fixed bottom-[72px] left-0 right-0 px-4 z-40">
           <Button
             className="w-full h-12 shadow-lg gap-2 text-base font-semibold"
