@@ -86,7 +86,7 @@ export default function ClienteCheckout() {
           forma_pagamento: paymentMethods.find(p => p.id === paymentMethod)?.label || paymentMethod,
           valor_total: finalTotal,
           status: "pendente",
-          canal_venda: "app_cliente",
+          canal_venda: "Aplicativo",
           observacoes: changeFor ? `Troco para R$ ${changeFor}` : null,
         })
         .select("id")
