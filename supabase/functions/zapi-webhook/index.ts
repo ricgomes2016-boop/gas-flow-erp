@@ -245,12 +245,13 @@ async function sendWhatsAppMessage(instanceId: string, token: string, phone: str
   try {
     const ZAPI_SECURITY_TOKEN = Deno.env.get("ZAPI_SECURITY_TOKEN") || "";
     const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (ZAPI_SECURITY_TOKEN) {
+      headers["Client-Token"] = ZAPI_SECURITY_TOKEN;
+    }
     const resp = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Client-Token": ZAPI_SECURITY_TOKEN,
-      },
+      headers,
       body: JSON.stringify({ phone, message }),
     });
     if (!resp.ok) {
