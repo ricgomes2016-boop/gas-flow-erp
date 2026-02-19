@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   Home, 
   ShoppingCart, 
@@ -13,7 +13,8 @@ import {
   BookOpen,
   Calculator,
   CreditCard,
-  ChevronRight
+  ChevronRight,
+  ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LojaSelector } from "@/components/cliente/LojaSelector";
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import logoImg from "@/assets/logo.png";
+import { useCliente } from "@/contexts/ClienteContext";
 
 interface ClienteLayoutProps {
   children: ReactNode;
@@ -47,9 +49,14 @@ const bottomNavItems = [
   { icon: User, label: "Perfil", path: "/cliente/perfil" },
 ];
 
-export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutProps) {
+export function ClienteLayout({ children, cartItemsCount: cartItemsCountProp }: ClienteLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { cartItemsCount: ctxCount } = useCliente();
+  const cartItemsCount = cartItemsCountProp ?? ctxCount;
+  const isCarrinhoPage = location.pathname === "/cliente/carrinho";
+  const isHomeOrCategoria = location.pathname === "/cliente";
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -119,6 +126,23 @@ export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutPro
       <main className="px-4 py-4">
         {children}
       </main>
+
+      {/* Floating Cart Button - visible on home when cart has items, not on cart page */}
+      {cartItemsCount > 0 && !isCarrinhoPage && (
+        <div className="fixed bottom-[72px] left-0 right-0 px-4 z-40">
+          <Button
+            className="w-full h-12 shadow-lg gap-2 text-base font-semibold"
+            onClick={() => navigate("/cliente/carrinho")}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            Ver carrinho
+            <Badge className="bg-primary-foreground text-primary ml-1 text-xs h-5 px-1.5">
+              {cartItemsCount}
+            </Badge>
+            <ArrowRight className="h-4 w-4 ml-auto" />
+          </Button>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50">

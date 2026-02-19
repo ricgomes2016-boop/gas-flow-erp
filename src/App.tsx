@@ -205,6 +205,8 @@ const ClienteDicas = lazy(() => import("./pages/cliente/ClienteDicas"));
 const ClienteConsumo = lazy(() => import("./pages/cliente/ClienteConsumo"));
 const ClientePerfil = lazy(() => import("./pages/cliente/ClientePerfil"));
 const ClienteRastreamento = lazy(() => import("./pages/cliente/ClienteRastreamento"));
+const ClienteEnderecos = lazy(() => import("./pages/cliente/ClienteEnderecos"));
+const ClienteNotificacoes = lazy(() => import("./pages/cliente/ClienteNotificacoes"));
 
 const queryClient = new QueryClient();
 
@@ -915,6 +917,11 @@ const App = () => (
                   <Route path="/cliente/consumo" element={<ClienteConsumo />} />
                   <Route path="/cliente/perfil" element={<ClientePerfil />} />
                   <Route path="/cliente/rastreamento/:orderId" element={<ClienteRastreamento />} />
+                  <Route path="/cliente/enderecos" element={<ClienteEnderecos />} />
+                  <Route path="/cliente/notificacoes" element={<ClienteNotificacoes />} />
+                  <Route path="/cliente/privacidade" element={<ClienteNotificacoes />} />
+                  <Route path="/cliente/ajuda" element={<ClienteNotificacoes />} />
+                  <Route path="/cliente/termos" element={<ClienteNotificacoes />} />
                   
                   {/* Atendimento */}
                   <Route path="/atendimento" element={
