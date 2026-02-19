@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { CallerIdPopup } from "@/components/atendimento/CallerIdPopup";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -151,6 +152,18 @@ const PersonalizacaoVisual = lazy(() => import("./pages/config/PersonalizacaoVis
 // Assistente IA
 const AssistenteIA = lazy(() => import("./pages/AssistenteIA"));
 
+// Atendimento
+const CentralAtendimento = lazy(() => import("./pages/atendimento/CentralAtendimento"));
+
+// Devoluções
+const Devolucoes = lazy(() => import("./pages/vendas/Devolucoes"));
+
+// Contratos Recorrentes
+const ContratosRecorrentes = lazy(() => import("./pages/clientes/ContratosRecorrentes"));
+
+// Relatório Gerencial
+const RelatorioGerencial = lazy(() => import("./pages/operacional/RelatorioGerencial"));
+
 // App Entregador
 const EntregadorDashboard = lazy(() => import("./pages/entregador/EntregadorDashboard"));
 const EntregadorEntregas = lazy(() => import("./pages/entregador/EntregadorEntregas"));
@@ -205,6 +218,7 @@ const App = () => (
                 <ValeGasProvider>
                   <Toaster />
                   <Sonner />
+                  <CallerIdPopup />
                 <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                 <Routes>
@@ -895,6 +909,34 @@ const App = () => (
                   <Route path="/cliente/consumo" element={<ClienteConsumo />} />
                   <Route path="/cliente/perfil" element={<ClientePerfil />} />
                   <Route path="/cliente/rastreamento/:orderId" element={<ClienteRastreamento />} />
+                  
+                  {/* Atendimento */}
+                  <Route path="/atendimento" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <CentralAtendimento />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Devoluções */}
+                  <Route path="/vendas/devolucoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <Devolucoes />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Contratos Recorrentes */}
+                  <Route path="/clientes/contratos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <ContratosRecorrentes />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Relatório Gerencial */}
+                  <Route path="/operacional/gerencial" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <RelatorioGerencial />
+                    </ProtectedRoute>
+                  } />
                   
                   <Route path="*" element={<NotFound />} />
                 </Routes>
