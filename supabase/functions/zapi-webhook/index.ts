@@ -27,6 +27,13 @@ serve(async (req) => {
     const body = await req.json();
     console.log("Z-API webhook received:", JSON.stringify(body).substring(0, 500));
 
+    // Skip messages sent by the bot itself (prevents infinite loop)
+    if (body.fromMe === true) {
+      return new Response(JSON.stringify({ ok: true, skipped: "fromMe" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Z-API sends different event types
     const isMessage = body.type === "ReceivedCallback" || body.isNewMsg === true;
     if (!isMessage) {
