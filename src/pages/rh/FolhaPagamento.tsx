@@ -226,6 +226,7 @@ export default function FolhaPagamento() {
   const dadosFolha = useMemo(() => {
     return funcionarios.map((f: any) => {
       const salarioBase = Number(f.salario) || 0;
+      const periculosidade = Math.round(salarioBase * 0.30 * 100) / 100; // 30% do salário
       const bh = bancoHoras.find((b: any) => b.funcionario_id === f.id);
       const horasExtras = bh ? Math.round(Number(bh.saldo_positivo) * 15) : 0;
       const entId = funcToEntregadorId.get(f.id);
@@ -233,12 +234,13 @@ export default function FolhaPagamento() {
       const valesDesconto = valesPorFunc.get(f.id) || 0;
       const bonusVal = bonusPorFunc.get(f.id) || 0;
 
+      const salContrINSS = salarioBase + periculosidade; // Base de contribuição INSS
       const edit = descontosEdit[f.id] || { inss: "", ir: "", outros: "" };
-      const inss = edit.inss !== "" ? parseFloat(edit.inss) || 0 : Math.round(salarioBase * 0.11);
+      const inss = edit.inss !== "" ? parseFloat(edit.inss) || 0 : Math.round(salContrINSS * 0.0809 * 100) / 100; // 8,09%
       const ir = edit.ir !== "" ? parseFloat(edit.ir) || 0 : 0;
       const outros = edit.outros !== "" ? parseFloat(edit.outros) || 0 : 0;
 
-      const bruto = salarioBase + horasExtras + comissao + bonusVal;
+      const bruto = salarioBase + periculosidade + horasExtras + comissao + bonusVal;
       const totalDescontos = inss + ir + outros + valesDesconto;
       const liquido = bruto - totalDescontos;
 
@@ -246,7 +248,7 @@ export default function FolhaPagamento() {
         id: f.id,
         funcionario: f.nome,
         cargo: f.cargo || "N/A",
-        salarioBase, horasExtras, comissao, valesDesconto, bonusVal,
+        salarioBase, periculosidade, horasExtras, comissao, valesDesconto, bonusVal,
         inss, ir, outros, bruto, totalDescontos, liquido,
       };
     });
@@ -453,6 +455,15 @@ export default function FolhaPagamento() {
                         <TableHead>Funcionário</TableHead>
                         <TableHead>Cargo</TableHead>
                         <TableHead className="text-right">Salário</TableHead>
+                        <TableHead className="text-right">
+                          <span className="flex items-center justify-end gap-1">
+                            Periculosidade
+                            <Tooltip>
+                              <TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                              <TooltipContent>30% do salário base</TooltipContent>
+                            </Tooltip>
+                          </span>
+                        </TableHead>
                         <TableHead className="text-right">H. Extras</TableHead>
                         <TableHead className="text-right">Comissão</TableHead>
                         <TableHead className="text-right">Bônus</TableHead>
@@ -462,7 +473,7 @@ export default function FolhaPagamento() {
                             INSS
                             <Tooltip>
                               <TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
-                              <TooltipContent>Editável. Padrão: 11% do salário</TooltipContent>
+                              <TooltipContent>Editável. Padrão: 8,09% sobre salário + periculosidade</TooltipContent>
                             </Tooltip>
                           </span>
                         </TableHead>
@@ -480,6 +491,9 @@ export default function FolhaPagamento() {
                           <TableCell>{func.cargo}</TableCell>
                           <TableCell className="text-right">R$ {fmt(func.salarioBase)}</TableCell>
                           <TableCell className="text-right text-success">
+                            {func.periculosidade > 0 ? `+ R$ ${fmt(func.periculosidade)}` : "-"}
+                          </TableCell>
+                          <TableCell className="text-right text-success">
                             {func.horasExtras > 0 ? `+ R$ ${fmt(func.horasExtras)}` : "-"}
                           </TableCell>
                           <TableCell className="text-right text-success">
@@ -496,7 +510,7 @@ export default function FolhaPagamento() {
                               <Input
                                 type="number"
                                 className="w-20 h-7 text-xs text-right ml-auto"
-                                placeholder={String(Math.round(func.salarioBase * 0.11))}
+                                placeholder={String(Math.round((func.salarioBase + func.periculosidade) * 0.0809 * 100) / 100)}
                                 value={descontosEdit[func.id]?.inss ?? ""}
                                 onChange={e => updateDesconto(func.id, "inss", e.target.value)}
                               />
@@ -553,6 +567,7 @@ export default function FolhaPagamento() {
                       <TableRow className="bg-muted/50 font-bold">
                         <TableCell colSpan={2}>Total</TableCell>
                         <TableCell className="text-right">R$ {fmt(dadosFolha.reduce((a, f) => a + f.salarioBase, 0))}</TableCell>
+                        <TableCell className="text-right text-success">R$ {fmt(dadosFolha.reduce((a, f) => a + f.periculosidade, 0))}</TableCell>
                         <TableCell className="text-right text-success">R$ {fmt(dadosFolha.reduce((a, f) => a + f.horasExtras, 0))}</TableCell>
                         <TableCell className="text-right text-success">R$ {fmt(totalComissoes)}</TableCell>
                         <TableCell className="text-right text-success">R$ {fmt(dadosFolha.reduce((a, f) => a + f.bonusVal, 0))}</TableCell>
