@@ -184,9 +184,13 @@ export const menuItems: MenuItem[] = [
     icon: Truck,
     label: "Gestão de Frota",
     submenu: [
+      { icon: Gauge, label: "Dashboard", path: "/frota" },
       { icon: Car, label: "Veículos", path: "/cadastros/veiculos" },
       { icon: Fuel, label: "Controle de Combustível", path: "/frota/combustivel" },
       { icon: Wrench, label: "Manutenção", path: "/frota/manutencao" },
+      { icon: ShieldCheck, label: "Documentos", path: "/frota/documentos" },
+      { icon: ClipboardCheck, label: "Checklist de Saída", path: "/frota/checklist" },
+      { icon: FileWarning, label: "Multas", path: "/frota/multas" },
       { icon: BarChart3, label: "Relatórios", path: "/frota/relatorios" },
       { icon: Gamepad2, label: "Gamificação", path: "/frota/gamificacao" },
     ],

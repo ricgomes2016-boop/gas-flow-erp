@@ -95,10 +95,14 @@ const ValeGasAcerto = lazy(() => import("./pages/financeiro/ValeGasAcerto"));
 const ValeGasRelatorio = lazy(() => import("./pages/financeiro/ValeGasRelatorio"));
 
 // Frota
+const DashboardFrota = lazy(() => import("./pages/frota/DashboardFrota"));
 const Combustivel = lazy(() => import("./pages/frota/Combustivel"));
 const Manutencao = lazy(() => import("./pages/frota/Manutencao"));
 const RelatoriosFrota = lazy(() => import("./pages/frota/RelatoriosFrota"));
 const Gamificacao = lazy(() => import("./pages/frota/Gamificacao"));
+const DocumentosFrota = lazy(() => import("./pages/frota/DocumentosFrota"));
+const ChecklistSaida = lazy(() => import("./pages/frota/ChecklistSaida"));
+const MultasFrota = lazy(() => import("./pages/frota/MultasFrota"));
 
 // RH
 const FolhaPagamento = lazy(() => import("./pages/rh/FolhaPagamento"));
@@ -501,6 +505,11 @@ const App = () => (
                   } />
                   
                   {/* Frota */}
+                  <Route path="/frota" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <DashboardFrota />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/frota/combustivel" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <Combustivel />
@@ -519,6 +528,21 @@ const App = () => (
                   <Route path="/frota/gamificacao" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <Gamificacao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/frota/documentos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <DocumentosFrota />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/frota/checklist" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <ChecklistSaida />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/frota/multas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <MultasFrota />
                     </ProtectedRoute>
                   } />
                   
