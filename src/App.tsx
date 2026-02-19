@@ -78,6 +78,8 @@ const Funcionarios = lazy(() => import("./pages/cadastros/Funcionarios"));
 const Produtos = lazy(() => import("./pages/cadastros/Produtos"));
 
 // Financeiro
+const DashboardFinanceiro = lazy(() => import("./pages/financeiro/DashboardFinanceiro"));
+const AgingReport = lazy(() => import("./pages/financeiro/AgingReport"));
 const FluxoCaixa = lazy(() => import("./pages/financeiro/FluxoCaixa"));
 const PrevisaoCaixa = lazy(() => import("./pages/financeiro/PrevisaoCaixa"));
 const ContasPagar = lazy(() => import("./pages/financeiro/ContasPagar"));
@@ -428,6 +430,16 @@ const App = () => (
                   } />
                   
                   {/* Financeiro */}
+                  <Route path="/financeiro" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <DashboardFinanceiro />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/aging" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <AgingReport />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/financeiro/fluxo" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
                       <FluxoCaixa />

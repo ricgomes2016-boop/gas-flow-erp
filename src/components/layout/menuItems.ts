@@ -163,6 +163,7 @@ export const menuItems: MenuItem[] = [
     icon: CreditCard,
     label: "Gestão Financeira",
     submenu: [
+      { icon: Gauge, label: "Dashboard", path: "/financeiro" },
       { icon: ArrowUpDown, label: "Fluxo de Caixa", path: "/financeiro/fluxo" },
       { icon: TrendingDown, label: "Previsão de Caixa", path: "/financeiro/previsao" },
       { icon: HandCoins, label: "Contas a Pagar", path: "/financeiro/pagar" },
@@ -172,6 +173,7 @@ export const menuItems: MenuItem[] = [
       { icon: Calculator, label: "Contador", path: "/financeiro/contador" },
       { icon: CreditCardIcon, label: "Terminais de Cartão", path: "/financeiro/terminais" },
       { icon: Banknote, label: "Emissão de Boletos", path: "/financeiro/boletos" },
+      { icon: TrendingDown, label: "Aging Report", path: "/financeiro/aging" },
       { icon: CalendarDays, label: "Calendário Financeiro", path: "/financeiro/calendario" },
       { icon: Users2, label: "Vale Gás - Parceiros", path: "/financeiro/vale-gas/parceiros" },
       { icon: Ticket, label: "Vale Gás - Emissão", path: "/financeiro/vale-gas/emissao" },
