@@ -14,13 +14,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Clock, LogIn, LogOut, Coffee, Play, Plus, Users } from "lucide-react";
+import { Clock, LogIn, LogOut, Coffee, Play, Plus, Users, Pencil } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -31,6 +29,9 @@ export default function PontoEletronico() {
   const [dataSelecionada, setDataSelecionada] = useState(format(new Date(), "yyyy-MM-dd"));
   const [showNovo, setShowNovo] = useState(false);
   const [novoFuncId, setNovoFuncId] = useState("");
+  const [showEditar, setShowEditar] = useState(false);
+  const [pontoEditando, setPontoEditando] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ entrada: "", saida_almoco: "", retorno_almoco: "", saida: "" });
 
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["ponto-funcionarios", unidadeAtual?.id],
@@ -82,6 +83,45 @@ export default function PontoEletronico() {
     },
     onError: (err: any) => toast.error(err.message),
   });
+
+  const editarPonto = useMutation({
+    mutationFn: async () => {
+      if (!pontoEditando) return;
+      const baseDate = pontoEditando.data;
+      const toISO = (time: string) => {
+        if (!time) return null;
+        return new Date(`${baseDate}T${time}:00`).toISOString();
+      };
+      const updateData: any = {
+        entrada: editForm.entrada ? toISO(editForm.entrada) : null,
+        saida_almoco: editForm.saida_almoco ? toISO(editForm.saida_almoco) : null,
+        retorno_almoco: editForm.retorno_almoco ? toISO(editForm.retorno_almoco) : null,
+        saida: editForm.saida ? toISO(editForm.saida) : null,
+      };
+      updateData.status = editForm.saida ? "fechado" : "aberto";
+      const { error } = await supabase.from("ponto_eletronico").update(updateData).eq("id", pontoEditando.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Ponto atualizado!");
+      queryClient.invalidateQueries({ queryKey: ["ponto-eletronico"] });
+      setShowEditar(false);
+      setPontoEditando(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const abrirEdicao = (ponto: any) => {
+    setPontoEditando(ponto);
+    const toTime = (ts: string | null) => ts ? format(new Date(ts), "HH:mm") : "";
+    setEditForm({
+      entrada: toTime(ponto.entrada),
+      saida_almoco: toTime(ponto.saida_almoco),
+      retorno_almoco: toTime(ponto.retorno_almoco),
+      saida: toTime(ponto.saida),
+    });
+    setShowEditar(true);
+  };
 
   const fmtHora = (ts: string | null) => ts ? format(new Date(ts), "HH:mm") : "—";
 
@@ -185,26 +225,31 @@ export default function PontoEletronico() {
                       <TableCell className="text-center font-medium">{calcHoras(p)}</TableCell>
                       <TableCell className="text-center">{statusBadge(p.status)}</TableCell>
                       <TableCell className="text-right">
-                        {p.status === "aberto" && (
-                          <div className="flex gap-1 justify-end">
-                            {!p.saida_almoco && (
-                              <Button size="sm" variant="outline" className="gap-1 text-xs"
-                                onClick={() => registrarPonto.mutate({ pontoId: p.id, campo: "saida_almoco" })}>
-                                <Coffee className="h-3 w-3" />Almoço
+                        <div className="flex gap-1 justify-end">
+                          <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => abrirEdicao(p)}>
+                            <Pencil className="h-3 w-3" />Editar
+                          </Button>
+                          {p.status === "aberto" && (
+                            <>
+                              {!p.saida_almoco && (
+                                <Button size="sm" variant="outline" className="gap-1 text-xs"
+                                  onClick={() => registrarPonto.mutate({ pontoId: p.id, campo: "saida_almoco" })}>
+                                  <Coffee className="h-3 w-3" />Almoço
+                                </Button>
+                              )}
+                              {p.saida_almoco && !p.retorno_almoco && (
+                                <Button size="sm" variant="outline" className="gap-1 text-xs"
+                                  onClick={() => registrarPonto.mutate({ pontoId: p.id, campo: "retorno_almoco" })}>
+                                  <Play className="h-3 w-3" />Retorno
+                                </Button>
+                              )}
+                              <Button size="sm" variant="destructive" className="gap-1 text-xs"
+                                onClick={() => registrarPonto.mutate({ pontoId: p.id, campo: "saida" })}>
+                                <LogOut className="h-3 w-3" />Saída
                               </Button>
-                            )}
-                            {p.saida_almoco && !p.retorno_almoco && (
-                              <Button size="sm" variant="outline" className="gap-1 text-xs"
-                                onClick={() => registrarPonto.mutate({ pontoId: p.id, campo: "retorno_almoco" })}>
-                                <Play className="h-3 w-3" />Retorno
-                              </Button>
-                            )}
-                            <Button size="sm" variant="destructive" className="gap-1 text-xs"
-                              onClick={() => registrarPonto.mutate({ pontoId: p.id, campo: "saida" })}>
-                              <LogOut className="h-3 w-3" />Saída
-                            </Button>
-                          </div>
-                        )}
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -214,6 +259,7 @@ export default function PontoEletronico() {
           </CardContent>
         </Card>
 
+        {/* Dialog Registrar Entrada */}
         <Dialog open={showNovo} onOpenChange={setShowNovo}>
           <DialogContent>
             <DialogHeader>
@@ -236,6 +282,39 @@ export default function PontoEletronico() {
               <Button variant="outline" onClick={() => setShowNovo(false)}>Cancelar</Button>
               <Button onClick={() => registrarPonto.mutate({ campo: "entrada" })} disabled={!novoFuncId || registrarPonto.isPending}>
                 <LogIn className="h-4 w-4 mr-2" />Registrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Editar Ponto */}
+        <Dialog open={showEditar} onOpenChange={setShowEditar}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Ponto — {pontoEditando?.funcionarios?.nome}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Entrada</Label>
+                <Input type="time" value={editForm.entrada} onChange={e => setEditForm({ ...editForm, entrada: e.target.value })} />
+              </div>
+              <div>
+                <Label>Saída Almoço</Label>
+                <Input type="time" value={editForm.saida_almoco} onChange={e => setEditForm({ ...editForm, saida_almoco: e.target.value })} />
+              </div>
+              <div>
+                <Label>Retorno Almoço</Label>
+                <Input type="time" value={editForm.retorno_almoco} onChange={e => setEditForm({ ...editForm, retorno_almoco: e.target.value })} />
+              </div>
+              <div>
+                <Label>Saída</Label>
+                <Input type="time" value={editForm.saida} onChange={e => setEditForm({ ...editForm, saida: e.target.value })} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditar(false)}>Cancelar</Button>
+              <Button onClick={() => editarPonto.mutate()} disabled={editarPonto.isPending}>
+                Salvar Alterações
               </Button>
             </DialogFooter>
           </DialogContent>
