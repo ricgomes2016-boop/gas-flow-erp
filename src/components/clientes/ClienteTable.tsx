@@ -3,7 +3,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Phone, MapPin, Edit, Trash2 } from "lucide-react";
+import { Phone, MapPin, Edit, Trash2, Eye } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ClienteDB, ClienteForm } from "@/hooks/useClientes";
 import {
@@ -11,6 +11,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import { ClienteTagsBadges } from "./ClienteTagsBadges";
 
 interface Props {
   clientes: ClienteDB[];
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export function ClienteTable({ clientes, loading, onEdit, onDelete }: Props) {
+  const navigate = useNavigate();
   if (loading) {
     return (
       <div className="space-y-3">
@@ -70,11 +73,14 @@ export function ClienteTable({ clientes, loading, onEdit, onDelete }: Props) {
             clientes.map((cliente) => (
               <TableRow key={cliente.id}>
                 <TableCell className="font-medium">
-                  <div>
-                    {cliente.nome}
-                    {cliente.tipo && cliente.tipo !== "residencial" && (
-                      <Badge variant="outline" className="ml-2 text-[10px]">{cliente.tipo}</Badge>
-                    )}
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      {cliente.nome}
+                      {cliente.tipo && cliente.tipo !== "residencial" && (
+                        <Badge variant="outline" className="text-[10px]">{cliente.tipo}</Badge>
+                      )}
+                    </div>
+                    <ClienteTagsBadges clienteId={cliente.id} />
                   </div>
                 </TableCell>
                 <TableCell>
@@ -108,6 +114,9 @@ export function ClienteTable({ clientes, loading, onEdit, onDelete }: Props) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/clientes/${cliente.id}`)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(cliente)}>
                       <Edit className="h-4 w-4" />
                     </Button>
