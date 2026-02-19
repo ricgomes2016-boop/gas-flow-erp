@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ClienteLayout } from "@/components/cliente/ClienteLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,18 +8,24 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { useCliente } from "@/contexts/ClienteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  CreditCard, 
-  Banknote, 
-  QrCode, 
+import {
+  CreditCard,
+  Banknote,
+  QrCode,
   Wallet,
   MapPin,
   Clock,
   CheckCircle2,
-  ArrowLeft
+  ArrowLeft,
+  Home,
+  Building,
+  Plus,
+  Star,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,43 +36,90 @@ const paymentMethods = [
   { id: "vale-gas", label: "Vale Gás", icon: Wallet, description: "Use seu vale" },
 ];
 
+interface Endereco {
+  id: string;
+  apelido: string;
+  rua: string;
+  numero: string;
+  complemento: string | null;
+  bairro: string;
+  cidade: string | null;
+  cep: string | null;
+  principal: boolean | null;
+}
+
 export default function ClienteCheckout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { cart, cartTotal, clearCart } = useCliente();
   const { user } = useAuth();
-  
-  const { 
-    couponDiscount = 0, 
-    walletDiscount = 0, 
-    useWallet = false,
+
+  const {
+    couponDiscount = 0,
+    walletDiscount = 0,
     appliedCoupon,
-    finalTotal = cartTotal
+    finalTotal = cartTotal,
   } = location.state || {};
 
   const [paymentMethod, setPaymentMethod] = useState("pix");
-  const [address, setAddress] = useState({
-    street: "",
-    number: "",
-    complement: "",
-    neighborhood: "",
-    reference: ""
-  });
   const [changeFor, setChangeFor] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Endereços salvos
+  const [enderecos, setEnderecos] = useState<Endereco[]>([]);
+  const [enderecoSelecionadoId, setEnderecoSelecionadoId] = useState<string | null>(null);
+  const [showNovoEndereco, setShowNovoEndereco] = useState(false);
+  const [novoEndereco, setNovoEndereco] = useState({
+    rua: "", numero: "", complemento: "", bairro: "", referencia: ""
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("cliente_enderecos")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("principal", { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setEnderecos(data);
+          // Pré-seleciona o principal
+          const principal = data.find(e => e.principal) || data[0];
+          setEnderecoSelecionadoId(principal.id);
+        } else {
+          // Sem endereços: mostra formulário
+          setShowNovoEndereco(true);
+        }
+      });
+  }, [user]);
+
+  const enderecoSelecionado = enderecos.find(e => e.id === enderecoSelecionadoId);
+
+  const buildEnderecoString = () => {
+    if (enderecoSelecionado) {
+      const e = enderecoSelecionado;
+      return `${e.rua}, ${e.numero}${e.complemento ? ` - ${e.complemento}` : ""} - ${e.bairro}${e.cidade ? `, ${e.cidade}` : ""}`;
+    }
+    const e = novoEndereco;
+    return `${e.rua}, ${e.numero}${e.complemento ? ` - ${e.complemento}` : ""} - ${e.bairro}${e.referencia ? ` (Ref: ${e.referencia})` : ""}`;
+  };
+
   const handleSubmit = async () => {
-    if (!address.street || !address.number || !address.neighborhood) {
+    const usingNovo = showNovoEndereco && enderecos.length === 0;
+
+    if (enderecoSelecionadoId == null && !usingNovo) {
+      toast.error("Selecione um endereço de entrega");
+      return;
+    }
+    if (usingNovo && (!novoEndereco.rua || !novoEndereco.numero || !novoEndereco.bairro)) {
       toast.error("Preencha o endereço completo");
       return;
     }
 
     setIsSubmitting(true);
-
     try {
-      const enderecoCompleto = `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ""} - ${address.neighborhood}${address.reference ? ` (Ref: ${address.reference})` : ""}`;
+      const enderecoCompleto = buildEnderecoString();
 
-      // Find cliente_id linked to this user (if any)
       let clienteId: string | null = null;
       if (user) {
         const { data: clienteData } = await supabase
@@ -77,7 +130,6 @@ export default function ClienteCheckout() {
         clienteId = clienteData?.id || null;
       }
 
-      // Create pedido
       const { data: pedido, error: pedidoError } = await supabase
         .from("pedidos")
         .insert({
@@ -94,7 +146,6 @@ export default function ClienteCheckout() {
 
       if (pedidoError) throw pedidoError;
 
-      // Insert pedido_itens
       const itens = cart.map(item => ({
         pedido_id: pedido.id,
         produto_id: item.id,
@@ -109,7 +160,7 @@ export default function ClienteCheckout() {
       if (itensError) throw itensError;
 
       clearCart();
-      toast.success("Pedido realizado com sucesso!");
+      toast.success("Pedido realizado com sucesso! 🎉");
       navigate("/cliente/historico");
     } catch (error) {
       console.error("Erro ao criar pedido:", error);
@@ -117,6 +168,12 @@ export default function ClienteCheckout() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const ApelidoIcon = ({ apelido }: { apelido: string }) => {
+    if (apelido === "Casa") return <Home className="h-4 w-4 text-primary" />;
+    if (apelido === "Trabalho") return <Building className="h-4 w-4 text-primary" />;
+    return <MapPin className="h-4 w-4 text-primary" />;
   };
 
   return (
@@ -129,7 +186,7 @@ export default function ClienteCheckout() {
           <h1 className="text-2xl font-bold">Finalizar Pedido</h1>
         </div>
 
-        {/* Delivery Address */}
+        {/* Endereço de Entrega */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -138,56 +195,142 @@ export default function ClienteCheckout() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <Label>Rua</Label>
-                <Input
-                  placeholder="Nome da rua"
-                  value={address.street}
-                  onChange={(e) => setAddress({ ...address, street: e.target.value })}
-                />
+            {enderecos.length > 0 && (
+              <>
+                {/* Lista de endereços salvos */}
+                <RadioGroup
+                  value={enderecoSelecionadoId || ""}
+                  onValueChange={(val) => {
+                    setEnderecoSelecionadoId(val);
+                    setShowNovoEndereco(false);
+                  }}
+                >
+                  {enderecos.map((e) => (
+                    <label
+                      key={e.id}
+                      className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
+                        enderecoSelecionadoId === e.id
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-muted/50"
+                      }`}
+                    >
+                      <RadioGroupItem value={e.id} />
+                      <ApelidoIcon apelido={e.apelido} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{e.apelido}</span>
+                          {e.principal && (
+                            <Badge variant="secondary" className="text-xs gap-0.5 px-1.5 py-0">
+                              <Star className="h-2.5 w-2.5 fill-current" />
+                              Principal
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {e.rua}, {e.numero}{e.complemento ? ` - ${e.complemento}` : ""}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {e.bairro}{e.cidade ? `, ${e.cidade}` : ""}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </RadioGroup>
+
+                {/* Botão adicionar novo */}
+                <Button
+                  variant="ghost"
+                  className="w-full gap-2 border border-dashed"
+                  onClick={() => {
+                    setShowNovoEndereco(!showNovoEndereco);
+                    if (!showNovoEndereco) setEnderecoSelecionadoId(null);
+                    else setEnderecoSelecionadoId(enderecos[0]?.id || null);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {showNovoEndereco ? "Cancelar novo endereço" : "Usar outro endereço"}
+                </Button>
+              </>
+            )}
+
+            {/* Formulário para endereço sem salvar */}
+            {(showNovoEndereco || enderecos.length === 0) && (
+              <div className="space-y-3 pt-1">
+                {enderecos.length === 0 && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Nenhum endereço salvo. Preencha abaixo ou
+                    <button
+                      className="text-primary underline"
+                      onClick={() => navigate("/cliente/enderecos")}
+                    >
+                      adicione um fixo
+                    </button>.
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Label>Rua</Label>
+                    <Input
+                      placeholder="Nome da rua"
+                      value={novoEndereco.rua}
+                      onChange={e => setNovoEndereco(p => ({ ...p, rua: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Número</Label>
+                    <Input
+                      placeholder="Nº"
+                      value={novoEndereco.numero}
+                      onChange={e => setNovoEndereco(p => ({ ...p, numero: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Complemento</Label>
+                    <Input
+                      placeholder="Apto, bloco..."
+                      value={novoEndereco.complemento}
+                      onChange={e => setNovoEndereco(p => ({ ...p, complemento: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Bairro</Label>
+                    <Input
+                      placeholder="Bairro"
+                      value={novoEndereco.bairro}
+                      onChange={e => setNovoEndereco(p => ({ ...p, bairro: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Ponto de Referência</Label>
+                  <Textarea
+                    placeholder="Ex: Próximo ao mercado..."
+                    value={novoEndereco.referencia}
+                    onChange={e => setNovoEndereco(p => ({ ...p, referencia: e.target.value }))}
+                    rows={2}
+                  />
+                </div>
               </div>
-              <div>
-                <Label>Número</Label>
-                <Input
-                  placeholder="Nº"
-                  value={address.number}
-                  onChange={(e) => setAddress({ ...address, number: e.target.value })}
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label>Complemento</Label>
-              <Input
-                placeholder="Apto, bloco, etc."
-                value={address.complement}
-                onChange={(e) => setAddress({ ...address, complement: e.target.value })}
-              />
-            </div>
-            
-            <div>
-              <Label>Bairro</Label>
-              <Input
-                placeholder="Bairro"
-                value={address.neighborhood}
-                onChange={(e) => setAddress({ ...address, neighborhood: e.target.value })}
-              />
-            </div>
-            
-            <div>
-              <Label>Ponto de Referência</Label>
-              <Textarea
-                placeholder="Ex: Próximo ao mercado..."
-                value={address.reference}
-                onChange={(e) => setAddress({ ...address, reference: e.target.value })}
-                rows={2}
-              />
-            </div>
+            )}
+
+            {/* Atalho para gerenciar endereços */}
+            {enderecos.length > 0 && (
+              <button
+                onClick={() => navigate("/cliente/enderecos")}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <MapPin className="h-3 w-3" />
+                Gerenciar endereços salvos
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            )}
           </CardContent>
         </Card>
 
-        {/* Payment Method */}
+        {/* Forma de Pagamento */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -201,9 +344,9 @@ export default function ClienteCheckout() {
                 {paymentMethods.map((method) => (
                   <label
                     key={method.id}
-                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                      paymentMethod === method.id 
-                        ? "border-primary bg-primary/5" 
+                    className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
+                      paymentMethod === method.id
+                        ? "border-primary bg-primary/5"
                         : "hover:bg-muted/50"
                     }`}
                   >
@@ -225,14 +368,14 @@ export default function ClienteCheckout() {
                   type="number"
                   placeholder="Ex: 150.00"
                   value={changeFor}
-                  onChange={(e) => setChangeFor(e.target.value)}
+                  onChange={e => setChangeFor(e.target.value)}
                 />
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Delivery Time */}
+        {/* Tempo estimado */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -245,7 +388,7 @@ export default function ClienteCheckout() {
           </CardContent>
         </Card>
 
-        {/* Order Summary */}
+        {/* Resumo do Pedido */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Resumo do Pedido</CardTitle>
@@ -257,35 +400,35 @@ export default function ClienteCheckout() {
                 <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
               </div>
             ))}
-            
+
             <Separator className="my-2" />
-            
+
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
               <span>R$ {cartTotal.toFixed(2)}</span>
             </div>
-            
+
             {couponDiscount > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
+              <div className="flex justify-between text-sm text-success">
                 <span>Desconto cupom</span>
                 <span>-R$ {couponDiscount.toFixed(2)}</span>
               </div>
             )}
-            
+
             {walletDiscount > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
+              <div className="flex justify-between text-sm text-success">
                 <span>Saldo carteira</span>
                 <span>-R$ {walletDiscount.toFixed(2)}</span>
               </div>
             )}
-            
+
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Entrega</span>
-              <span className="text-green-600">Grátis</span>
+              <span className="text-success">Grátis</span>
             </div>
-            
+
             <Separator className="my-2" />
-            
+
             <div className="flex justify-between font-semibold text-lg">
               <span>Total</span>
               <span className="text-primary">R$ {finalTotal.toFixed(2)}</span>
@@ -293,8 +436,8 @@ export default function ClienteCheckout() {
           </CardContent>
         </Card>
 
-        {/* Confirm Button */}
-        <Button 
+        {/* Botão confirmar */}
+        <Button
           className="w-full h-12 text-lg gap-2"
           onClick={handleSubmit}
           disabled={isSubmitting}
