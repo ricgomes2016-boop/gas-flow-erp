@@ -13,12 +13,16 @@ export function LojaSelector() {
   const { lojas, lojaSelecionadaId, setLojaSelecionadaId, lojasLoading } = useCliente();
   const [open, setOpen] = useState(false);
 
-  // Abre o dialog automaticamente quando o carregamento termina e nenhuma loja está selecionada
+  // Abre o dialog automaticamente quando:
+  // 1. Não há loja selecionada, OU
+  // 2. A loja salva não está na lista de lojas disponíveis (ID inválido)
   useEffect(() => {
-    if (!lojasLoading && !lojaSelecionadaId && lojas.length > 1) {
+    if (lojasLoading || lojas.length <= 1) return;
+    const savedIsValid = lojaSelecionadaId && lojas.some(l => l.id === lojaSelecionadaId);
+    if (!savedIsValid) {
       setOpen(true);
     }
-  }, [lojasLoading, lojaSelecionadaId, lojas.length]);
+  }, [lojasLoading, lojaSelecionadaId, lojas]);
 
   const lojaSelecionada = lojas.find(l => l.id === lojaSelecionadaId);
 
