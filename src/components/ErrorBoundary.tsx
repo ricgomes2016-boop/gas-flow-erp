@@ -30,9 +30,22 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  getHomeByPath = () => {
+    const path = window.location.pathname;
+    if (path.startsWith("/cliente")) return "/cliente";
+    if (path.startsWith("/entregador")) return "/entregador";
+    if (path.startsWith("/parceiro")) return "/parceiro";
+    return "/";
+  };
+
   handleGoBack = () => {
     this.setState({ hasError: false, error: null });
     window.history.back();
+  };
+
+  handleGoHome = () => {
+    this.setState({ hasError: false, error: null });
+    window.location.href = this.getHomeByPath();
   };
 
   render() {
@@ -48,6 +61,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex gap-2 justify-center">
               <Button variant="outline" onClick={this.handleGoBack}>
                 Voltar
+              </Button>
+              <Button variant="outline" onClick={this.handleGoHome}>
+                Início
               </Button>
               <Button onClick={this.handleReset}>
                 <RefreshCw className="h-4 w-4 mr-2" />
