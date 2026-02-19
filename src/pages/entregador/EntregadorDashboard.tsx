@@ -14,6 +14,8 @@ import {
   Flame,
   Medal,
   BellRing,
+  DollarSign,
+  Wallet,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useDeliveryNotifications } from "@/contexts/DeliveryNotificationContext";
@@ -31,6 +33,8 @@ export default function EntregadorDashboard() {
     entregasHoje: 0,
     entregasMes: 0,
     metaMensal: 200,
+    ganhosHoje: 0,
+    ganhosMes: 0,
   });
   const [entregasPendentes, setEntregasPendentes] = useState<any[]>([]);
 
@@ -51,7 +55,7 @@ export default function EntregadorDashboard() {
       const hoje = new Date().toISOString().split("T")[0];
       const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-      const [hojRes, mesRes, pendRes] = await Promise.all([
+      const [hojRes, mesRes, pendRes, ganhosHojeRes, ganhosMesRes] = await Promise.all([
         supabase.from("pedidos").select("id", { count: "exact", head: true })
           .eq("entregador_id", entregador.id).eq("status", "entregue")
           .gte("created_at", hoje),
@@ -63,12 +67,22 @@ export default function EntregadorDashboard() {
           .in("status", ["pendente", "em_rota"])
           .order("created_at", { ascending: true })
           .limit(5),
+        supabase.from("pedidos").select("valor_total")
+          .eq("entregador_id", entregador.id).eq("status", "entregue")
+          .gte("created_at", hoje),
+        supabase.from("pedidos").select("valor_total")
+          .eq("entregador_id", entregador.id).eq("status", "entregue")
+          .gte("created_at", inicioMes),
       ]);
+
+      const sumValues = (data: any[] | null) => (data || []).reduce((s: number, r: any) => s + (r.valor_total || 0), 0);
 
       setStats({
         entregasHoje: hojRes.count || 0,
         entregasMes: mesRes.count || 0,
         metaMensal: 200,
+        ganhosHoje: sumValues(ganhosHojeRes.data),
+        ganhosMes: sumValues(ganhosMesRes.data),
       });
 
       setEntregasPendentes(
@@ -154,6 +168,31 @@ export default function EntregadorDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Resumo financeiro do dia */}
+        <Card className="border-none shadow-md bg-gradient-to-r from-success/5 to-success/10 border-l-4 border-l-success">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center">
+                  <Wallet className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Ganhos hoje</p>
+                  <p className="text-2xl font-bold text-success">
+                    R$ {stats.ganhosHoje.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">No mês</p>
+                <p className="text-lg font-bold text-foreground">
+                  R$ {stats.ganhosMes.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Cards de estatísticas rápidas */}
         <div className="grid grid-cols-2 gap-3">
