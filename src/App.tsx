@@ -52,6 +52,8 @@ const PlanejamentoMensal = lazy(() => import("./pages/operacional/PlanejamentoMe
 const CanaisVenda = lazy(() => import("./pages/operacional/CanaisVenda"));
 const PontoEquilibrio = lazy(() => import("./pages/operacional/PontoEquilibrio"));
 const ResultadoOperacional = lazy(() => import("./pages/operacional/ResultadoOperacional"));
+const AnaliseResultados = lazy(() => import("./pages/operacional/AnaliseResultados"));
+const Planejamento = lazy(() => import("./pages/operacional/Planejamento"));
 const CategoriasDespesa = lazy(() => import("./pages/config/CategoriasDespesa"));
 
 // Clientes
@@ -333,6 +335,16 @@ const App = () => (
                   <Route path="/operacional/mensal" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <PlanejamentoMensal />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/planejamento" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Planejamento />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/operacional/analise-resultados" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <AnaliseResultados />
                     </ProtectedRoute>
                   } />
                   <Route path="/operacional/canais-venda" element={

@@ -12,7 +12,7 @@ interface MesData {
   realizado: number;
 }
 
-export default function PlanejamentoAnual() {
+export default function PlanejamentoAnual({ embedded = false }: { embedded?: boolean }) {
   const { unidadeAtual } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [meses, setMeses] = useState<MesData[]>([]);
@@ -48,20 +48,20 @@ export default function PlanejamentoAnual() {
   };
 
   if (loading) {
+    const loader = <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    if (embedded) return loader;
     return (
       <MainLayout>
         <Header title="Planejamento Anual" subtitle={`Resultados ${new Date().getFullYear()}`} />
-        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        {loader}
       </MainLayout>
     );
   }
 
   const totalRealizado = meses.reduce((s, m) => s + m.realizado, 0);
 
-  return (
-    <MainLayout>
-      <Header title="Planejamento Anual" subtitle={`Resultados ${new Date().getFullYear()}`} />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="space-y-6">
 
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -85,8 +85,15 @@ export default function PlanejamentoAnual() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      </div>
+      </Card>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Planejamento Anual" subtitle={`Resultados ${new Date().getFullYear()}`} />
+      <div className="p-6">{content}</div>
     </MainLayout>
   );
 }
