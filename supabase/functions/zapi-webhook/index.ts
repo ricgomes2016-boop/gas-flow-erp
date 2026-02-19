@@ -137,10 +137,8 @@ FLUXO DO PEDIDO:
    quantidade: X
    endereco: Endereço completo
    pagamento: forma
-   troco: valor (se dinheiro)
    [/PEDIDO_CONFIRMADO]
-4. Se for dinheiro, pergunte se precisa de troco e para quanto.
-5. Prazo de entrega: 30 a 60 minutos.
+4. Prazo de entrega: 30 a 60 minutos.
 6. Se o cliente não é cadastrado E não informou endereço na conversa, peça nome e endereço.
 7. NÃO invente preços. Use APENAS os produtos listados.
 8. Se não entender a mensagem, peça para repetir educadamente.`;
@@ -339,7 +337,6 @@ async function createOrder(
         canal_venda: "whatsapp",
         endereco_entrega: orderData.endereco || "",
         observacoes: `Pedido via WhatsApp - ${clienteNome || senderName} (${phone})`,
-        troco_para: orderData.troco ? parseFloat(orderData.troco) || null : null,
       })
       .select()
       .single();
