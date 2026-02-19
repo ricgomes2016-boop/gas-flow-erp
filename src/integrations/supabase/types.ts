@@ -381,6 +381,87 @@ export type Database = {
           },
         ]
       }
+      boletos_emitidos: {
+        Row: {
+          conta_receber_id: string | null
+          cpf_cnpj: string
+          created_at: string
+          descricao: string | null
+          emissao: string
+          endereco: string | null
+          id: string
+          instrucoes: string | null
+          juros_mes: number | null
+          linha_digitavel: string | null
+          multa: number | null
+          numero: number
+          observacoes: string | null
+          sacado: string
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          conta_receber_id?: string | null
+          cpf_cnpj: string
+          created_at?: string
+          descricao?: string | null
+          emissao?: string
+          endereco?: string | null
+          id?: string
+          instrucoes?: string | null
+          juros_mes?: number | null
+          linha_digitavel?: string | null
+          multa?: number | null
+          numero?: number
+          observacoes?: string | null
+          sacado: string
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          vencimento: string
+        }
+        Update: {
+          conta_receber_id?: string | null
+          cpf_cnpj?: string
+          created_at?: string
+          descricao?: string | null
+          emissao?: string
+          endereco?: string | null
+          id?: string
+          instrucoes?: string | null
+          juros_mes?: number | null
+          linha_digitavel?: string | null
+          multa?: number | null
+          numero?: number
+          observacoes?: string | null
+          sacado?: string
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boletos_emitidos_conta_receber_id_fkey"
+            columns: ["conta_receber_id"]
+            isOneToOne: false
+            referencedRelation: "contas_receber"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boletos_emitidos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bonus: {
         Row: {
           created_at: string
