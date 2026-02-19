@@ -11,6 +11,9 @@ interface ProtectedRouteProps {
   requireAuth?: boolean;
 }
 
+// Admin/staff roles that can access the main system
+const STAFF_ROLES: AppRole[] = ["admin", "gestor", "financeiro", "operacional"];
+
 export function ProtectedRoute({ 
   children, 
   allowedRoles, 
@@ -35,11 +38,36 @@ export function ProtectedRoute({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // Redirect non-staff users to their proper app
+  // Only check on routes without specific allowedRoles (i.e., the root admin area)
+  if (user && !allowedRoles) {
+    const isStaff = STAFF_ROLES.some(r => roles.includes(r));
+    if (!isStaff) {
+      // Redirect to their specific app
+      if (roles.includes("cliente")) return <Navigate to="/cliente" replace />;
+      if (roles.includes("entregador")) return <Navigate to="/entregador" replace />;
+      if (roles.includes("parceiro")) return <Navigate to="/parceiro" replace />;
+      // If roles not yet loaded, wait
+      if (roles.length === 0) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        );
+      }
+    }
+  }
+
   // If specific roles are required
   if (allowedRoles && allowedRoles.length > 0) {
     const hasAccess = allowedRoles.some((role) => roles.includes(role));
     
     if (!hasAccess) {
+      // Redirect to their proper app instead of showing "access denied" in admin
+      if (roles.includes("cliente")) return <Navigate to="/cliente" replace />;
+      if (roles.includes("entregador")) return <Navigate to="/entregador" replace />;
+      if (roles.includes("parceiro")) return <Navigate to="/parceiro" replace />;
+
       return (
         <MainLayout>
           <div className="min-h-screen flex items-center justify-center bg-background">
