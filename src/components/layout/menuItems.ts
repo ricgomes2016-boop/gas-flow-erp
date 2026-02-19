@@ -72,6 +72,7 @@ import {
   Fingerprint,
   FileWarning,
   Star,
+  Plug,
   UserCheck as UserCheckIcon,
   BarChart2,
   type LucideIcon,
@@ -233,14 +234,20 @@ export const menuItems: MenuItem[] = [
     icon: Settings,
     label: "Configurações",
     submenu: [
+      // Sistema
       { icon: Cog, label: "Geral / Regras", path: "/configuracoes" },
       { icon: Users2, label: "Usuários", path: "/config/usuarios" },
-      { icon: Store, label: "Unidades / Lojas", path: "/config/unidades" },
-      { icon: ClipboardCheck, label: "Auditoria", path: "/config/auditoria" },
       { icon: Lock, label: "Permissões", path: "/config/permissoes" },
+      { icon: ClipboardCheck, label: "Auditoria", path: "/config/auditoria" },
+      // Negócio
+      { icon: Store, label: "Unidades / Lojas", path: "/config/unidades" },
+      { icon: Megaphone, label: "Canais de Venda", path: "/config/canais-venda" },
       { icon: FileSpreadsheet, label: "Categorias de Despesas", path: "/config/categorias-despesa" },
       { icon: FileText, label: "Documentos da Empresa", path: "/config/documentos" },
-      { icon: Megaphone, label: "Canais de Venda", path: "/operacional/canais-venda" },
+      // Integrações & Personalização
+      { icon: Bell, label: "Notificações e Alertas", path: "/config/notificacoes" },
+      { icon: Plug, label: "Integrações", path: "/config/integracoes" },
+      { icon: Star, label: "Personalização Visual", path: "/config/personalizacao" },
     ],
   },
 ];

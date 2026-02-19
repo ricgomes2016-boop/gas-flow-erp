@@ -144,6 +144,9 @@ const Permissoes = lazy(() => import("./pages/config/Permissoes"));
 const UnidadesConfig = lazy(() => import("./pages/config/Unidades"));
 const Usuarios = lazy(() => import("./pages/config/Usuarios"));
 const DocumentosEmpresa = lazy(() => import("./pages/config/DocumentosEmpresa"));
+const Notificacoes = lazy(() => import("./pages/config/Notificacoes"));
+const Integracoes = lazy(() => import("./pages/config/Integracoes"));
+const PersonalizacaoVisual = lazy(() => import("./pages/config/PersonalizacaoVisual"));
 
 // Assistente IA
 const AssistenteIA = lazy(() => import("./pages/AssistenteIA"));
@@ -351,6 +354,11 @@ const App = () => (
                     </ProtectedRoute>
                   } />
                   <Route path="/operacional/canais-venda" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <CanaisVenda />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/config/canais-venda" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <CanaisVenda />
                     </ProtectedRoute>
@@ -736,6 +744,21 @@ const App = () => (
                   <Route path="/config/documentos" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
                       <DocumentosEmpresa />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/config/notificacoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Notificacoes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/config/integracoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <Integracoes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/config/personalizacao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PersonalizacaoVisual />
                     </ProtectedRoute>
                   } />
 
