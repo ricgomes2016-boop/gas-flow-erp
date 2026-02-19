@@ -1009,6 +1009,76 @@ export type Database = {
           },
         ]
       }
+      comodatos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data_devolucao: string | null
+          data_emprestimo: string
+          deposito: number
+          id: string
+          observacoes: string | null
+          prazo_devolucao: string | null
+          produto_id: string
+          quantidade: number
+          status: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data_devolucao?: string | null
+          data_emprestimo?: string
+          deposito?: number
+          id?: string
+          observacoes?: string | null
+          prazo_devolucao?: string | null
+          produto_id: string
+          quantidade?: number
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data_devolucao?: string | null
+          data_emprestimo?: string
+          deposito?: number
+          id?: string
+          observacoes?: string | null
+          prazo_devolucao?: string | null
+          produto_id?: string
+          quantidade?: number
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comodatos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comodatos_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comodatos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compra_itens: {
         Row: {
           compra_id: string

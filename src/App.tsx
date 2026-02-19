@@ -68,7 +68,8 @@ const Estoque = lazy(() => import("./pages/Estoque"));
 const Entregas = lazy(() => import("./pages/Entregas"));
 const Compras = lazy(() => import("./pages/estoque/Compras"));
 const Comodatos = lazy(() => import("./pages/estoque/Comodatos"));
-
+const DashboardEstoque = lazy(() => import("./pages/estoque/DashboardEstoque"));
+const HistoricoMovimentacoes = lazy(() => import("./pages/estoque/HistoricoMovimentacoes"));
 const MCMM = lazy(() => import("./pages/estoque/MCMM"));
 const TransferenciaEstoque = lazy(() => import("./pages/estoque/TransferenciaEstoque"));
 
@@ -381,6 +382,11 @@ const App = () => (
                   } />
                   
                   {/* Estoque - Operacional+ */}
+                  <Route path="/estoque/dashboard" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <DashboardEstoque />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/estoque" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <Estoque />
@@ -399,6 +405,11 @@ const App = () => (
                   <Route path="/estoque/mcmm" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <MCMM />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/estoque/historico" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <HistoricoMovimentacoes />
                     </ProtectedRoute>
                   } />
                   <Route path="/estoque/transferencia" element={
