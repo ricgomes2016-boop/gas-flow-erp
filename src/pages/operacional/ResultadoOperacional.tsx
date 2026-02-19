@@ -49,7 +49,7 @@ const grupoLabels: Record<string, string> = {
   diversos: "Diversos",
 };
 
-export default function ResultadoOperacional() {
+export default function ResultadoOperacional({ embedded = false }: { embedded?: boolean }) {
   const { unidadeAtual } = useUnidade();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -267,20 +267,18 @@ export default function ResultadoOperacional() {
   }, [] as { key: string; label: string; items: CustoItem[]; total: number }[]);
 
   if (loading) {
+    const loader = <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    if (embedded) return loader;
     return (
       <MainLayout>
         <Header title="Resultado Operacional" subtitle={mesLabel} />
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        {loader}
       </MainLayout>
     );
   }
 
-  return (
-    <MainLayout>
-      <Header title="Resultado Operacional" subtitle={mesLabel} />
-      <div className="p-3 md:p-6 space-y-6">
+  const content = (
+    <div className="space-y-6">
         {/* Filtros */}
         <div className="flex flex-wrap gap-3 items-center">
           <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
@@ -584,7 +582,14 @@ export default function ResultadoOperacional() {
             </CardContent>
           </Card>
         </div>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Resultado Operacional" subtitle={mesLabel} />
+      <div className="p-3 md:p-6">{content}</div>
     </MainLayout>
   );
 }

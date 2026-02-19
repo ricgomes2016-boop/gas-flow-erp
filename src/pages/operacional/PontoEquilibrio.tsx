@@ -27,7 +27,7 @@ const custosFixosIniciais: CustoFixo[] = [
   { id: "7", descricao: "Manutenção veículos (fixo)", valor: 1200 },
 ];
 
-export default function PontoEquilibrio() {
+export default function PontoEquilibrio({ embedded = false }: { embedded?: boolean }) {
   const [custosFixos, setCustosFixos] = useState<CustoFixo[]>(custosFixosIniciais);
   const [novoDesc, setNovoDesc] = useState("");
   const [novoValor, setNovoValor] = useState("");
@@ -65,10 +65,8 @@ export default function PontoEquilibrio() {
     return data;
   }, [peUnidades, precoVendaUnit, custoVariavelUnit, totalCustosFixos]);
 
-  return (
-    <MainLayout>
-      <Header title="Ponto de Equilíbrio" subtitle="Análise de break-even da operação" />
-      <div className="space-y-6 p-4 md:p-6">
+  const content = (
+    <div className="space-y-6">
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -214,7 +212,14 @@ export default function PontoEquilibrio() {
             </CardContent>
           </Card>
         </div>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Ponto de Equilíbrio" subtitle="Análise de break-even da operação" />
+      <div className="p-4 md:p-6">{content}</div>
     </MainLayout>
   );
 }

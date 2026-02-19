@@ -13,7 +13,7 @@ interface Categoria {
   realizado: number;
 }
 
-export default function PlanejamentoMensal() {
+export default function PlanejamentoMensal({ embedded = false }: { embedded?: boolean }) {
   const { unidadeAtual } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -59,10 +59,12 @@ export default function PlanejamentoMensal() {
   };
 
   if (loading) {
+    const loader = <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    if (embedded) return loader;
     return (
       <MainLayout>
         <Header title="Planejamento Financeiro" subtitle="Planejamento mensal de receitas e despesas" />
-        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        {loader}
       </MainLayout>
     );
   }
@@ -72,10 +74,8 @@ export default function PlanejamentoMensal() {
   const diasNoMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const diasRestantes = diasNoMes - now.getDate();
 
-  return (
-    <MainLayout>
-      <Header title="Planejamento Financeiro" subtitle="Planejamento mensal de receitas e despesas" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="space-y-6">
 
 
 
@@ -113,8 +113,15 @@ export default function PlanejamentoMensal() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      </div>
+      </Card>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Planejamento Financeiro" subtitle="Planejamento mensal de receitas e despesas" />
+      <div className="p-6">{content}</div>
     </MainLayout>
   );
 }

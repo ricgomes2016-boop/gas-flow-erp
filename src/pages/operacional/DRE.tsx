@@ -13,7 +13,7 @@ interface DRELine {
   tipo: string;
 }
 
-export default function DRE() {
+export default function DRE({ embedded = false }: { embedded?: boolean }) {
   const { unidadeAtual } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [dre, setDre] = useState<DRELine[]>([]);
@@ -111,10 +111,12 @@ export default function DRE() {
   };
 
   if (loading) {
+    const loader = <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    if (embedded) return loader;
     return (
       <MainLayout>
         <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
-        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        {loader}
       </MainLayout>
     );
   }
@@ -123,10 +125,8 @@ export default function DRE() {
   const totalCustos = dre.filter(d => d.tipo !== "receita" && d.tipo !== "subtotal" && d.tipo !== "resultado").reduce((s, d) => s + d.valores.reduce((a, v) => a + Math.abs(v), 0), 0);
   const totalLucro = dre.find(d => d.categoria === "Lucro Líquido")?.valores.reduce((s, v) => s + v, 0) || 0;
 
-  return (
-    <MainLayout>
-      <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
-      <div className="p-6 space-y-6">
+  const content = (
+      <div className="space-y-6">
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-green-500/10"><TrendingUp className="h-6 w-6 text-green-500" /></div><div><p className="text-2xl font-bold">R$ {(totalReceita / 1000).toFixed(1)}k</p><p className="text-sm text-muted-foreground">Receita Trimestre</p></div></div></CardContent></Card>
@@ -161,8 +161,15 @@ export default function DRE() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      </div>
+      </Card>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="DRE" subtitle="Demonstrativo de Resultados do Exercício" />
+      <div className="p-6">{content}</div>
     </MainLayout>
   );
 }
