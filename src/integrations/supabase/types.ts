@@ -1310,6 +1310,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           email: string | null
+          funcionario_id: string | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -1326,6 +1327,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          funcionario_id?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -1342,6 +1344,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          funcionario_id?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -1353,6 +1356,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "entregadores_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "entregadores_unidade_id_fkey"
             columns: ["unidade_id"]
