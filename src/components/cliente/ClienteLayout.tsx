@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LojaSelector } from "@/components/cliente/LojaSelector";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -55,9 +56,12 @@ export function ClienteLayout({ children, cartItemsCount = 0 }: ClienteLayoutPro
       {/* Header */}
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
-            <span className="font-bold text-lg">Gás Fácil</span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <img src={logoImg} alt="Nacional Gás" className="h-7 w-7 object-contain" />
+              <span className="font-bold text-lg">Gás Fácil</span>
+            </div>
+            <LojaSelector />
           </div>
           
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
