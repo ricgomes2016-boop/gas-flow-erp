@@ -17,6 +17,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -25,8 +28,9 @@ import {
   Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles,
   User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
   Share2, DollarSign, Trash2, Lock, MessageCircle, CreditCard,
-  ChevronLeft, ChevronRight, CheckSquare, Building2,
+  ChevronLeft, ChevronRight, CheckSquare, Building2, Pencil,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { SugestaoEntregador } from "@/components/sugestao/SugestaoEntregador";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +67,7 @@ export default function Pedidos() {
   const [busca, setBusca] = useState("");
   const [paginaAtual, setPaginaAtual] = useState(1);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Batch selection (#7)
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
@@ -82,6 +87,20 @@ export default function Pedidos() {
   const [senhaErro, setSenhaErro] = useState("");
 
   const { unidadeAtual } = useUnidade();
+
+  // Canal de venda
+  const [editandoCanalId, setEditandoCanalId] = useState<string | null>(null);
+  const { data: canaisVenda = [] } = useQuery({
+    queryKey: ["canais-venda", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase.from("canais_venda").select("id, nome").eq("ativo", true);
+      if (unidadeAtual?.id) {
+        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      }
+      const { data } = await query;
+      return data || [];
+    },
+  });
 
   // Import history states
   const [importItems, setImportItems] = useState<Array<{
@@ -173,6 +192,17 @@ export default function Pedidos() {
         },
       }
     );
+  };
+
+  const alterarCanalVenda = async (pedidoId: string, novoCanal: string) => {
+    const { error } = await supabase.from("pedidos").update({ canal_venda: novoCanal }).eq("id", pedidoId);
+    if (error) {
+      toast({ title: "Erro ao alterar canal", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Canal de venda atualizado!" });
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    }
+    setEditandoCanalId(null);
   };
 
   const alterarStatusPedido = (pedidoId: string, novoStatus: PedidoStatus) => {
@@ -604,6 +634,7 @@ export default function Pedidos() {
                       <TableHead className="hidden md:table-cell">Endereço</TableHead>
                       <TableHead className="hidden md:table-cell">Produtos</TableHead>
                       <TableHead className="hidden sm:table-cell">Entregador</TableHead>
+                      <TableHead className="hidden lg:table-cell">Canal</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="hidden md:table-cell">Data</TableHead>
@@ -642,6 +673,30 @@ export default function Pedidos() {
                               </Button>
                             </div>
                           ) : <span className="text-muted-foreground text-xs">-</span>}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-xs">
+                          <Popover open={editandoCanalId === pedido.id} onOpenChange={(open) => setEditandoCanalId(open ? pedido.id : null)}>
+                            <PopoverTrigger asChild>
+                              <button className="inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
+                                <Badge variant="outline" className="text-xs">{pedido.canal_venda || "-"}</Badge>
+                                <Pencil className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2 bg-popover border border-border shadow-lg z-50" align="start">
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground px-1 mb-2">Trocar canal:</p>
+                                {canaisVenda.map((c) => (
+                                  <button
+                                    key={c.id}
+                                    className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${pedido.canal_venda === c.nome ? "bg-accent font-medium" : ""}`}
+                                    onClick={() => alterarCanalVenda(pedido.id, c.nome)}
+                                  >
+                                    {c.nome}
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         <TableCell className="font-medium text-sm">R$ {pedido.valor.toFixed(2)}</TableCell>
                         <TableCell>
