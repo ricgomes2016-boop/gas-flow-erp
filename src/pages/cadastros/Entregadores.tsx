@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Truck, Plus, Search, Edit, Trash2, Phone, LinkIcon } from "lucide-react";
+import { Truck, Plus, Search, Edit, Trash2, Phone, LinkIcon, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -30,6 +30,14 @@ interface Entregador {
   status: string | null;
   ativo: boolean | null;
   user_id: string | null;
+  funcionario_id: string | null;
+}
+
+interface FuncionarioOption {
+  id: string;
+  nome: string;
+  cargo: string | null;
+  cpf: string | null;
 }
 
 interface UserOption {
@@ -45,9 +53,10 @@ export default function Entregadores() {
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [funcionarios, setFuncionarios] = useState<FuncionarioOption[]>([]);
   const { unidadeAtual } = useUnidade();
   const [form, setForm] = useState({
-    nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "",
+    nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "",
   });
 
   const fetchEntregadores = async () => {
@@ -85,9 +94,26 @@ export default function Entregadores() {
     setUsers(profiles || []);
   };
 
+  const fetchFuncionarios = async () => {
+    let query = supabase
+      .from("funcionarios")
+      .select("id, nome, cargo, cpf")
+      .eq("ativo", true)
+      .order("nome");
+
+    if (unidadeAtual?.id) {
+      query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error) { console.error(error); return; }
+    setFuncionarios(data || []);
+  };
+
   useEffect(() => { 
     fetchEntregadores(); 
     fetchUsers();
+    fetchFuncionarios();
   }, [unidadeAtual?.id]);
 
   const handleSave = async () => {
@@ -100,6 +126,7 @@ export default function Entregadores() {
       telefone: form.telefone || null,
       email: form.email || null,
       user_id: form.user_id || null,
+      funcionario_id: form.funcionario_id || null,
     };
     if (unidadeAtual?.id) {
       payload.unidade_id = unidadeAtual.id;
@@ -117,7 +144,7 @@ export default function Entregadores() {
 
     setOpen(false);
     setEditId(null);
-    setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "" });
+    setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "" });
     fetchEntregadores();
   };
 
@@ -126,7 +153,7 @@ export default function Entregadores() {
     setForm({
       nome: e.nome, cpf: e.cpf || "", cnh: e.cnh || "",
       telefone: e.telefone || "", email: e.email || "",
-      user_id: e.user_id || "",
+      user_id: e.user_id || "", funcionario_id: e.funcionario_id || "",
     });
     setOpen(true);
   };
@@ -167,7 +194,7 @@ export default function Entregadores() {
       <Header title="Entregadores" subtitle="Cadastro de entregadores" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center justify-between">
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "" }); } }}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "" }); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Entregador</Button>
             </DialogTrigger>
@@ -200,6 +227,36 @@ export default function Entregadores() {
                     <Label>E-mail</Label>
                     <Input value={form.email} onChange={e => setForm({...form, email: e.target.value})} type="email" />
                   </div>
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-1">
+                    <UserCheck className="h-3.5 w-3.5" />
+                    Funcionário Vinculado
+                  </Label>
+                  <Select value={form.funcionario_id} onValueChange={(v) => {
+                    const selected = funcionarios.find(f => f.id === v);
+                    if (selected && v !== "none") {
+                      setForm({...form, funcionario_id: v, nome: selected.nome, cpf: selected.cpf || form.cpf});
+                    } else {
+                      setForm({...form, funcionario_id: v === "none" ? "" : v});
+                    }
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um funcionário (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {funcionarios.map(f => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.nome}{f.cargo ? ` - ${f.cargo}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ao selecionar, o nome e CPF serão preenchidos automaticamente.
+                  </p>
                 </div>
 
                 <div>
