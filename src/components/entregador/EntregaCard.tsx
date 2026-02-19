@@ -2,11 +2,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Package, Clock, CheckCircle, MapPin, Phone, Navigation, User, Truck,
+  Package, Clock, CheckCircle, MapPin, Phone, Navigation, User, Truck, Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ProximityCheckinBanner } from "./ProximityCheckinBanner";
 import { useProximityCheckin } from "@/hooks/useProximityCheckin";
+import { WaitingTimer } from "./WaitingTimer";
+import { SwipeToAccept } from "./SwipeToAccept";
 
 export interface EntregaDB {
   id: string;
@@ -44,9 +46,10 @@ const statusConfig = {
 interface EntregaCardProps {
   entrega: EntregaDB;
   onAceitar: (id: string) => void;
+  sameBairroCount?: number;
 }
 
-export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
+export function EntregaCard({ entrega, onAceitar, sameBairroCount }: EntregaCardProps) {
   const status = statusConfig[entrega.status as keyof typeof statusConfig] || statusConfig.pendente;
   const StatusIcon = status.icon;
   const clienteNome = entrega.clientes?.nome || "Cliente";
@@ -71,6 +74,12 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
     window.open(`tel:${telefone}`, "_self");
   };
 
+  const abrirWhatsApp = (telefone: string) => {
+    const num = telefone.replace(/\D/g, "");
+    const formatted = num.startsWith("55") ? num : `55${num}`;
+    window.open(`https://wa.me/${formatted}`, "_blank");
+  };
+
   return (
     <Card className="border-none shadow-md overflow-hidden">
       <CardContent className="p-0">
@@ -85,14 +94,27 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
               <p className="text-xs text-muted-foreground">Pedido #{entrega.id.slice(-6).toUpperCase()}</p>
             </div>
           </div>
-          <Badge className={status.color}>
-            <StatusIcon className="h-3 w-3 mr-1" />
-            {status.label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {sameBairroCount && sameBairroCount >= 2 && (
+              <Badge className="bg-accent text-accent-foreground text-xs">
+                <Users className="h-3 w-3 mr-1" />
+                {sameBairroCount}x {bairro}
+              </Badge>
+            )}
+            <Badge className={status.color}>
+              <StatusIcon className="h-3 w-3 mr-1" />
+              {status.label}
+            </Badge>
+          </div>
         </div>
 
         {/* Body */}
         <div className="p-3 sm:p-4 space-y-2.5">
+          {/* Waiting timer for pending deliveries */}
+          {entrega.status === "pendente" && (
+            <WaitingTimer createdAt={entrega.created_at} />
+          )}
+
           {entrega.endereco_entrega && (
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -121,7 +143,6 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
               isNearby={proximity.isNearby}
               distanceMeters={proximity.distanceMeters}
               onCheckin={() => {
-                // Navigate to finalize page
                 window.location.href = `/entregador/entregas/${entrega.id}/finalizar`;
               }}
             />
@@ -129,19 +150,18 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex border-t border-border">
+        <div className="border-t border-border">
           {entrega.status === "pendente" && (
-            <Button
-              onClick={() => onAceitar(entrega.id)}
-              className="flex-1 rounded-none gradient-primary text-white h-11 sm:h-12 text-sm"
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Aceitar Entrega
-            </Button>
+            <div className="p-3">
+              <SwipeToAccept
+                onAccept={() => onAceitar(entrega.id)}
+                label="Deslize para aceitar"
+              />
+            </div>
           )}
 
           {entrega.status === "em_rota" && (
-            <>
+            <div className="flex">
               {entrega.endereco_entrega && (
                 <Button
                   variant="ghost"
@@ -153,14 +173,23 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
                 </Button>
               )}
               {clienteTelefone && (
-                <Button
-                  variant="ghost"
-                  onClick={() => ligar(clienteTelefone)}
-                  className="flex-1 rounded-none h-11 sm:h-12 border-l border-border text-sm"
-                >
-                  <Phone className="h-4 w-4 mr-2" />
-                  Ligar
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => ligar(clienteTelefone)}
+                    className="flex-1 rounded-none h-11 sm:h-12 border-l border-border text-sm"
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Ligar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => abrirWhatsApp(clienteTelefone)}
+                    className="flex-1 rounded-none h-11 sm:h-12 border-l border-border text-sm text-success"
+                  >
+                    💬 Zap
+                  </Button>
+                </>
               )}
               <Link to={`/entregador/entregas/${entrega.id}/finalizar`} className="flex-1">
                 <Button className="w-full rounded-none gradient-primary text-white h-11 sm:h-12 text-sm">
@@ -168,7 +197,7 @@ export function EntregaCard({ entrega, onAceitar }: EntregaCardProps) {
                   Finalizar
                 </Button>
               </Link>
-            </>
+            </div>
           )}
 
           {entrega.status === "entregue" && (

@@ -73,30 +73,35 @@ export default function EntregadorEntregas() {
     return () => clearInterval(interval);
   }, [fetchEntregas]);
 
-  // Detect new pending deliveries and trigger alarm
+  // Detect new pending deliveries and trigger alarm (urgent if 10+ min old)
   useEffect(() => {
-    const currentPendentes = entregas.filter(e => e.status === "pendente").map(e => e.id);
+    const currentPendentes = entregas.filter(e => e.status === "pendente");
+    const currentIds = currentPendentes.map(e => e.id);
     const prevIds = prevPendentesRef.current;
-    const newIds = currentPendentes.filter(id => !prevIds.includes(id));
+    const newIds = currentIds.filter(id => !prevIds.includes(id));
 
-    if (currentPendentes.length > 0 && alarmEnabled) {
-      // On first load: alarm if there are already pending deliveries
-      // On subsequent loads: alarm only if NEW pending deliveries appeared
+    if (currentIds.length > 0 && alarmEnabled) {
       if (isFirstLoadRef.current || newIds.length > 0) {
-        startAlarm();
+        // Check if any pending delivery is older than 10 minutes
+        const hasUrgent = currentPendentes.some(e => {
+          const waitMs = Date.now() - new Date(e.created_at).getTime();
+          return waitMs >= 10 * 60 * 1000;
+        });
+
+        startAlarm(hasUrgent);
         if (permission === "granted") {
-          const targetEntrega = entregas.find(e => e.id === (newIds[0] || currentPendentes[0]));
+          const targetEntrega = entregas.find(e => e.id === (newIds[0] || currentIds[0]));
           sendNotification({
-            title: "🚚 Nova Entrega!",
+            title: hasUrgent ? "🔴 Entrega URGENTE!" : "🚚 Nova Entrega!",
             body: `${targetEntrega?.clientes?.nome || "Cliente"} - ${targetEntrega?.endereco_entrega || ""}`,
-            tag: `new-delivery-${newIds[0] || currentPendentes[0]}`,
+            tag: `new-delivery-${newIds[0] || currentIds[0]}`,
           });
         }
       }
     }
 
     isFirstLoadRef.current = false;
-    prevPendentesRef.current = currentPendentes;
+    prevPendentesRef.current = currentIds;
   }, [entregas, alarmEnabled, startAlarm, permission, sendNotification]);
 
   // Realtime
@@ -154,6 +159,17 @@ export default function EntregadorEntregas() {
   const emRota = entregas.filter(e => e.status === "em_rota");
   const todayStart = useMemo(() => startOfDay(new Date()).getTime(), []);
   const finalizadas = entregas.filter(e => e.status === "entregue" && new Date(e.created_at).getTime() >= todayStart);
+
+  // Count deliveries per bairro for grouped indicator
+  const bairroCountMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    const active = [...pendentes, ...emRota];
+    active.forEach(e => {
+      const b = e.clientes?.bairro;
+      if (b) map[b] = (map[b] || 0) + 1;
+    });
+    return map;
+  }, [pendentes, emRota]);
 
   const EmptyState = ({ icon: Icon, text }: { icon: React.ElementType; text: string }) => (
     <div className="text-center py-12 text-muted-foreground">
@@ -222,7 +238,14 @@ export default function EntregadorEntregas() {
               {pendentes.length === 0 ? (
                 <EmptyState icon={Package} text="Nenhuma entrega pendente" />
               ) : (
-                pendentes.map(e => <EntregaCard key={e.id} entrega={e} onAceitar={aceitarEntrega} />)
+                pendentes.map(e => (
+                  <EntregaCard
+                    key={e.id}
+                    entrega={e}
+                    onAceitar={aceitarEntrega}
+                    sameBairroCount={e.clientes?.bairro ? bairroCountMap[e.clientes.bairro] : undefined}
+                  />
+                ))
               )}
             </TabsContent>
 
@@ -230,7 +253,14 @@ export default function EntregadorEntregas() {
               {emRota.length === 0 ? (
                 <EmptyState icon={Truck} text="Nenhuma entrega em andamento" />
               ) : (
-                emRota.map(e => <EntregaCard key={e.id} entrega={e} onAceitar={aceitarEntrega} />)
+                emRota.map(e => (
+                  <EntregaCard
+                    key={e.id}
+                    entrega={e}
+                    onAceitar={aceitarEntrega}
+                    sameBairroCount={e.clientes?.bairro ? bairroCountMap[e.clientes.bairro] : undefined}
+                  />
+                ))
               )}
             </TabsContent>
 
