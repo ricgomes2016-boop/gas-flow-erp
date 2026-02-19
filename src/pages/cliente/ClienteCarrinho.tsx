@@ -85,8 +85,20 @@ export default function ClienteCarrinho() {
             <Card key={item.id}>
               <CardContent className="p-4">
                 <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center text-2xl shrink-0">
-                    {item.image}
+                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+                    {item.image && item.image.startsWith("http") ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover rounded-lg"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.parentElement!.textContent = "🛒";
+                        }}
+                      />
+                    ) : (
+                      <span>{item.image || "🛒"}</span>
+                    )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
