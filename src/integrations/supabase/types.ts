@@ -3425,6 +3425,7 @@ export type Database = {
           numero_entrega: string | null
           observacoes: string | null
           status: string | null
+          troco_para: number | null
           unidade_id: string | null
           updated_at: string
           valor_total: number | null
@@ -3446,6 +3447,7 @@ export type Database = {
           numero_entrega?: string | null
           observacoes?: string | null
           status?: string | null
+          troco_para?: number | null
           unidade_id?: string | null
           updated_at?: string
           valor_total?: number | null
@@ -3467,6 +3469,7 @@ export type Database = {
           numero_entrega?: string | null
           observacoes?: string | null
           status?: string | null
+          troco_para?: number | null
           unidade_id?: string | null
           updated_at?: string
           valor_total?: number | null
