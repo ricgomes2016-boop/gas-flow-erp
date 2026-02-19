@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { startOfDay } from "date-fns";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -151,7 +152,8 @@ export default function EntregadorEntregas() {
 
   const pendentes = entregas.filter(e => e.status === "pendente");
   const emRota = entregas.filter(e => e.status === "em_rota");
-  const finalizadas = entregas.filter(e => e.status === "entregue");
+  const todayStart = useMemo(() => startOfDay(new Date()).getTime(), []);
+  const finalizadas = entregas.filter(e => e.status === "entregue" && new Date(e.created_at).getTime() >= todayStart);
 
   const EmptyState = ({ icon: Icon, text }: { icon: React.ElementType; text: string }) => (
     <div className="text-center py-12 text-muted-foreground">
