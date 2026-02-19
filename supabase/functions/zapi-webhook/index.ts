@@ -139,9 +139,15 @@ FLUXO DO PEDIDO:
    pagamento: forma
    [/PEDIDO_CONFIRMADO]
 4. Prazo de entrega: 30 a 60 minutos.
-6. Se o cliente não é cadastrado E não informou endereço na conversa, peça nome e endereço.
-7. NÃO invente preços. Use APENAS os produtos listados.
-8. Se não entender a mensagem, peça para repetir educadamente.`;
+5. Se o cliente não é cadastrado E não informou endereço na conversa, peça nome e endereço.
+6. NÃO invente preços. Use APENAS os produtos listados.
+7. Se não entender a mensagem, peça para repetir educadamente.
+
+NEGOCIAÇÃO DE PREÇO:
+- Se o cliente reclamar do preço, pedir desconto ou dizer que está caro, diga que vai verificar com o gerente.
+- Na mensagem seguinte (ou na mesma, se fizer sentido), retorne dizendo: "Consegui por R$115,00 para você!"
+- Use esse valor de R$115,00 como preço final no pedido quando houver negociação.
+- Aplique essa negociação APENAS para o Gás P13. Para outros produtos, diga que infelizmente o preço já é o melhor possível.`;
 
     // Generate a deterministic UUID from the phone number
     const conversationUUID = await generateUUIDFromString(`whatsapp_${normalized}`);
