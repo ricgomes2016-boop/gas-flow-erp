@@ -74,8 +74,8 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-72 p-0 border-none">
-                <div className="gradient-dark h-full">
-                  <div className="flex items-center gap-3 p-6 border-b border-white/10">
+                <div className="gradient-dark h-full flex flex-col">
+                  <div className="flex items-center gap-3 p-6 border-b border-white/10 flex-shrink-0">
                     <div className="h-12 w-12 rounded-full overflow-hidden flex items-center justify-center shadow-glow">
                       <img src={logoImg} alt="Nacional Gás" className="h-12 w-12 object-contain" />
                     </div>
@@ -84,7 +84,7 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
                       <p className="text-sm text-white/70">Revenda de Gás</p>
                     </div>
                   </div>
-                  <nav className="p-4 space-y-2">
+                  <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
                     {menuItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = location.pathname === item.path;
