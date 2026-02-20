@@ -76,6 +76,7 @@ import {
   UserCheck as UserCheckIcon,
   BarChart2,
   Phone,
+  Smartphone,
   RotateCcw,
   RefreshCw,
   Clipboard,
@@ -98,7 +99,14 @@ export interface MenuItem {
 export const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Brain, label: "Assistente IA", path: "/assistente-ia" },
-  { icon: Phone, label: "Central de Atendimento", path: "/atendimento" },
+  {
+    icon: Phone,
+    label: "Atendimento",
+    submenu: [
+      { icon: Phone, label: "Central de Atendimento", path: "/atendimento" },
+      { icon: Smartphone, label: "App Bina (Caller ID)", path: "/atendimento/bina" },
+    ],
+  },
   {
     icon: ShoppingCart,
     label: "Vendas",
@@ -246,17 +254,14 @@ export const menuItems: MenuItem[] = [
     icon: Settings,
     label: "Configurações",
     submenu: [
-      // Sistema
       { icon: Cog, label: "Geral / Regras", path: "/configuracoes" },
       { icon: Users2, label: "Usuários", path: "/config/usuarios" },
       { icon: Lock, label: "Permissões", path: "/config/permissoes" },
       { icon: ClipboardCheck, label: "Auditoria", path: "/config/auditoria" },
-      // Negócio
       { icon: Store, label: "Unidades / Lojas", path: "/config/unidades" },
       { icon: Megaphone, label: "Canais de Venda", path: "/config/canais-venda" },
       { icon: FileSpreadsheet, label: "Categorias de Despesas", path: "/config/categorias-despesa" },
       { icon: FileText, label: "Documentos da Empresa", path: "/config/documentos" },
-      // Integrações & Personalização
       { icon: Bell, label: "Notificações e Alertas", path: "/config/notificacoes" },
       { icon: Plug, label: "Integrações", path: "/config/integracoes" },
       { icon: Star, label: "Personalização Visual", path: "/config/personalizacao" },

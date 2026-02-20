@@ -155,6 +155,7 @@ const AssistenteIA = lazy(() => import("./pages/AssistenteIA"));
 
 // Atendimento
 const CentralAtendimento = lazy(() => import("./pages/atendimento/CentralAtendimento"));
+const AppBina = lazy(() => import("./pages/atendimento/AppBina"));
 
 // Devoluções
 const Devolucoes = lazy(() => import("./pages/vendas/Devolucoes"));
@@ -966,6 +967,11 @@ const App = () => (
                   <Route path="/atendimento" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <CentralAtendimento />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/atendimento/bina" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <AppBina />
                     </ProtectedRoute>
                   } />
 
