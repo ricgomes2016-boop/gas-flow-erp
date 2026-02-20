@@ -181,6 +181,8 @@ const EntregadorTransferencia = lazy(() => import("./pages/entregador/Entregador
 const EntregadorConquistas = lazy(() => import("./pages/entregador/EntregadorConquistas"));
 const EntregadorProdutividade = lazy(() => import("./pages/entregador/EntregadorProdutividade"));
 const EntregadorFinanceiro = lazy(() => import("./pages/entregador/EntregadorFinanceiro"));
+const EntregadorVendas = lazy(() => import("./pages/entregador/EntregadorVendas"));
+const EntregadorTreinamento = lazy(() => import("./pages/entregador/EntregadorTreinamento"));
 
 // Clientes
 const ProgramaIndicacao = lazy(() => import("./pages/clientes/ProgramaIndicacao"));
@@ -900,6 +902,16 @@ const App = () => (
                   <Route path="/entregador/financeiro" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
                       <EntregadorFinanceiro />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/vendas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorVendas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/treinamento" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorTreinamento />
                     </ProtectedRoute>
                   } />
                   

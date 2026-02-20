@@ -15,7 +15,9 @@ import {
   ArrowRightLeft,
   Trophy,
   TrendingUp,
-  Wallet,
+  ShoppingBag,
+  GraduationCap,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -24,6 +26,8 @@ import { useGeoTracking } from "@/hooks/useGeoTracking";
 import { GpsPermissionBanner } from "./GpsPermissionBanner";
 import { PendingDeliveriesBanner } from "./PendingDeliveriesBanner";
 import { ChatBase } from "./ChatBase";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import logoImg from "@/assets/logo.png";
 
 interface EntregadorLayoutProps {
@@ -36,7 +40,8 @@ const menuItems = [
   { path: "/entregador/jornada", icon: Flame, label: "Jornada" },
   { path: "/entregador/entregas", icon: Package, label: "Entregas" },
   { path: "/entregador/produtividade", icon: TrendingUp, label: "Produtividade" },
-  { path: "/entregador/financeiro", icon: Wallet, label: "Financeiro" },
+  { path: "/entregador/vendas", icon: ShoppingBag, label: "Qtd Vendida" },
+  { path: "/entregador/treinamento", icon: GraduationCap, label: "Treinamento" },
   { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
   { path: "/entregador/estoque", icon: BoxesIcon, label: "Estoque" },
   { path: "/entregador/transferencia", icon: ArrowRightLeft, label: "Transferir" },
@@ -50,6 +55,8 @@ const menuItems = [
 export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
   // Track driver GPS and update DB every 30s
   useGeoTracking();
@@ -99,6 +106,20 @@ export function EntregadorLayout({ children, title }: EntregadorLayoutProps) {
                       );
                     })}
                   </nav>
+                  {/* Botão Sair */}
+                  <div className="p-4 border-t border-white/10">
+                    <button
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        await signOut();
+                        navigate("/auth");
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-white/80 hover:bg-red-500/20 hover:text-red-300 w-full"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span className="font-medium">Sair</span>
+                    </button>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
