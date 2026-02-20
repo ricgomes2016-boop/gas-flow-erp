@@ -1571,6 +1571,56 @@ export type Database = {
           },
         ]
       }
+      comunicados_contador: {
+        Row: {
+          autor_id: string
+          autor_nome: string | null
+          conteudo: string
+          created_at: string
+          id: string
+          importante: boolean
+          lido: boolean
+          tipo: string
+          titulo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          autor_id: string
+          autor_nome?: string | null
+          conteudo: string
+          created_at?: string
+          id?: string
+          importante?: boolean
+          lido?: boolean
+          tipo?: string
+          titulo: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          autor_id?: string
+          autor_nome?: string | null
+          conteudo?: string
+          created_at?: string
+          id?: string
+          importante?: boolean
+          lido?: boolean
+          tipo?: string
+          titulo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunicados_contador_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conferencia_cartao: {
         Row: {
           autorizacao: string | null
@@ -4408,6 +4458,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rotas_definidas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solicitacoes_contador: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          prazo: string | null
+          prioridade: string
+          respondido_em: string | null
+          respondido_por: string | null
+          resposta: string | null
+          solicitante_id: string
+          solicitante_tipo: string
+          status: string
+          tipo: string
+          titulo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          prazo?: string | null
+          prioridade?: string
+          respondido_em?: string | null
+          respondido_por?: string | null
+          resposta?: string | null
+          solicitante_id: string
+          solicitante_tipo?: string
+          status?: string
+          tipo?: string
+          titulo: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          prazo?: string | null
+          prioridade?: string
+          respondido_em?: string | null
+          respondido_por?: string | null
+          resposta?: string | null
+          solicitante_id?: string
+          solicitante_tipo?: string
+          status?: string
+          tipo?: string
+          titulo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacoes_contador_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
