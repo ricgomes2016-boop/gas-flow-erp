@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown, Navigation, FileUp } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Phone, MapPin, FileText, Loader2, Camera, Check, X, Filter, Download, ImageIcon, ChevronDown, Navigation, FileUp, Merge } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +45,7 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 import { geocodeAddress, type GeocodingResult } from "@/lib/geocoding";
 import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
 import { useRegrasCadastro } from "@/hooks/useRegrasCadastro";
+import { MesclarClientesDialog } from "@/components/clientes/MesclarClientesDialog";
 
 interface Cliente {
   id: string;
@@ -133,7 +134,10 @@ export default function CadastroClientesCad() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  // Stats
+  // Mesclar clientes
+  const [isMesclarOpen, setIsMesclarOpen] = useState(false);
+
+
   const [stats, setStats] = useState({
     total: 0,
     ativos: 0,
@@ -319,50 +323,30 @@ export default function CadastroClientesCad() {
     setIsModalOpen(true);
   };
 
-  const checkDuplicates = async (nome: string, cpf: string, excludeId?: string) => {
+  const checkDuplicates = async (cpf: string, excludeId?: string) => {
+    // Nomes duplicados são permitidos — apenas CPF é verificado
+    if (!cpf || !cpf.trim()) return true;
+
     try {
-      // Check nome duplicado (case-insensitive)
-      const { data: nomeResults, error: nomeError } = await supabase
+      const cpfClean = cpf.replace(/\D/g, "");
+      const { data: allClientes, error: fetchError } = await supabase
         .from("clientes")
-        .select("id")
-        .ilike("nome", `%${nome.trim()}%`);
-      
-      if (nomeError) throw nomeError;
+        .select("id, cpf");
 
-      // Se está editando e o nome é o mesmo, não é duplicado
-      if (nomeResults && nomeResults.length > 0) {
-        if (nomeResults.length > 1 || (nomeResults.length === 1 && nomeResults[0].id !== excludeId)) {
-          toast({
-            title: "Nome duplicado",
-            description: "Já existe um cliente com este nome.",
-            variant: "destructive",
-          });
-          return false;
-        }
-      }
+      if (fetchError) throw fetchError;
 
-      // Check CPF se preenchido
-      if (cpf && cpf.trim()) {
-        const cpfClean = cpf.replace(/\D/g, "");
-        const { data: allClientes, error: fetchError } = await supabase
-          .from("clientes")
-          .select("id, cpf");
-        
-        if (fetchError) throw fetchError;
-        
-        const duplicated = allClientes?.find(c => {
-          const existingCpf = c.cpf?.replace(/\D/g, "");
-          return existingCpf === cpfClean && c.id !== excludeId;
+      const duplicated = allClientes?.find(c => {
+        const existingCpf = c.cpf?.replace(/\D/g, "");
+        return existingCpf === cpfClean && c.id !== excludeId;
+      });
+
+      if (duplicated) {
+        toast({
+          title: "CPF duplicado",
+          description: "Já existe um cliente com este CPF.",
+          variant: "destructive",
         });
-        
-        if (duplicated) {
-          toast({
-            title: "CPF duplicado",
-            description: "Já existe um cliente com este CPF.",
-            variant: "destructive",
-          });
-          return false;
-        }
+        return false;
       }
 
       return true;
@@ -438,7 +422,7 @@ export default function CadastroClientesCad() {
     }
 
     // Verificar duplicatas
-    const noDuplicates = await checkDuplicates(formData.nome, formData.cpf, editingCliente?.id);
+    const noDuplicates = await checkDuplicates(formData.cpf, editingCliente?.id);
     if (!noDuplicates) return;
 
     setIsSaving(true);
@@ -717,15 +701,7 @@ export default function CadastroClientesCad() {
 
       for (const c of toSave) {
         // Verificar nome duplicado (case-insensitive)
-        const nomeDuplicated = existingClientes?.some(
-          ec => ec.nome.toLowerCase().trim() === c.nome.toLowerCase().trim()
-        );
-        
-        if (nomeDuplicated) {
-          skipped.push(`${c.nome} (nome duplicado)`);
-          continue;
-        }
-
+        // Nomes duplicados são permitidos — apenas CPF é verificado
         // Verificar CPF duplicado
         if (c.cpf && c.cpf.trim()) {
           const cpfClean = c.cpf.replace(/\D/g, "");
@@ -882,6 +858,10 @@ export default function CadastroClientesCad() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" className="gap-2" onClick={() => setIsMesclarOpen(true)}>
+              <Merge className="h-4 w-4" />
+              Mesclar
+            </Button>
             <Button className="gap-2" onClick={openCreateModal}>
               <Plus className="h-4 w-4" />
               Novo Cliente
@@ -1424,6 +1404,13 @@ export default function CadastroClientesCad() {
         onOpenChange={setIsMapPickerOpen}
         initialPosition={clienteLatLng}
         onConfirm={handleMapConfirm}
+      />
+
+      {/* Mesclar Clientes Dialog */}
+      <MesclarClientesDialog
+        open={isMesclarOpen}
+        onOpenChange={setIsMesclarOpen}
+        onMerged={fetchClientes}
       />
     </MainLayout>
   );
