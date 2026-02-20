@@ -28,7 +28,7 @@ import {
   Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles,
   User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
   Share2, DollarSign, Trash2, Lock, MessageCircle, CreditCard,
-  ChevronLeft, ChevronRight, CheckSquare, Building2, Pencil,
+  ChevronLeft, ChevronRight, CheckSquare, Building2, Pencil, MoveRight,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
@@ -74,11 +74,18 @@ export default function Pedidos() {
   const [batchDialogAberto, setBatchDialogAberto] = useState(false);
   const [batchAction, setBatchAction] = useState<"status" | "entregador">("status");
 
-  // Transfer dialog
+  // Transfer driver dialog
   const [transferDialogAberto, setTransferDialogAberto] = useState(false);
   const [pedidoTransferir, setPedidoTransferir] = useState<PedidoFormatado | null>(null);
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [loadingEntregadores, setLoadingEntregadores] = useState(false);
+
+  // Transfer filial dialog
+  const [filialDialogAberto, setFilialDialogAberto] = useState(false);
+  const [pedidoTransferirFilial, setPedidoTransferirFilial] = useState<PedidoFormatado | null>(null);
+  const [filialSelecionadaId, setFilialSelecionadaId] = useState<string>("");
+  const [transferindoFilial, setTransferindoFilial] = useState(false);
+  const { unidades } = useUnidade();
 
   // Delete with password
   const [deleteDialogAberto, setDeleteDialogAberto] = useState(false);
@@ -271,6 +278,33 @@ export default function Pedidos() {
 
   const abrirTransferencia = (pedido: PedidoFormatado) => { setPedidoTransferir(pedido); setTransferDialogAberto(true); };
   const editarPedido = (pedidoId: string) => navigate(`/vendas/pedidos/${pedidoId}/editar`);
+
+  const abrirTransferenciaFilial = (pedido: PedidoFormatado) => {
+    setPedidoTransferirFilial(pedido);
+    setFilialSelecionadaId("");
+    setFilialDialogAberto(true);
+  };
+
+  const confirmarTransferenciaFilial = async () => {
+    if (!pedidoTransferirFilial || !filialSelecionadaId) return;
+    setTransferindoFilial(true);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ unidade_id: filialSelecionadaId, entregador_id: null })
+        .eq("id", pedidoTransferirFilial.id);
+      if (error) throw error;
+      const filialNome = unidades.find((u) => u.id === filialSelecionadaId)?.nome || "filial";
+      toast({ title: "Pedido transferido!", description: `Pedido #${getIdCurto(pedidoTransferirFilial.id)} transferido para ${filialNome}.` });
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+      setFilialDialogAberto(false);
+      setPedidoTransferirFilial(null);
+    } catch (err: any) {
+      toast({ title: "Erro ao transferir", description: err.message, variant: "destructive" });
+    } finally {
+      setTransferindoFilial(false);
+    }
+  };
 
   const imprimirPedido = (pedido: PedidoFormatado) => {
     const idCurto = pedido.id.substring(0, 8).toUpperCase();
@@ -714,8 +748,13 @@ export default function Pedidos() {
                               {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
                                 <DropdownMenuItem onClick={() => abrirTransferencia(pedido)}><ArrowRightLeft className="h-4 w-4 mr-2" />{pedido.entregador ? "Transferir" : "Atribuir"} Entregador</DropdownMenuItem>
                               )}
-                              {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
+              {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
                                 <DropdownMenuItem onClick={() => marcarPortaria(pedido.id)}><Building2 className="h-4 w-4 mr-2" />Portaria (Retirada)</DropdownMenuItem>
+                              )}
+                              {unidades.length > 1 && (
+                                <DropdownMenuItem onClick={() => abrirTransferenciaFilial(pedido)}>
+                                  <MoveRight className="h-4 w-4 mr-2" />Transferir p/ Filial
+                                </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => imprimirPedido(pedido)}><Printer className="h-4 w-4 mr-2" />Imprimir</DropdownMenuItem>
@@ -893,6 +932,78 @@ export default function Pedidos() {
         onConfirm={saveImportedOrders}
         saving={importSaving}
       />
+
+      {/* Filial transfer dialog */}
+      <Dialog open={filialDialogAberto} onOpenChange={setFilialDialogAberto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MoveRight className="h-5 w-5 text-primary" />
+              Transferir Pedido para Outra Filial
+            </DialogTitle>
+          </DialogHeader>
+          {pedidoTransferirFilial && (
+            <div className="space-y-4 mt-2">
+              <div className="p-4 bg-muted rounded-lg space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-sm">Pedido #{getIdCurto(pedidoTransferirFilial.id)}</p>
+                  <Badge variant="outline">R$ {pedidoTransferirFilial.valor.toFixed(2)}</Badge>
+                </div>
+                <p className="text-sm">{pedidoTransferirFilial.cliente}</p>
+                <p className="text-xs text-muted-foreground">{pedidoTransferirFilial.endereco}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Unidade atual: <span className="font-medium text-foreground">{unidadeAtual?.nome || "—"}</span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Selecionar filial de destino:</p>
+                <div className="grid gap-2 max-h-64 overflow-y-auto pr-1">
+                  {unidades
+                    .filter((u) => u.id !== unidadeAtual?.id)
+                    .map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => setFilialSelecionadaId(u.id)}
+                        className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                          filialSelecionadaId === u.id
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-border hover:bg-accent"
+                        }`}
+                      >
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${filialSelecionadaId === u.id ? "bg-primary/10" : "bg-muted"}`}>
+                          <Building2 className={`h-4 w-4 ${filialSelecionadaId === u.id ? "text-primary" : "text-muted-foreground"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{u.nome}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{u.tipo}</p>
+                        </div>
+                        {filialSelecionadaId === u.id && (
+                          <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                </div>
+                {unidades.filter((u) => u.id !== unidadeAtual?.id).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhuma outra unidade disponível.</p>
+                )}
+              </div>
+
+              <div className="pt-2 flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setFilialDialogAberto(false)}>Cancelar</Button>
+                <Button
+                  onClick={confirmarTransferenciaFilial}
+                  disabled={!filialSelecionadaId || transferindoFilial}
+                  className="gap-2"
+                >
+                  <MoveRight className="h-4 w-4" />
+                  {transferindoFilial ? "Transferindo..." : "Confirmar Transferência"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
