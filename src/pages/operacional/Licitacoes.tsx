@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -325,18 +326,10 @@ export default function Licitacoes() {
 
   return (
     <MainLayout>
+      <Header title="Licitações Públicas" subtitle="Gerencie processos licitatórios e contratos com órgãos públicos" />
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <ClipboardList className="h-7 w-7 text-primary" />
-              Licitações Públicas
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Gerencie processos licitatórios e contratos com órgãos públicos
-            </p>
-          </div>
+        {/* Header actions */}
+        <div className="flex justify-end">
           <Button onClick={openNew} className="gap-2">
             <Plus className="h-4 w-4" />
             Nova Licitação
