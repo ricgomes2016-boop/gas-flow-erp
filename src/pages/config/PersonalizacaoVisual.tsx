@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,21 +8,111 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Image, Sun, Moon, Printer, Upload, Type } from "lucide-react";
+import { Palette, Image, Sun, Moon, Printer, Upload, Check, Save } from "lucide-react";
+import { toast } from "sonner";
+
+const COLOR_OPTIONS = [
+  { hsl: "187 65% 38%", label: "Teal", hex: "#219ebc" },
+  { hsl: "210 80% 50%", label: "Azul", hex: "#1a6fcc" },
+  { hsl: "260 60% 50%", label: "Roxo", hex: "#6b3fa0" },
+  { hsl: "350 70% 50%", label: "Vermelho", hex: "#cc1a2e" },
+  { hsl: "30 80% 50%", label: "Laranja", hex: "#cc6b1a" },
+  { hsl: "152 69% 40%", label: "Verde", hex: "#1f9e5c" },
+];
+
+const STORAGE_KEY = "gasfacil_personalizacao";
+
+interface PersonalizacaoConfig {
+  darkMode: boolean;
+  corPrimaria: string;
+  nomeEmpresa: string;
+  logoUrl: string | null;
+  comprovante: {
+    mostrarLogo: boolean;
+    mostrarEndereco: boolean;
+    mostrarTelefone: boolean;
+    rodape: string;
+  };
+}
+
+function loadConfig(): PersonalizacaoConfig {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return {
+    darkMode: false,
+    corPrimaria: "187 65% 38%",
+    nomeEmpresa: "Gás Fácil",
+    logoUrl: null,
+    comprovante: {
+      mostrarLogo: true,
+      mostrarEndereco: true,
+      mostrarTelefone: true,
+      rodape: "Obrigado pela preferência! ♻️ Recicle seu botijão.",
+    },
+  };
+}
+
+function applyTheme(darkMode: boolean, corPrimaria: string) {
+  const root = document.documentElement;
+
+  // Apply dark/light mode
+  if (darkMode) {
+    root.classList.add("dark");
+  } else {
+    root.classList.remove("dark");
+  }
+
+  // Apply primary color
+  root.style.setProperty("--primary", corPrimaria);
+  root.style.setProperty("--sidebar-primary", corPrimaria);
+  root.style.setProperty("--ring", corPrimaria);
+  root.style.setProperty("--sidebar-ring", corPrimaria);
+}
 
 export default function PersonalizacaoVisual() {
-  const [darkMode, setDarkMode] = useState(false);
-  const [comprovante, setComprovante] = useState({
-    mostrarLogo: true,
-    mostrarEndereco: true,
-    mostrarTelefone: true,
-    rodape: "Obrigado pela preferência! ♻️ Recicle seu botijão.",
-  });
+  const [config, setConfig] = useState<PersonalizacaoConfig>(loadConfig);
+  const [logoPreview, setLogoPreview] = useState<string | null>(config.logoUrl);
+  const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Apply theme on mount and whenever it changes
+  useEffect(() => {
+    applyTheme(config.darkMode, config.corPrimaria);
+  }, [config.darkMode, config.corPrimaria]);
+
+  const handleSave = () => {
+    const toSave = { ...config, logoUrl: logoPreview };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    setSaved(true);
+    toast.success("Personalização salva com sucesso!");
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setLogoPreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   return (
     <MainLayout>
       <Header title="Personalização Visual" subtitle="Customize a identidade visual do sistema" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Logo e Marca */}
           <Card>
@@ -36,23 +126,57 @@ export default function PersonalizacaoVisual() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="p-4 rounded-full bg-muted">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                onChange={handleLogoChange}
+              />
+              <div
+                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {logoPreview ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
+                      className="h-20 w-auto object-contain"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveLogo();
+                      }}
+                    >
+                      Remover logo
+                    </Button>
                   </div>
-                  <div>
-                    <p className="font-medium">Arraste sua logo aqui</p>
-                    <p className="text-sm text-muted-foreground">PNG, JPG ou SVG • Máx. 2MB</p>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-4 rounded-full bg-muted">
+                      <Upload className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Arraste sua logo aqui</p>
+                      <p className="text-sm text-muted-foreground">PNG, JPG ou SVG • Máx. 2MB</p>
+                    </div>
+                    <Button variant="outline" size="sm" type="button">
+                      Escolher Arquivo
+                    </Button>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Escolher Arquivo
-                  </Button>
-                </div>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label>Nome exibido no sistema</Label>
-                <Input placeholder="Gás Fácil" defaultValue="Gás Fácil" />
+                <Input
+                  value={config.nomeEmpresa}
+                  onChange={(e) => setConfig((p) => ({ ...p, nomeEmpresa: e.target.value }))}
+                  placeholder="Gás Fácil"
+                />
               </div>
             </CardContent>
           </Card>
@@ -71,7 +195,7 @@ export default function PersonalizacaoVisual() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {darkMode ? (
+                  {config.darkMode ? (
                     <Moon className="h-5 w-5 text-muted-foreground" />
                   ) : (
                     <Sun className="h-5 w-5 text-amber-500" />
@@ -79,36 +203,46 @@ export default function PersonalizacaoVisual() {
                   <div>
                     <p className="font-medium">Modo Escuro</p>
                     <p className="text-sm text-muted-foreground">
-                      {darkMode ? "Tema escuro ativado" : "Tema claro ativado"}
+                      {config.darkMode ? "Tema escuro ativado" : "Tema claro ativado"}
                     </p>
                   </div>
                 </div>
-                <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+                <Switch
+                  checked={config.darkMode}
+                  onCheckedChange={(v) => setConfig((p) => ({ ...p, darkMode: v }))}
+                />
               </div>
               <Separator />
               <div className="space-y-3">
                 <Label>Cor Primária</Label>
-                <div className="flex gap-3">
-                  {[
-                    { color: "hsl(160, 60%, 40%)", label: "Verde" },
-                    { color: "hsl(210, 80%, 50%)", label: "Azul" },
-                    { color: "hsl(260, 60%, 50%)", label: "Roxo" },
-                    { color: "hsl(350, 70%, 50%)", label: "Vermelho" },
-                    { color: "hsl(30, 80%, 50%)", label: "Laranja" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.label}
-                      className="flex flex-col items-center gap-1 group"
-                      title={opt.label}
-                    >
-                      <div
-                        className={`h-10 w-10 rounded-full border-2 border-transparent group-hover:border-foreground/20 transition-colors ${opt.label === "Verde" ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
-                        style={{ backgroundColor: opt.color }}
-                      />
-                      <span className="text-[10px] text-muted-foreground">{opt.label}</span>
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-3">
+                  {COLOR_OPTIONS.map((opt) => {
+                    const isSelected = config.corPrimaria === opt.hsl;
+                    return (
+                      <button
+                        key={opt.label}
+                        className="flex flex-col items-center gap-1 group"
+                        title={opt.label}
+                        onClick={() => setConfig((p) => ({ ...p, corPrimaria: opt.hsl }))}
+                      >
+                        <div
+                          className={`h-10 w-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                            isSelected
+                              ? "border-foreground scale-110 shadow-md"
+                              : "border-transparent group-hover:border-foreground/20"
+                          }`}
+                          style={{ backgroundColor: opt.hex }}
+                        >
+                          {isSelected && <Check className="h-4 w-4 text-white" />}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{opt.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  As cores são aplicadas imediatamente em toda a interface.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -133,8 +267,13 @@ export default function PersonalizacaoVisual() {
                       <p className="text-sm text-muted-foreground">Mostra o logotipo no topo</p>
                     </div>
                     <Switch
-                      checked={comprovante.mostrarLogo}
-                      onCheckedChange={(v) => setComprovante((p) => ({ ...p, mostrarLogo: v }))}
+                      checked={config.comprovante.mostrarLogo}
+                      onCheckedChange={(v) =>
+                        setConfig((p) => ({
+                          ...p,
+                          comprovante: { ...p.comprovante, mostrarLogo: v },
+                        }))
+                      }
                     />
                   </div>
                   <Separator />
@@ -144,8 +283,13 @@ export default function PersonalizacaoVisual() {
                       <p className="text-sm text-muted-foreground">Endereço da revenda no cabeçalho</p>
                     </div>
                     <Switch
-                      checked={comprovante.mostrarEndereco}
-                      onCheckedChange={(v) => setComprovante((p) => ({ ...p, mostrarEndereco: v }))}
+                      checked={config.comprovante.mostrarEndereco}
+                      onCheckedChange={(v) =>
+                        setConfig((p) => ({
+                          ...p,
+                          comprovante: { ...p.comprovante, mostrarEndereco: v },
+                        }))
+                      }
                     />
                   </div>
                   <Separator />
@@ -155,16 +299,26 @@ export default function PersonalizacaoVisual() {
                       <p className="text-sm text-muted-foreground">Telefone de contato no cabeçalho</p>
                     </div>
                     <Switch
-                      checked={comprovante.mostrarTelefone}
-                      onCheckedChange={(v) => setComprovante((p) => ({ ...p, mostrarTelefone: v }))}
+                      checked={config.comprovante.mostrarTelefone}
+                      onCheckedChange={(v) =>
+                        setConfig((p) => ({
+                          ...p,
+                          comprovante: { ...p.comprovante, mostrarTelefone: v },
+                        }))
+                      }
                     />
                   </div>
                   <Separator />
                   <div className="grid gap-2">
                     <Label>Mensagem do rodapé</Label>
                     <Textarea
-                      value={comprovante.rodape}
-                      onChange={(e) => setComprovante((p) => ({ ...p, rodape: e.target.value }))}
+                      value={config.comprovante.rodape}
+                      onChange={(e) =>
+                        setConfig((p) => ({
+                          ...p,
+                          comprovante: { ...p.comprovante, rodape: e.target.value },
+                        }))
+                      }
                       placeholder="Obrigado pela preferência!"
                       rows={2}
                     />
@@ -173,17 +327,24 @@ export default function PersonalizacaoVisual() {
 
                 {/* Preview do comprovante */}
                 <div className="border rounded-lg p-4 bg-muted/30">
+                  <p className="text-xs text-muted-foreground mb-3 text-center font-medium">Pré-visualização</p>
                   <div className="text-center space-y-1 text-xs font-mono">
-                    {comprovante.mostrarLogo && (
+                    {config.comprovante.mostrarLogo && (
                       <div className="flex justify-center mb-2">
-                        <Type className="h-8 w-8 text-primary" />
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="Logo" className="h-8 w-auto object-contain" />
+                        ) : (
+                          <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                            <Image className="h-4 w-4 text-primary" />
+                          </div>
+                        )}
                       </div>
                     )}
-                    <p className="font-bold text-sm">GÁS FÁCIL</p>
-                    {comprovante.mostrarEndereco && (
+                    <p className="font-bold text-sm">{config.nomeEmpresa.toUpperCase()}</p>
+                    {config.comprovante.mostrarEndereco && (
                       <p className="text-muted-foreground">Rua Exemplo, 123 - Centro</p>
                     )}
-                    {comprovante.mostrarTelefone && (
+                    {config.comprovante.mostrarTelefone && (
                       <p className="text-muted-foreground">(11) 99999-9999</p>
                     )}
                     <Separator className="my-2" />
@@ -195,12 +356,29 @@ export default function PersonalizacaoVisual() {
                     <p className="font-bold">TOTAL: R$ 500,00</p>
                     <p>Pagamento: Dinheiro</p>
                     <Separator className="my-2" />
-                    <p className="text-muted-foreground italic">{comprovante.rodape}</p>
+                    <p className="text-muted-foreground italic">{config.comprovante.rodape}</p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Save Button */}
+        <div className="flex justify-end">
+          <Button onClick={handleSave} className="min-w-36" disabled={saved}>
+            {saved ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Salvo!
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Salvar Configurações
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </MainLayout>
