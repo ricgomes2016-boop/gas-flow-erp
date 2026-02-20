@@ -10,11 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowRightLeft, Plus, Trash2, Loader2, Check, X, Truck } from "lucide-react";
+import { ArrowRightLeft, Plus, Trash2, Loader2, Check, X, Truck, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface Produto {
   id: string;
@@ -37,6 +42,7 @@ interface Transferencia {
   observacoes: string | null;
   valor_total: number;
   created_at: string;
+  data_transferencia: string | null;
   data_envio: string | null;
   data_recebimento: string | null;
   unidade_origem: { id: string; nome: string };
@@ -55,6 +61,8 @@ export default function TransferenciaEstoque() {
   // Form state
   const [destino, setDestino] = useState("");
   const [obs, setObs] = useState("");
+  const [dataTransferencia, setDataTransferencia] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [itens, setItens] = useState<TransferenciaItem[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [produtoSel, setProdutoSel] = useState("");
@@ -82,7 +90,7 @@ export default function TransferenciaEstoque() {
       const { data } = await supabase
         .from("transferencias_estoque")
         .select(`
-          id, status, observacoes, valor_total, created_at, data_envio, data_recebimento,
+          id, status, observacoes, valor_total, created_at, data_transferencia, data_envio, data_recebimento,
           unidade_origem:unidade_origem_id(id, nome),
           unidade_destino:unidade_destino_id(id, nome)
         `)
@@ -170,6 +178,7 @@ export default function TransferenciaEstoque() {
           observacoes: obs || null,
           valor_total: valorTotal,
           status: "pendente",
+          data_transferencia: format(dataTransferencia, "yyyy-MM-dd"),
         })
         .select("id")
         .single();
@@ -194,6 +203,7 @@ export default function TransferenciaEstoque() {
       setItens([]);
       setObs("");
       setDestino("");
+      setDataTransferencia(new Date());
       fetchTransferencias();
     } catch (e: any) {
       toast.error(e.message || "Erro ao criar transferência");
@@ -206,6 +216,8 @@ export default function TransferenciaEstoque() {
     // Mark as em_transito and debit stock from origin
     const transf = transferencias.find((t) => t.id === id);
     if (!transf) return;
+
+    const dataRef = transf.data_transferencia || new Date().toISOString().split("T")[0];
 
     const { data: tItens } = await supabase
       .from("transferencia_estoque_itens")
@@ -227,6 +239,7 @@ export default function TransferenciaEstoque() {
           quantidade: item.quantidade,
           observacoes: `Transferência para ${transf.unidade_destino.nome}`,
           unidade_id: transf.unidade_origem.id,
+          created_at: `${dataRef}T12:00:00.000Z`,
         });
       }
     }
@@ -240,6 +253,8 @@ export default function TransferenciaEstoque() {
     const transf = transferencias.find((t) => t.id === id);
     if (!transf) return;
 
+    const dataRef = transf.data_transferencia || new Date().toISOString().split("T")[0];
+
     const { data: tItens } = await supabase
       .from("transferencia_estoque_itens")
       .select("produto_id, quantidade, preco_compra, produtos:produto_id(nome, unidade_id)")
@@ -248,7 +263,6 @@ export default function TransferenciaEstoque() {
     // Find or create equivalent products in destination and credit stock
     for (const item of tItens || []) {
       const itemAny = item as any;
-      // Try to find product with same name in destination
       const { data: destProd } = await supabase
         .from("produtos")
         .select("id, estoque")
@@ -264,6 +278,7 @@ export default function TransferenciaEstoque() {
           quantidade: item.quantidade,
           observacoes: `Transferência de ${transf.unidade_origem.nome}`,
           unidade_id: transf.unidade_destino.id,
+          created_at: `${dataRef}T12:00:00.000Z`,
         });
       }
     }
@@ -276,7 +291,7 @@ export default function TransferenciaEstoque() {
         unidade_id: transf.unidade_destino.id,
         valor_total: transf.valor_total,
         status: "recebida",
-        data_compra: new Date().toISOString().split("T")[0],
+        data_compra: dataRef,
         data_recebimento: new Date().toISOString(),
         observacoes: `Transferência interna de ${transf.unidade_origem.nome}`,
         numero_nota_fiscal: `TRANSF-${id.slice(0, 8).toUpperCase()}`,
@@ -285,7 +300,6 @@ export default function TransferenciaEstoque() {
       .single();
 
     if (compra) {
-      // Insert compra_itens
       for (const item of tItens || []) {
         await supabase.from("compra_itens").insert({
           compra_id: compra.id,
@@ -295,7 +309,6 @@ export default function TransferenciaEstoque() {
         });
       }
 
-      // Generate contas_pagar for destination
       await supabase.from("contas_pagar").insert({
         fornecedor: transf.unidade_origem.nome,
         descricao: `Transferência de estoque - ${transf.unidade_origem.nome}`,
@@ -306,7 +319,6 @@ export default function TransferenciaEstoque() {
         unidade_id: transf.unidade_destino.id,
       });
 
-      // Also create movimentacao_caixa for tracking in DRE
       await supabase.from("movimentacoes_caixa").insert({
         tipo: "saida",
         descricao: `Compra via transferência - ${transf.unidade_origem.nome}`,
@@ -314,6 +326,7 @@ export default function TransferenciaEstoque() {
         categoria: "Compra de Mercadorias",
         unidade_id: transf.unidade_destino.id,
         status: "aprovada",
+        created_at: `${dataRef}T12:00:00.000Z`,
       });
 
       await supabase.from("transferencias_estoque").update({
@@ -379,6 +392,30 @@ export default function TransferenciaEstoque() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div>
+                  <Label>Data da Transferência</Label>
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn("w-full justify-start text-left font-normal", !dataTransferencia && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dataTransferencia ? format(dataTransferencia, "dd/MM/yyyy") : "Selecione a data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dataTransferencia}
+                        onSelect={(date) => { if (date) { setDataTransferencia(date); setCalendarOpen(false); } }}
+                        locale={ptBR}
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="border rounded-lg p-4 space-y-3">
@@ -474,7 +511,7 @@ export default function TransferenciaEstoque() {
                 <TableBody>
                   {transferencias.map(t => (
                     <TableRow key={t.id}>
-                      <TableCell className="text-sm">{new Date(t.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell className="text-sm">{t.data_transferencia ? new Date(t.data_transferencia + "T12:00:00").toLocaleDateString("pt-BR") : new Date(t.created_at).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>{t.unidade_origem?.nome}</TableCell>
                       <TableCell>{t.unidade_destino?.nome}</TableCell>
                       <TableCell className="text-sm">

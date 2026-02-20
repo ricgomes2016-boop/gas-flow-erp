@@ -4449,6 +4449,7 @@ export type Database = {
           created_at: string
           data_envio: string | null
           data_recebimento: string | null
+          data_transferencia: string | null
           entregador_id: string | null
           id: string
           observacoes: string | null
@@ -4464,6 +4465,7 @@ export type Database = {
           created_at?: string
           data_envio?: string | null
           data_recebimento?: string | null
+          data_transferencia?: string | null
           entregador_id?: string | null
           id?: string
           observacoes?: string | null
@@ -4479,6 +4481,7 @@ export type Database = {
           created_at?: string
           data_envio?: string | null
           data_recebimento?: string | null
+          data_transferencia?: string | null
           entregador_id?: string | null
           id?: string
           observacoes?: string | null
