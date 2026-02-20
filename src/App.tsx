@@ -184,6 +184,9 @@ const EntregadorFinanceiro = lazy(() => import("./pages/entregador/EntregadorFin
 const EntregadorVendas = lazy(() => import("./pages/entregador/EntregadorVendas"));
 const EntregadorTreinamento = lazy(() => import("./pages/entregador/EntregadorTreinamento"));
 
+// Licitações
+const Licitacoes = lazy(() => import("./pages/operacional/Licitacoes"));
+
 // Clientes
 const ProgramaIndicacao = lazy(() => import("./pages/clientes/ProgramaIndicacao"));
 
@@ -991,6 +994,13 @@ const App = () => (
                   <Route path="/operacional/gamificacao-entregadores" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <GamificacaoEntregadores />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Licitações */}
+                  <Route path="/operacional/licitacoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <Licitacoes />
                     </ProtectedRoute>
                   } />
 
