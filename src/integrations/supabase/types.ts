@@ -4078,6 +4078,7 @@ export type Database = {
           image_url: string | null
           nome: string
           preco: number
+          preco_custo: number | null
           tipo_botijao: string | null
           unidade_id: string | null
           updated_at: string
@@ -4094,6 +4095,7 @@ export type Database = {
           image_url?: string | null
           nome: string
           preco: number
+          preco_custo?: number | null
           tipo_botijao?: string | null
           unidade_id?: string | null
           updated_at?: string
@@ -4110,6 +4112,7 @@ export type Database = {
           image_url?: string | null
           nome?: string
           preco?: number
+          preco_custo?: number | null
           tipo_botijao?: string | null
           unidade_id?: string | null
           updated_at?: string
