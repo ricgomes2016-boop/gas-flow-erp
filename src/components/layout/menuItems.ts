@@ -133,6 +133,7 @@ export const menuItems: MenuItem[] = [
       { icon: Target, label: "Metas e Desafios", path: "/operacional/metas" },
       { icon: Search, label: "Análise de Concorrência", path: "/operacional/concorrencia" },
       { icon: Clipboard, label: "Relatório Gerencial", path: "/operacional/gerencial" },
+      { icon: Trophy, label: "Gamificação Entregadores", path: "/operacional/gamificacao-entregadores" },
     ],
   },
   {
@@ -144,7 +145,8 @@ export const menuItems: MenuItem[] = [
       { icon: Ticket, label: "Promoções e Cupons", path: "/clientes/promocoes" },
       { icon: Megaphone, label: "Campanhas", path: "/clientes/campanhas" },
       { icon: Heart, label: "Fidelidade / Indicações", path: "/clientes/fidelidade" },
-      { icon: MessageSquare, label: "CRM", path: "/clientes/crm" },
+      { icon: MessageSquare, label: "CRM Avançado", path: "/clientes/crm" },
+      { icon: Gift, label: "Programa de Indicação", path: "/clientes/indicacao" },
       { icon: Trophy, label: "Ranking dos Clientes", path: "/clientes/ranking" },
     ],
   },

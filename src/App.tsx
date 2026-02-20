@@ -179,6 +179,14 @@ const EntregadorConfiguracoes = lazy(() => import("./pages/entregador/Entregador
 const EntregadorEstoque = lazy(() => import("./pages/entregador/EntregadorEstoque"));
 const EntregadorTransferencia = lazy(() => import("./pages/entregador/EntregadorTransferencia"));
 const EntregadorConquistas = lazy(() => import("./pages/entregador/EntregadorConquistas"));
+const EntregadorProdutividade = lazy(() => import("./pages/entregador/EntregadorProdutividade"));
+const EntregadorFinanceiro = lazy(() => import("./pages/entregador/EntregadorFinanceiro"));
+
+// Clientes
+const ProgramaIndicacao = lazy(() => import("./pages/clientes/ProgramaIndicacao"));
+
+// Gamificação Entregadores (Painel Gestor)
+const GamificacaoEntregadores = lazy(() => import("./pages/operacional/GamificacaoEntregadores"));
 
 // Gestão Operacional
 const GestaoRotas = lazy(() => import("./pages/operacional/GestaoRotas"));
@@ -884,6 +892,16 @@ const App = () => (
                       <EntregadorConquistas />
                     </ProtectedRoute>
                   } />
+                  <Route path="/entregador/produtividade" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorProdutividade />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/entregador/financeiro" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "entregador"]}>
+                      <EntregadorFinanceiro />
+                    </ProtectedRoute>
+                  } />
                   
                   {/* Portal Parceiro */}
                   <Route path="/parceiro" element={
@@ -947,6 +965,20 @@ const App = () => (
                   <Route path="/clientes/contratos" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <ContratosRecorrentes />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Programa de Indicação */}
+                  <Route path="/clientes/indicacao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
+                      <ProgramaIndicacao />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Gamificação Entregadores */}
+                  <Route path="/operacional/gamificacao-entregadores" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <GamificacaoEntregadores />
                     </ProtectedRoute>
                   } />
 
