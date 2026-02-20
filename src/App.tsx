@@ -546,7 +546,7 @@ const App = () => (
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/contador" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
                       <Contador />
                     </ProtectedRoute>
                   } />
