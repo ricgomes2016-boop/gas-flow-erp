@@ -192,8 +192,8 @@ export default function Despesas() {
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoCapture} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
 
-      <div className="p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="justify-start text-left font-normal">
@@ -248,11 +248,11 @@ export default function Despesas() {
         </div>
 
         {/* Cards resumo */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-destructive/10"><TrendingDown className="h-6 w-6 text-destructive" /></div><div><p className="text-2xl font-bold text-destructive">R$ {totalDespesas.toFixed(2)}</p><p className="text-sm text-muted-foreground">Total Despesas</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-success/10"><Wallet className="h-6 w-6 text-success" /></div><div><p className="text-2xl font-bold text-success">R$ {totalAprovadas.toFixed(2)}</p><p className="text-sm text-muted-foreground">Aprovadas</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-warning/10"><DollarSign className="h-6 w-6 text-warning" /></div><div><p className="text-2xl font-bold">R$ {totalPendentes.toFixed(2)}</p><p className="text-sm text-muted-foreground">Pendentes</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><Receipt className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">{despesas.length}</p><p className="text-sm text-muted-foreground">Registros</p></div></div></CardContent></Card>
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-destructive/10 shrink-0"><TrendingDown className="h-5 w-5 text-destructive" /></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-bold text-destructive truncate">R$ {totalDespesas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Total Despesas</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-success/10 shrink-0"><Wallet className="h-5 w-5 text-success" /></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-bold text-success truncate">R$ {totalAprovadas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Aprovadas</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-warning/10 shrink-0"><DollarSign className="h-5 w-5 text-warning" /></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-bold truncate">R$ {totalPendentes.toFixed(2)}</p><p className="text-xs text-muted-foreground">Pendentes</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><Receipt className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-bold">{despesas.length}</p><p className="text-xs text-muted-foreground">Registros</p></div></div></CardContent></Card>
         </div>
 
         {/* Resumo por categoria */}
@@ -288,24 +288,42 @@ export default function Despesas() {
 
         {/* Tabela */}
         <Card>
-          <CardHeader><CardTitle>Despesas do Dia</CardTitle></CardHeader>
-          <CardContent>
-            {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : despesas.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhuma despesa registrada</p> : (
-              <Table>
-                <TableHeader><TableRow><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Responsável</TableHead><TableHead>Hora</TableHead><TableHead className="text-right">Valor</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {despesas.map(d => (
-                    <TableRow key={d.id}>
-                      <TableCell className="font-medium">{d.descricao}</TableCell>
-                      <TableCell><Badge variant="outline">{d.categoria || "—"}</Badge></TableCell>
-                      <TableCell>{d.responsavel || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{new Date(d.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</TableCell>
-                      <TableCell className="text-right font-medium text-destructive">- R$ {Number(d.valor).toFixed(2)}</TableCell>
-                      <TableCell><Badge variant={d.status === "aprovada" ? "default" : "secondary"}>{d.status === "aprovada" ? "Aprovada" : "Pendente"}</Badge></TableCell>
+          <CardHeader className="pb-3"><CardTitle>Despesas do Dia</CardTitle></CardHeader>
+          <CardContent className="p-0 sm:p-6 sm:pt-0">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+            ) : despesas.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Nenhuma despesa registrada</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table className="min-w-[560px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Hora</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                      <TableHead className="hidden md:table-cell">Responsável</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {despesas.map(d => (
+                      <TableRow key={d.id}>
+                        <TableCell className="text-muted-foreground text-xs">{new Date(d.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                        <TableCell className="font-medium">
+                          <div>{d.descricao}</div>
+                          <div className="sm:hidden text-xs text-muted-foreground mt-0.5">{d.categoria || "—"}{d.responsavel ? ` · ${d.responsavel}` : ""}</div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell"><Badge variant="outline">{d.categoria || "—"}</Badge></TableCell>
+                        <TableCell className="hidden md:table-cell text-sm">{d.responsavel || "—"}</TableCell>
+                        <TableCell className="text-right font-medium text-destructive whitespace-nowrap">- R$ {Number(d.valor).toFixed(2)}</TableCell>
+                        <TableCell><Badge variant={d.status === "aprovada" ? "default" : "secondary"} className="whitespace-nowrap">{d.status === "aprovada" ? "Aprovada" : "Pendente"}</Badge></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

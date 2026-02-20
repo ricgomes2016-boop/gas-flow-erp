@@ -393,7 +393,7 @@ export default function AcertoEntregador() {
   return (
     <MainLayout>
       <Header title="Acerto do Entregador" subtitle="Conferência de entregas e valores" />
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Filtros */}
         <Card>
           <CardHeader className="pb-3">
@@ -402,8 +402,8 @@ export default function AcertoEntregador() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
-              <div className="col-span-2 md:col-span-1 space-y-1">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+              <div className="col-span-2 sm:col-span-3 md:col-span-1 space-y-1">
                 <Label className="text-xs">Entregador</Label>
                 <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); setBuscar(false); }}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
@@ -442,8 +442,8 @@ export default function AcertoEntregador() {
           <>
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
               <Card>
-                <CardContent className="flex items-center gap-3 p-3 md:p-4">
-                  <div className="rounded-lg bg-primary/10 p-2"><Package className="h-5 w-5 text-primary" /></div>
+                <CardContent className="flex items-center gap-3 p-3">
+                  <div className="rounded-lg bg-primary/10 p-2 shrink-0"><Package className="h-5 w-5 text-primary" /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Entregas</p>
                     <p className="text-lg font-bold">{isLoading ? "..." : entregas.length}</p>
@@ -451,37 +451,37 @@ export default function AcertoEntregador() {
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="flex items-center gap-3 p-3 md:p-4">
-                  <div className="rounded-lg bg-success/10 p-2"><Wallet className="h-5 w-5 text-success" /></div>
+                <CardContent className="flex items-center gap-3 p-3">
+                  <div className="rounded-lg bg-success/10 p-2 shrink-0"><Wallet className="h-5 w-5 text-success" /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Total Vendas</p>
-                    <p className="text-lg font-bold truncate">{isLoading ? "..." : formatCurrency(metricas.totalVendas)}</p>
+                    <p className="text-base font-bold truncate">{isLoading ? "..." : formatCurrency(metricas.totalVendas)}</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="flex items-center gap-3 p-3 md:p-4">
-                  <div className="rounded-lg bg-destructive/10 p-2"><Minus className="h-5 w-5 text-destructive" /></div>
+                <CardContent className="flex items-center gap-3 p-3">
+                  <div className="rounded-lg bg-destructive/10 p-2 shrink-0"><Minus className="h-5 w-5 text-destructive" /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Despesas</p>
-                    <p className="text-lg font-bold truncate text-destructive">{isLoading ? "..." : formatCurrency(metricas.totalDespesas)}</p>
+                    <p className="text-base font-bold truncate text-destructive">{isLoading ? "..." : formatCurrency(metricas.totalDespesas)}</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="flex items-center gap-3 p-3 md:p-4">
-                  <div className="rounded-lg bg-warning/10 p-2"><Receipt className="h-5 w-5 text-warning" /></div>
+                <CardContent className="flex items-center gap-3 p-3">
+                  <div className="rounded-lg bg-warning/10 p-2 shrink-0"><Receipt className="h-5 w-5 text-warning" /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Saldo Líquido</p>
-                    <p className={`text-lg font-bold truncate ${metricas.saldoLiquido >= 0 ? "text-success" : "text-destructive"}`}>
+                    <p className={`text-base font-bold truncate ${metricas.saldoLiquido >= 0 ? "text-success" : "text-destructive"}`}>
                       {isLoading ? "..." : formatCurrency(metricas.saldoLiquido)}
                     </p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="flex items-center gap-3 p-3 md:p-4">
-                  <div className="rounded-lg bg-info/10 p-2"><CreditCard className="h-5 w-5 text-info" /></div>
+                <CardContent className="flex items-center gap-3 p-3">
+                  <div className="rounded-lg bg-info/10 p-2 shrink-0"><CreditCard className="h-5 w-5 text-info" /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Formas Pgto</p>
                     <p className="text-lg font-bold">{isLoading ? "..." : Object.keys(metricas.porForma).length}</p>
@@ -498,46 +498,48 @@ export default function AcertoEntregador() {
                     <Banknote className="h-5 w-5" />Resumo por Forma de Pagamento
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0 sm:p-6 sm:pt-0">
                   {isLoading ? (
-                    <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                    <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
                   ) : Object.keys(metricas.porForma).length === 0 ? (
                     <p className="text-center py-4 text-muted-foreground text-sm">Sem dados</p>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Forma</TableHead>
-                          <TableHead className="text-right">Pedidos</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead className="text-right">%</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {Object.entries(metricas.porForma)
-                          .sort(([, a], [, b]) => b - a)
-                          .map(([forma, valor]) => {
-                            const qtd = entregas.filter((e) => (e.forma_pagamento || "outros") === forma).length;
-                            const pct = metricas.totalVendas > 0 ? ((valor / metricas.totalVendas) * 100).toFixed(1) : "0";
-                            return (
-                              <TableRow key={forma}>
-                                <TableCell className="font-medium">
-                                  <Badge variant="outline">{paymentLabels[forma] || forma}</Badge>
-                                </TableCell>
-                                <TableCell className="text-right">{qtd}</TableCell>
-                                <TableCell className="text-right font-semibold">{formatCurrency(valor)}</TableCell>
-                                <TableCell className="text-right text-muted-foreground">{pct}%</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        <TableRow className="bg-muted/50 font-bold">
-                          <TableCell>Total</TableCell>
-                          <TableCell className="text-right">{entregas.length}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(metricas.totalVendas)}</TableCell>
-                          <TableCell className="text-right">100%</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                    <div className="overflow-x-auto">
+                      <Table className="min-w-[320px]">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Forma</TableHead>
+                            <TableHead className="text-right">Qtd</TableHead>
+                            <TableHead className="text-right">Valor</TableHead>
+                            <TableHead className="text-right hidden sm:table-cell">%</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(metricas.porForma)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([forma, valor]) => {
+                              const qtd = entregas.filter((e) => (e.forma_pagamento || "outros") === forma).length;
+                              const pct = metricas.totalVendas > 0 ? ((valor / metricas.totalVendas) * 100).toFixed(1) : "0";
+                              return (
+                                <TableRow key={forma}>
+                                  <TableCell className="font-medium">
+                                    <Badge variant="outline" className="text-xs">{paymentLabels[forma] || forma}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">{qtd}</TableCell>
+                                  <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(valor)}</TableCell>
+                                  <TableCell className="text-right text-muted-foreground hidden sm:table-cell">{pct}%</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          <TableRow className="bg-muted/50 font-bold">
+                            <TableCell>Total</TableCell>
+                            <TableCell className="text-right">{entregas.length}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(metricas.totalVendas)}</TableCell>
+                            <TableCell className="hidden sm:table-cell text-right">100%</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -548,35 +550,37 @@ export default function AcertoEntregador() {
                     <Package className="h-5 w-5" />Produtos Vendidos
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0 sm:p-6 sm:pt-0">
                   {isLoading ? (
-                    <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                    <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
                   ) : resumoProdutos.length === 0 ? (
                     <p className="text-center py-4 text-muted-foreground text-sm">Sem dados</p>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Produto</TableHead>
-                          <TableHead className="text-right">Qtd</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {resumoProdutos.map((p) => (
-                          <TableRow key={p.nome}>
-                            <TableCell className="font-medium">{p.nome}</TableCell>
-                            <TableCell className="text-right">{p.qtd}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(p.total)}</TableCell>
+                    <div className="overflow-x-auto">
+                      <Table className="min-w-[280px]">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Produto</TableHead>
+                            <TableHead className="text-right w-16">Qtd</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
                           </TableRow>
-                        ))}
-                        <TableRow className="bg-muted/50 font-bold">
-                          <TableCell>Total</TableCell>
-                          <TableCell className="text-right">{resumoProdutos.reduce((s, p) => s + p.qtd, 0)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(resumoProdutos.reduce((s, p) => s + p.total, 0))}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {resumoProdutos.map((p) => (
+                            <TableRow key={p.nome}>
+                              <TableCell className="font-medium">{p.nome}</TableCell>
+                              <TableCell className="text-right">{p.qtd}</TableCell>
+                              <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(p.total)}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="bg-muted/50 font-bold">
+                            <TableCell>Total</TableCell>
+                            <TableCell className="text-right">{resumoProdutos.reduce((s, p) => s + p.qtd, 0)}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(resumoProdutos.reduce((s, p) => s + p.total, 0))}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -590,31 +594,37 @@ export default function AcertoEntregador() {
                     <Minus className="h-5 w-5" />Despesas do Entregador
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Hora</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead className="hidden sm:table-cell">Categoria</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {despesas.map((d) => (
-                        <TableRow key={d.id}>
-                          <TableCell className="text-xs">{format(parseISO(d.created_at), "HH:mm")}</TableCell>
-                          <TableCell className="text-sm">{d.descricao}</TableCell>
-                          <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{d.categoria || "—"}</Badge></TableCell>
-                          <TableCell className="text-right font-semibold text-destructive">{formatCurrency(Number(d.valor || 0))}</TableCell>
+                <CardContent className="p-0 sm:p-6 sm:pt-0">
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[360px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-14">Hora</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
                         </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/50 font-bold">
-                        <TableCell colSpan={3}>Total Despesas</TableCell>
-                        <TableCell className="text-right text-destructive">{formatCurrency(metricas.totalDespesas)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {despesas.map((d) => (
+                          <TableRow key={d.id}>
+                            <TableCell className="text-xs">{format(parseISO(d.created_at), "HH:mm")}</TableCell>
+                            <TableCell className="text-sm">
+                              <div>{d.descricao}</div>
+                              <div className="sm:hidden text-xs text-muted-foreground mt-0.5">{d.categoria || "—"}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{d.categoria || "—"}</Badge></TableCell>
+                            <TableCell className="text-right font-semibold text-destructive whitespace-nowrap">{formatCurrency(Number(d.valor || 0))}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell colSpan={2} className="sm:hidden">Total Despesas</TableCell>
+                          <TableCell colSpan={3} className="hidden sm:table-cell">Total Despesas</TableCell>
+                          <TableCell className="text-right text-destructive whitespace-nowrap">{formatCurrency(metricas.totalDespesas)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -622,54 +632,59 @@ export default function AcertoEntregador() {
             {/* Lista de entregas com produtos */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex items-center justify-between flex-wrap gap-2">
                   <span className="flex items-center gap-2 text-base"><Receipt className="h-5 w-5" />Entregas Detalhadas</span>
                   <Badge variant="secondary">{entregas.length} registros</Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
                 {isLoading ? (
-                  <div className="space-y-3">{[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                  <div className="space-y-3 p-4">{[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
                 ) : entregas.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground">
                     {selectedId ? "Nenhuma entrega encontrada para este período" : "Selecione um entregador e clique em Carregar"}
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Hora</TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead className="hidden md:table-cell">Produtos</TableHead>
-                        <TableHead>Pagamento</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        {podeEditar && <TableHead className="w-10" />}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {entregas.map((e) => {
-                        const itensStr = (e.pedido_itens || [])
-                          .map((i: any) => `${i.quantidade}x ${i.produtos?.nome || "?"}`)
-                          .join(", ") || "—";
-                        return (
-                          <TableRow key={e.id}>
-                            <TableCell className="text-xs">{format(parseISO(e.created_at), "HH:mm")}</TableCell>
-                            <TableCell className="text-sm font-medium">{e.clientes?.nome || "—"}</TableCell>
-                            <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{itensStr}</TableCell>
-                            <TableCell><Badge variant="outline" className="text-xs">{paymentLabels[e.forma_pagamento || ""] || e.forma_pagamento || "—"}</Badge></TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(Number(e.valor_total || 0))}</TableCell>
-                            {podeEditar && (
-                              <TableCell>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(e)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[480px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-14">Hora</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead className="hidden md:table-cell">Produtos</TableHead>
+                          <TableHead>Pagamento</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          {podeEditar && <TableHead className="w-10" />}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {entregas.map((e) => {
+                          const itensStr = (e.pedido_itens || [])
+                            .map((i: any) => `${i.quantidade}x ${i.produtos?.nome || "?"}`)
+                            .join(", ") || "—";
+                          return (
+                            <TableRow key={e.id}>
+                              <TableCell className="text-xs">{format(parseISO(e.created_at), "HH:mm")}</TableCell>
+                              <TableCell className="text-sm font-medium">
+                                <div>{e.clientes?.nome || "—"}</div>
+                                <div className="md:hidden text-xs text-muted-foreground mt-0.5 max-w-[140px] truncate">{itensStr}</div>
                               </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                              <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{itensStr}</TableCell>
+                              <TableCell><Badge variant="outline" className="text-xs whitespace-nowrap">{paymentLabels[e.forma_pagamento || ""] || e.forma_pagamento || "—"}</Badge></TableCell>
+                              <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(Number(e.valor_total || 0))}</TableCell>
+                              {podeEditar && (
+                                <TableCell>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(e)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

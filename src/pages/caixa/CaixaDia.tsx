@@ -437,42 +437,59 @@ export default function CaixaDia() {
         )}
 
         {/* Cards de resumo */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><ShoppingCart className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">R$ {totalVendas.toFixed(2)}</p><p className="text-sm text-muted-foreground">{qtdPedidos} vendas</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-success/10"><TrendingUp className="h-6 w-6 text-success" /></div><div><p className="text-2xl font-bold text-success">R$ {totalEntradas.toFixed(2)}</p><p className="text-sm text-muted-foreground">Entradas Caixa</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-destructive/10"><TrendingDown className="h-6 w-6 text-destructive" /></div><div><p className="text-2xl font-bold text-destructive">R$ {totalSaidas.toFixed(2)}</p><p className="text-sm text-muted-foreground">Saídas Caixa</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-4"><div className="p-3 rounded-lg bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div><div><p className="text-2xl font-bold">R$ {saldo.toFixed(2)}</p><p className="text-sm text-muted-foreground">Saldo Caixa</p></div></div></CardContent></Card>
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><ShoppingCart className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold truncate">R$ {totalVendas.toFixed(2)}</p><p className="text-xs text-muted-foreground">{qtdPedidos} vendas</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-success/10 shrink-0"><TrendingUp className="h-5 w-5 text-success" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-success truncate">R$ {totalEntradas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Entradas</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-destructive/10 shrink-0"><TrendingDown className="h-5 w-5 text-destructive" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-destructive truncate">R$ {totalSaidas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saídas</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><DollarSign className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold truncate">R$ {saldo.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saldo</p></div></div></CardContent></Card>
         </div>
 
         {/* Abas */}
         <Tabs defaultValue="movimentacoes" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="movimentacoes">Movimentações</TabsTrigger>
-            <TabsTrigger value="produtos">Produtos Vendidos</TabsTrigger>
-            <TabsTrigger value="pagamentos">Formas de Pagamento</TabsTrigger>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="movimentacoes" className="flex-1 sm:flex-none text-xs sm:text-sm">Movimentações</TabsTrigger>
+            <TabsTrigger value="produtos" className="flex-1 sm:flex-none text-xs sm:text-sm">Produtos</TabsTrigger>
+            <TabsTrigger value="pagamentos" className="flex-1 sm:flex-none text-xs sm:text-sm">Pagamentos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="movimentacoes">
             <Card>
-              <CardHeader><CardTitle>Movimentações do Dia</CardTitle></CardHeader>
-              <CardContent>
-                {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : movs.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhuma movimentação</p> : (
-                  <Table>
-                    <TableHeader><TableRow><TableHead>Hora</TableHead><TableHead>Tipo</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead className="text-right">Valor</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                      {movs.map(mov => (
-                        <TableRow key={mov.id}>
-                          <TableCell className="text-muted-foreground">{new Date(mov.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</TableCell>
-                          <TableCell><Badge variant={mov.tipo === "entrada" ? "default" : "destructive"}>{mov.tipo === "entrada" ? "Entrada" : "Saída"}</Badge></TableCell>
-                          <TableCell>{mov.descricao}</TableCell>
-                          <TableCell><Badge variant="outline">{mov.categoria || "—"}</Badge></TableCell>
-                          <TableCell className={`text-right font-medium ${mov.tipo === "entrada" ? "text-success" : "text-destructive"}`}>
-                            {mov.tipo === "entrada" ? "+" : "-"} R$ {Number(mov.valor).toFixed(2)}
-                          </TableCell>
+              <CardHeader className="pb-3"><CardTitle>Movimentações do Dia</CardTitle></CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                {loading ? (
+                  <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+                ) : movs.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">Nenhuma movimentação</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[480px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-14">Hora</TableHead>
+                          <TableHead className="w-20">Tipo</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {movs.map(mov => (
+                          <TableRow key={mov.id}>
+                            <TableCell className="text-muted-foreground text-xs">{new Date(mov.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                            <TableCell><Badge variant={mov.tipo === "entrada" ? "default" : "destructive"} className="text-xs whitespace-nowrap">{mov.tipo === "entrada" ? "Entrada" : "Saída"}</Badge></TableCell>
+                            <TableCell className="text-sm">
+                              <div>{mov.descricao}</div>
+                              <div className="sm:hidden text-xs text-muted-foreground mt-0.5">{mov.categoria || "—"}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{mov.categoria || "—"}</Badge></TableCell>
+                            <TableCell className={`text-right font-medium whitespace-nowrap ${mov.tipo === "entrada" ? "text-success" : "text-destructive"}`}>
+                              {mov.tipo === "entrada" ? "+" : "-"} R$ {Number(mov.valor).toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -480,26 +497,38 @@ export default function CaixaDia() {
 
           <TabsContent value="produtos">
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" />Produtos Vendidos</CardTitle></CardHeader>
-              <CardContent>
-                {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : produtosVendidos.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhuma venda registrada</p> : (
-                  <Table>
-                    <TableHeader><TableRow><TableHead>Produto</TableHead><TableHead className="text-center">Qtd</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                      {produtosVendidos.map(p => (
-                        <TableRow key={p.nome}>
-                          <TableCell className="font-medium">{p.nome}</TableCell>
-                          <TableCell className="text-center"><Badge variant="secondary">{p.quantidade}</Badge></TableCell>
-                          <TableCell className="text-right font-medium">R$ {p.total.toFixed(2)}</TableCell>
+              <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" />Produtos Vendidos</CardTitle></CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                {loading ? (
+                  <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+                ) : produtosVendidos.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">Nenhuma venda registrada</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[300px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produto</TableHead>
+                          <TableHead className="text-center w-16">Qtd</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
                         </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/50 font-bold">
-                        <TableCell>Total</TableCell>
-                        <TableCell className="text-center">{produtosVendidos.reduce((a, p) => a + p.quantidade, 0)}</TableCell>
-                        <TableCell className="text-right">R$ {produtosVendidos.reduce((a, p) => a + p.total, 0).toFixed(2)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {produtosVendidos.map(p => (
+                          <TableRow key={p.nome}>
+                            <TableCell className="font-medium">{p.nome}</TableCell>
+                            <TableCell className="text-center"><Badge variant="secondary">{p.quantidade}</Badge></TableCell>
+                            <TableCell className="text-right font-medium whitespace-nowrap">R$ {p.total.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-center">{produtosVendidos.reduce((a, p) => a + p.quantidade, 0)}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">R$ {produtosVendidos.reduce((a, p) => a + p.total, 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -507,26 +536,38 @@ export default function CaixaDia() {
 
           <TabsContent value="pagamentos">
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" />Formas de Pagamento</CardTitle></CardHeader>
-              <CardContent>
-                {loading ? <p className="text-center py-8 text-muted-foreground">Carregando...</p> : formasPagamento.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nenhuma venda registrada</p> : (
-                  <Table>
-                    <TableHeader><TableRow><TableHead>Forma</TableHead><TableHead className="text-center">Pedidos</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                      {formasPagamento.map(fp => (
-                        <TableRow key={fp.forma}>
-                          <TableCell className="font-medium capitalize">{fp.forma}</TableCell>
-                          <TableCell className="text-center"><Badge variant="secondary">{fp.quantidade}</Badge></TableCell>
-                          <TableCell className="text-right font-medium">R$ {fp.total.toFixed(2)}</TableCell>
+              <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" />Formas de Pagamento</CardTitle></CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                {loading ? (
+                  <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+                ) : formasPagamento.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">Nenhuma venda registrada</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[300px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Forma</TableHead>
+                          <TableHead className="text-center w-16">Qtd</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
                         </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/50 font-bold">
-                        <TableCell>Total</TableCell>
-                        <TableCell className="text-center">{formasPagamento.reduce((a, f) => a + f.quantidade, 0)}</TableCell>
-                        <TableCell className="text-right">R$ {formasPagamento.reduce((a, f) => a + f.total, 0).toFixed(2)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {formasPagamento.map(fp => (
+                          <TableRow key={fp.forma}>
+                            <TableCell className="font-medium capitalize">{fp.forma}</TableCell>
+                            <TableCell className="text-center"><Badge variant="secondary">{fp.quantidade}</Badge></TableCell>
+                            <TableCell className="text-right font-medium whitespace-nowrap">R$ {fp.total.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-center">{formasPagamento.reduce((a, f) => a + f.quantidade, 0)}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">R$ {formasPagamento.reduce((a, f) => a + f.total, 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
