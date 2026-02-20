@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   ShoppingCart,
+  Gavel,
   Wallet,
   Settings2,
   Users,
@@ -134,6 +135,7 @@ export const menuItems: MenuItem[] = [
       { icon: Search, label: "Análise de Concorrência", path: "/operacional/concorrencia" },
       { icon: Clipboard, label: "Relatório Gerencial", path: "/operacional/gerencial" },
       { icon: Trophy, label: "Gamificação Entregadores", path: "/operacional/gamificacao-entregadores" },
+      { icon: Gavel, label: "Licitações Públicas", path: "/operacional/licitacoes" },
     ],
   },
   {

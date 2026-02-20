@@ -2932,6 +2932,168 @@ export type Database = {
           },
         ]
       }
+      licitacao_documentos: {
+        Row: {
+          created_at: string
+          id: string
+          licitacao_id: string
+          nome: string
+          tipo: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          licitacao_id: string
+          nome: string
+          tipo?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          licitacao_id?: string
+          nome?: string
+          tipo?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "licitacao_documentos_licitacao_id_fkey"
+            columns: ["licitacao_id"]
+            isOneToOne: false
+            referencedRelation: "licitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      licitacao_ocorrencias: {
+        Row: {
+          autor_id: string | null
+          created_at: string
+          descricao: string
+          id: string
+          licitacao_id: string
+          tipo: string
+        }
+        Insert: {
+          autor_id?: string | null
+          created_at?: string
+          descricao: string
+          id?: string
+          licitacao_id: string
+          tipo?: string
+        }
+        Update: {
+          autor_id?: string | null
+          created_at?: string
+          descricao?: string
+          id?: string
+          licitacao_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "licitacao_ocorrencias_licitacao_id_fkey"
+            columns: ["licitacao_id"]
+            isOneToOne: false
+            referencedRelation: "licitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      licitacoes: {
+        Row: {
+          cnpj_orgao: string | null
+          created_at: string
+          data_abertura: string | null
+          data_publicacao: string | null
+          data_resultado: string | null
+          data_vigencia_fim: string | null
+          data_vigencia_inicio: string | null
+          id: string
+          link_edital: string | null
+          local_entrega: string | null
+          modalidade: string
+          numero: string
+          numero_processo: string | null
+          objeto: string
+          observacoes: string | null
+          orgao: string
+          prazo_entrega: string | null
+          produtos: string | null
+          responsavel_id: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          valor_adjudicado: number | null
+          valor_estimado: number | null
+          valor_proposta: number | null
+        }
+        Insert: {
+          cnpj_orgao?: string | null
+          created_at?: string
+          data_abertura?: string | null
+          data_publicacao?: string | null
+          data_resultado?: string | null
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
+          id?: string
+          link_edital?: string | null
+          local_entrega?: string | null
+          modalidade?: string
+          numero: string
+          numero_processo?: string | null
+          objeto: string
+          observacoes?: string | null
+          orgao: string
+          prazo_entrega?: string | null
+          produtos?: string | null
+          responsavel_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_adjudicado?: number | null
+          valor_estimado?: number | null
+          valor_proposta?: number | null
+        }
+        Update: {
+          cnpj_orgao?: string | null
+          created_at?: string
+          data_abertura?: string | null
+          data_publicacao?: string | null
+          data_resultado?: string | null
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
+          id?: string
+          link_edital?: string | null
+          local_entrega?: string | null
+          modalidade?: string
+          numero?: string
+          numero_processo?: string | null
+          objeto?: string
+          observacoes?: string | null
+          orgao?: string
+          prazo_entrega?: string | null
+          produtos?: string | null
+          responsavel_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_adjudicado?: number | null
+          valor_estimado?: number | null
+          valor_proposta?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "licitacoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manutencoes: {
         Row: {
           created_at: string
