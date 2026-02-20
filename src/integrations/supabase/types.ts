@@ -1701,6 +1701,50 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracoes_visuais: {
+        Row: {
+          comprovante: Json | null
+          cor_primaria: string | null
+          created_at: string | null
+          dark_mode: boolean | null
+          id: string
+          logo_url: string | null
+          nome_empresa: string | null
+          unidade_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          comprovante?: Json | null
+          cor_primaria?: string | null
+          created_at?: string | null
+          dark_mode?: boolean | null
+          id?: string
+          logo_url?: string | null
+          nome_empresa?: string | null
+          unidade_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          comprovante?: Json | null
+          cor_primaria?: string | null
+          created_at?: string | null
+          dark_mode?: boolean | null
+          id?: string
+          logo_url?: string | null
+          nome_empresa?: string | null
+          unidade_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_visuais_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: true
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conquistas: {
         Row: {
           created_at: string
