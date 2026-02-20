@@ -43,9 +43,10 @@ export function CallerIdPopup() {
   }, []);
 
   useEffect(() => {
-    // Check for recent calls (last 60s) on mount - catches calls before subscription
+    let lastSeenId: string | null = null;
+
     const checkRecentCalls = async () => {
-      const since = new Date(Date.now() - 60000).toISOString();
+      const since = new Date(Date.now() - 90000).toISOString();
       const { data } = await supabase
         .from("chamadas_recebidas")
         .select("*")
@@ -53,24 +54,37 @@ export function CallerIdPopup() {
         .gte("created_at", since)
         .order("created_at", { ascending: false })
         .limit(1);
-      if (data?.[0]) {
+
+      if (data?.[0] && data[0].id !== lastSeenId) {
+        lastSeenId = data[0].id;
         handleNovaChamada(data[0] as ChamadaRecebida);
       }
     };
+
+    // Check immediately on mount
     checkRecentCalls();
 
+    // Poll every 5 seconds as fallback for when Realtime WebSocket fails
+    const pollInterval = setInterval(checkRecentCalls, 5000);
+
+    // Also subscribe to Realtime for instant notifications
     const channel = supabase
       .channel("caller-id-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chamadas_recebidas" },
         async (payload) => {
-          handleNovaChamada(payload.new as ChamadaRecebida);
+          const nova = payload.new as ChamadaRecebida;
+          lastSeenId = nova.id;
+          handleNovaChamada(nova);
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
   }, [handleNovaChamada]);
 
   if (!chamada) return null;
