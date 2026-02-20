@@ -1,0 +1,1 @@
+ALTER TABLE public.transferencias_estoque ADD COLUMN IF NOT EXISTS data_transferencia date DEFAULT CURRENT_DATE;
