@@ -88,8 +88,10 @@ export default function PromocoesCupons() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let qc = supabase.from("cupons_desconto").select("*").order("created_at", { ascending: false });
-      let qp = supabase.from("promocoes").select("*").order("created_at", { ascending: false });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      let qc = sb.from("cupons_desconto").select("*").order("created_at", { ascending: false });
+      let qp = sb.from("promocoes").select("*").order("created_at", { ascending: false });
       if (unidadeAtual?.id) {
         qc = qc.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
         qp = qp.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
@@ -103,6 +105,7 @@ export default function PromocoesCupons() {
   const saveCupom = async () => {
     if (!cupomForm.codigo.trim()) { toast.error("Informe o código do cupom"); return; }
     setSaving(true);
+    const sb = supabase as any;
     try {
       const payload = {
         codigo: cupomForm.codigo.toUpperCase().trim(),
@@ -115,7 +118,7 @@ export default function PromocoesCupons() {
         validade: cupomForm.validade || null,
         unidade_id: unidadeAtual?.id || null,
       };
-      const { error } = await supabase.from("cupons_desconto").insert(payload);
+      const { error } = await sb.from("cupons_desconto").insert(payload);
       if (error) throw error;
       toast.success("Cupom criado com sucesso!");
       setShowCupomDialog(false);
@@ -130,6 +133,7 @@ export default function PromocoesCupons() {
   const savePromocao = async () => {
     if (!promocaoForm.nome.trim()) { toast.error("Informe o nome da promoção"); return; }
     setSaving(true);
+    const sb = supabase as any;
     try {
       const payload = {
         nome: promocaoForm.nome.trim(),
@@ -141,7 +145,7 @@ export default function PromocoesCupons() {
         data_fim: promocaoForm.data_fim || null,
         unidade_id: unidadeAtual?.id || null,
       };
-      const { error } = await supabase.from("promocoes").insert(payload);
+      const { error } = await sb.from("promocoes").insert(payload);
       if (error) throw error;
       toast.success("Promoção criada com sucesso!");
       setShowPromocaoDialog(false);
@@ -153,13 +157,15 @@ export default function PromocoesCupons() {
   };
 
   const toggleCupom = async (id: string, ativo: boolean) => {
-    await supabase.from("cupons_desconto").update({ ativo }).eq("id", id);
+    const sb = supabase as any;
+    await sb.from("cupons_desconto").update({ ativo }).eq("id", id);
     fetchData();
   };
 
   const deleteCupom = async (id: string) => {
     if (!confirm("Excluir este cupom?")) return;
-    await supabase.from("cupons_desconto").delete().eq("id", id);
+    const sb = supabase as any;
+    await sb.from("cupons_desconto").delete().eq("id", id);
     toast.success("Cupom excluído");
     fetchData();
   };

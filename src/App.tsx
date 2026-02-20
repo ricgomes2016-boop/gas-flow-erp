@@ -61,6 +61,7 @@ const CategoriasDespesa = lazy(() => import("./pages/config/CategoriasDespesa"))
 const CadastroClientes = lazy(() => import("./pages/clientes/CadastroClientes"));
 const ClientePerfilPage = lazy(() => import("./pages/clientes/ClientePerfilPage"));
 const Campanhas = lazy(() => import("./pages/clientes/Campanhas"));
+const PromocoesCupons = lazy(() => import("./pages/clientes/PromocoesCupons"));
 const Fidelidade = lazy(() => import("./pages/clientes/Fidelidade"));
 const CRM = lazy(() => import("./pages/clientes/CRM"));
 const RankingClientes = lazy(() => import("./pages/clientes/RankingClientes"));
@@ -390,6 +391,11 @@ const App = () => (
                   <Route path="/clientes/:id" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "operacional"]}>
                       <ClientePerfilPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/clientes/promocoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <PromocoesCupons />
                     </ProtectedRoute>
                   } />
                   <Route path="/clientes/campanhas" element={
