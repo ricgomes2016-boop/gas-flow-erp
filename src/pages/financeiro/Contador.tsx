@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { ContadorLayout } from "@/components/contador/ContadorLayout";
+import { ChatContador } from "@/components/contador/ChatContador";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -211,7 +213,8 @@ function CalendarioObrigacoes() {
 
 export default function Contador() {
   const { unidadeAtual } = useUnidade();
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  const isContador = roles.includes("contador");
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -400,9 +403,12 @@ export default function Contador() {
   };
 
   // ── Render ──
+  const Layout = isContador ? ContadorLayout : MainLayout;
+
   return (
-    <MainLayout>
-      <Header title="Portal do Contador" subtitle="Troca segura de documentos e relatórios contábeis" />
+    <Layout>
+      {!isContador && <Header title="Portal do Contador" subtitle="Troca segura de documentos e relatórios contábeis" />}
+      <ChatContador />
       <div className="p-6 space-y-6">
 
         {/* Stats */}
@@ -747,6 +753,6 @@ export default function Contador() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </MainLayout>
+    </Layout>
   );
 }
