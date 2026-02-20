@@ -2164,37 +2164,64 @@ export type Database = {
       }
       documentos_contabeis: {
         Row: {
+          arquivo_nome: string | null
+          arquivo_tamanho: number | null
           arquivo_url: string | null
+          categoria: string
+          competencia: string | null
           created_at: string
           gerado_em: string | null
           id: string
-          periodo: string
+          nome: string
+          observacoes: string | null
+          periodo: string | null
+          prazo_entrega: string | null
           status: string
+          tags: string[] | null
           tipo: string
           unidade_id: string | null
           updated_at: string
+          uploaded_by: string | null
         }
         Insert: {
+          arquivo_nome?: string | null
+          arquivo_tamanho?: number | null
           arquivo_url?: string | null
+          categoria?: string
+          competencia?: string | null
           created_at?: string
           gerado_em?: string | null
           id?: string
-          periodo: string
+          nome?: string
+          observacoes?: string | null
+          periodo?: string | null
+          prazo_entrega?: string | null
           status?: string
+          tags?: string[] | null
           tipo: string
           unidade_id?: string | null
           updated_at?: string
+          uploaded_by?: string | null
         }
         Update: {
+          arquivo_nome?: string | null
+          arquivo_tamanho?: number | null
           arquivo_url?: string | null
+          categoria?: string
+          competencia?: string | null
           created_at?: string
           gerado_em?: string | null
           id?: string
-          periodo?: string
+          nome?: string
+          observacoes?: string | null
+          periodo?: string | null
+          prazo_entrega?: string | null
           status?: string
+          tags?: string[] | null
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
+          uploaded_by?: string | null
         }
         Relationships: [
           {
