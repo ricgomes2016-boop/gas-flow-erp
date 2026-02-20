@@ -417,11 +417,12 @@ export default function NovaVenda() {
             if (found) {
               clienteId = found.id;
             } else {
-              const { data: created } = await supabase
+          const { data: created } = await supabase
                 .from("clientes")
                 .insert({
                   nome: venda.cliente_nome,
                   endereco: venda.endereco || null,
+                  numero: venda.numero || null,
                   bairro: venda.bairro || null,
                   cep: venda.cep || null,
                   cidade: venda.cidade || null,
