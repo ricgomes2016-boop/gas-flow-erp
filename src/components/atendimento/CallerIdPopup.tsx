@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Phone, MessageSquare, X, ShoppingCart, User, Clock } from "lucide-react";
@@ -23,35 +23,55 @@ export function CallerIdPopup() {
   const [ultimoPedido, setUltimoPedido] = useState<any>(null);
   const navigate = useNavigate();
 
+  const handleNovaChamada = useCallback(async (nova: ChamadaRecebida) => {
+    setChamada(nova);
+    setUltimoPedido(null);
+
+    // Fetch last order if client identified
+    if (nova.cliente_id) {
+      const { data } = await supabase
+        .from("pedidos")
+        .select("id, valor_total, created_at, status")
+        .eq("cliente_id", nova.cliente_id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (data?.[0]) setUltimoPedido(data[0]);
+    }
+
+    // Auto-dismiss after 30s
+    setTimeout(() => setChamada(null), 30000);
+  }, []);
+
   useEffect(() => {
+    // Check for recent calls (last 60s) on mount - catches calls before subscription
+    const checkRecentCalls = async () => {
+      const since = new Date(Date.now() - 60000).toISOString();
+      const { data } = await supabase
+        .from("chamadas_recebidas")
+        .select("*")
+        .eq("status", "recebida")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (data?.[0]) {
+        handleNovaChamada(data[0] as ChamadaRecebida);
+      }
+    };
+    checkRecentCalls();
+
     const channel = supabase
       .channel("caller-id-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chamadas_recebidas" },
         async (payload) => {
-          const nova = payload.new as ChamadaRecebida;
-          setChamada(nova);
-
-          // Fetch last order if client identified
-          if (nova.cliente_id) {
-            const { data } = await supabase
-              .from("pedidos")
-              .select("id, valor_total, created_at, status")
-              .eq("cliente_id", nova.cliente_id)
-              .order("created_at", { ascending: false })
-              .limit(1);
-            if (data?.[0]) setUltimoPedido(data[0]);
-          }
-
-          // Auto-dismiss after 30s
-          setTimeout(() => setChamada(null), 30000);
+          handleNovaChamada(payload.new as ChamadaRecebida);
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [handleNovaChamada]);
 
   if (!chamada) return null;
 
