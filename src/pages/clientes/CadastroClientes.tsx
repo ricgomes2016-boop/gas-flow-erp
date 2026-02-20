@@ -53,10 +53,13 @@ interface Cliente {
   telefone: string | null;
   email: string | null;
   endereco: string | null;
+  numero: string | null;
   bairro: string | null;
   cidade: string | null;
   cep: string | null;
   tipo: string | null;
+  latitude: number | null;
+  longitude: number | null;
   ativo: boolean | null;
   created_at: string;
 }
@@ -281,15 +284,17 @@ export default function CadastroClientesCad() {
 
   const openEditModal = async (cliente: Cliente) => {
     setEditingCliente(cliente);
-    // Tentar separar número do endereço existente (formato "Rua X, Nº 123" ou "Rua X, 123")
+    // O campo numero é salvo separado no banco. Se não tiver, tentar extrair do endereço legado.
     let rua = cliente.endereco || "";
-    let num = "";
+    let num = cliente.numero || "";
     let comp = "";
-    const match = rua.match(/^(.+?),\s*(?:Nº\s*)?(\d+\w*)(?:\s*[-,]\s*(.+))?$/);
-    if (match) {
-      rua = match[1].trim();
-      num = match[2].trim();
-      comp = match[3]?.trim() || "";
+    if (!num && rua) {
+      const match = rua.match(/^(.+?),\s*(?:Nº\s*)?(\d+\w*)(?:\s*[-,]\s*(.+))?$/);
+      if (match) {
+        rua = match[1].trim();
+        num = match[2].trim();
+        comp = match[3]?.trim() || "";
+      }
     }
     setFormData({
       nome: cliente.nome,
@@ -305,13 +310,8 @@ export default function CadastroClientesCad() {
       tipo: cliente.tipo || "residencial",
     });
     // Load existing lat/lng
-    const { data: clienteDb } = await supabase
-      .from("clientes")
-      .select("latitude, longitude")
-      .eq("id", cliente.id)
-      .single();
-    if (clienteDb?.latitude && clienteDb?.longitude) {
-      setClienteLatLng({ lat: clienteDb.latitude, lng: clienteDb.longitude });
+    if (cliente.latitude && cliente.longitude) {
+      setClienteLatLng({ lat: cliente.latitude, lng: cliente.longitude });
     } else {
       setClienteLatLng(null);
     }
@@ -444,18 +444,20 @@ export default function CadastroClientesCad() {
     setIsSaving(true);
 
     try {
-      // Montar endereço completo para salvar
-      const enderecoCompleto = [
-        formData.endereco,
-        formData.numero ? `Nº ${formData.numero}` : "",
-        formData.complemento,
-      ].filter(Boolean).join(", ") || null;
+      // Salvar endereço (rua) e número separados no banco
+      const enderecoRua = formData.endereco.trim() || null;
+      const enderecoNumero = formData.numero.trim() || null;
 
       // Geocode if we don't have coordinates yet
       let lat = clienteLatLng?.lat || null;
       let lng = clienteLatLng?.lng || null;
-      if (!lat && enderecoCompleto) {
-        const fullAddr = [enderecoCompleto, formData.bairro, formData.cidade].filter(Boolean).join(", ");
+      if (!lat && enderecoRua) {
+        const fullAddr = [
+          enderecoRua,
+          enderecoNumero,
+          formData.bairro,
+          formData.cidade,
+        ].filter(Boolean).join(", ");
         const geo = await geocodeAddress(fullAddr);
         if (geo) {
           lat = geo.latitude;
@@ -468,7 +470,8 @@ export default function CadastroClientesCad() {
         cpf: formData.cpf || null,
         telefone: formData.telefone || null,
         email: formData.email || null,
-        endereco: enderecoCompleto,
+        endereco: enderecoRua,
+        numero: enderecoNumero,
         bairro: formData.bairro || null,
         cidade: formData.cidade || null,
         cep: formData.cep || null,
@@ -602,7 +605,9 @@ export default function CadastroClientesCad() {
         cpf: c.cpf || "",
         telefone: c.telefone || "",
         email: c.email || "",
-        endereco: [c.endereco, c.numero ? `Nº ${c.numero}` : ""].filter(Boolean).join(", "),
+        endereco: c.endereco || "",
+        numero: c.numero || "",
+        complemento: c.complemento || "",
         bairro: c.bairro || "",
         cidade: c.cidade || "",
         cep: c.cep || "",
@@ -669,7 +674,9 @@ export default function CadastroClientesCad() {
         cpf: c.cpf || "",
         telefone: c.telefone || "",
         email: c.email || "",
-        endereco: [c.endereco, c.numero ? `Nº ${c.numero}` : ""].filter(Boolean).join(", "),
+        endereco: c.endereco || "",
+        numero: c.numero || "",
+        complemento: c.complemento || "",
         bairro: c.bairro || "",
         cidade: c.cidade || "",
         cep: c.cep || "",
@@ -739,6 +746,7 @@ export default function CadastroClientesCad() {
           telefone: c.telefone || null,
           email: c.email || null,
           endereco: c.endereco || null,
+          numero: c.numero || null,
           bairro: c.bairro || null,
           cidade: c.cidade || null,
           cep: c.cep || null,
@@ -1040,86 +1048,98 @@ export default function CadastroClientesCad() {
                 <p>Nenhum cliente encontrado</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead>Nº</TableHead>
-                    <TableHead>Bairro</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClientes.map((cliente) => {
-                    // Separar endereço e número
-                    let rua = cliente.endereco || "";
-                    let num = (cliente as any).numero || "";
-                    if (!num && rua) {
-                      const match = rua.match(/^(.+?),\s*(?:Nº\s*)?(\d+\w*)(?:\s*[-,]\s*(.+))?$/);
-                      if (match) {
-                        rua = match[1].trim();
-                        num = match[2].trim();
-                      }
-                    }
-                    return (
-                      <TableRow key={cliente.id}>
-                        <TableCell className="font-medium">{cliente.nome}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm">{cliente.telefone || "-"}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 max-w-[200px]">
-                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm truncate">{rua || "-"}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{num || "-"}</TableCell>
-                        <TableCell>
-                          {cliente.bairro ? (
-                            <Badge variant="secondary">{cliente.bairro}</Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{cliente.tipo || "N/E"}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={cliente.ativo ? "default" : "destructive"}>
-                            {cliente.ativo ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditModal(cliente)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleToggleStatus(cliente)}
-                            >
-                              {cliente.ativo ? (
-                                <X className="h-4 w-4 text-destructive" />
-                              ) : (
-                                <Check className="h-4 w-4 text-success" />
-                              )}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[600px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead className="hidden sm:table-cell">Telefone</TableHead>
+                      <TableHead>Endereço</TableHead>
+                      <TableHead className="w-16">Nº</TableHead>
+                      <TableHead className="hidden md:table-cell">Bairro</TableHead>
+                      <TableHead className="hidden lg:table-cell">Tipo</TableHead>
+                      <TableHead className="hidden sm:table-cell">Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClientes.map((cliente) => {
+                      const num = cliente.numero || "";
+                      const rua = cliente.endereco || "";
+                      return (
+                        <TableRow key={cliente.id}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <p className="font-medium">{cliente.nome}</p>
+                              <p className="text-xs text-muted-foreground sm:hidden flex items-center gap-1">
+                                <Phone className="h-3 w-3" />{cliente.telefone || "-"}
+                              </p>
+                              <div className="flex flex-wrap gap-1 mt-0.5 sm:hidden">
+                                <Badge variant={cliente.ativo ? "default" : "destructive"} className="text-[10px] h-4">
+                                  {cliente.ativo ? "Ativo" : "Inativo"}
+                                </Badge>
+                                {cliente.tipo && <Badge variant="outline" className="text-[10px] h-4">{cliente.tipo}</Badge>}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-sm">{cliente.telefone || "-"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 max-w-[180px]">
+                              <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <div className="min-w-0">
+                                <span className="text-sm truncate block">{rua || "-"}</span>
+                                {cliente.bairro && (
+                                  <span className="text-xs text-muted-foreground md:hidden block truncate">{cliente.bairro}</span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm font-mono">{num || "-"}</TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {cliente.bairro ? (
+                              <Badge variant="secondary">{cliente.bairro}</Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <Badge variant="outline">{cliente.tipo || "N/E"}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge variant={cliente.ativo ? "default" : "destructive"}>
+                              {cliente.ativo ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditModal(cliente)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleToggleStatus(cliente)}
+                              >
+                                {cliente.ativo ? (
+                                  <X className="h-4 w-4 text-destructive" />
+                                ) : (
+                                  <Check className="h-4 w-4 text-success" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1127,7 +1147,7 @@ export default function CadastroClientesCad() {
 
       {/* Modal para criar/editar cliente */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingCliente ? "Editar Cliente" : "Novo Cliente"}
@@ -1143,7 +1163,7 @@ export default function CadastroClientesCad() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>CPF/CNPJ</Label>
                 <CpfCnpjInput
@@ -1191,8 +1211,8 @@ export default function CadastroClientesCad() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
-              <div className="col-span-3 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="sm:col-span-3 relative">
                 <Label>Endereço</Label>
                 <div className="relative">
                   <Input
@@ -1234,7 +1254,7 @@ export default function CadastroClientesCad() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Complemento</Label>
                 <Input
@@ -1253,7 +1273,7 @@ export default function CadastroClientesCad() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Cidade</Label>
                 <Input
@@ -1277,15 +1297,15 @@ export default function CadastroClientesCad() {
             </div>
 
             {/* Location indicator + map picker */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className={`h-4 w-4 ${clienteLatLng ? "text-primary" : "text-muted-foreground"}`} />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/50 border">
+              <div className="flex items-start sm:items-center gap-2 text-sm flex-1 min-w-0">
+                <MapPin className={`h-4 w-4 shrink-0 mt-0.5 sm:mt-0 ${clienteLatLng ? "text-primary" : "text-muted-foreground"}`} />
                 {clienteLatLng ? (
-                  <span className="text-foreground">
-                    📍 Localização definida ({clienteLatLng.lat.toFixed(4)}, {clienteLatLng.lng.toFixed(4)})
+                  <span className="text-foreground text-xs sm:text-sm">
+                    📍 Localização definida — Lat: {clienteLatLng.lat.toFixed(5)}, Lng: {clienteLatLng.lng.toFixed(5)}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">Localização será calculada automaticamente ao salvar</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm">Localização será calculada automaticamente ao salvar</span>
                 )}
               </div>
               <Button
@@ -1293,9 +1313,10 @@ export default function CadastroClientesCad() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsMapPickerOpen(true)}
+                className="shrink-0 w-full sm:w-auto"
               >
                 <Navigation className="h-3.5 w-3.5 mr-1" />
-                {clienteLatLng ? "Ajustar" : "Definir no Mapa"}
+                {clienteLatLng ? "Ajustar no Mapa" : "Definir no Mapa"}
               </Button>
             </div>
 
@@ -1320,7 +1341,7 @@ export default function CadastroClientesCad() {
 
       {/* Modal para importar por foto */}
       <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Importar Clientes da Foto</DialogTitle>
           </DialogHeader>
@@ -1338,22 +1359,44 @@ export default function CadastroClientesCad() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="max-h-96 overflow-y-auto space-y-3">
-                {extractedClients.map((client, index) => (
-                  <div key={index} className="flex gap-3 items-start border p-3 rounded-lg">
-                    <Checkbox
-                      checked={selectedClients.has(index)}
-                      onCheckedChange={() => toggleClientSelection(index)}
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium">{client.nome}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {client.cpf && `CPF: ${client.cpf} • `}
-                        {client.telefone}
-                      </p>
+              <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                {extractedClients.map((client, index) => {
+                  const enderecoExibido = [client.endereco, client.numero ? `Nº ${client.numero}` : "", client.complemento].filter(Boolean).join(", ");
+                  return (
+                    <div key={index} className={`flex gap-3 items-start border p-3 rounded-lg transition-colors ${selectedClients.has(index) ? "bg-primary/5 border-primary/30" : ""}`}>
+                      <Checkbox
+                        checked={selectedClients.has(index)}
+                        onCheckedChange={() => toggleClientSelection(index)}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium truncate">{client.nome}</p>
+                          <Badge variant="outline" className="text-[10px] shrink-0">{client.tipo || "residencial"}</Badge>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 mt-1">
+                          {client.telefone && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3" /> {client.telefone}
+                            </p>
+                          )}
+                          {client.cpf && (
+                            <p className="text-xs text-muted-foreground">CPF: {client.cpf}</p>
+                          )}
+                          {enderecoExibido && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 col-span-full">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{enderecoExibido}{client.bairro ? ` — ${client.bairro}` : ""}{client.cidade ? `, ${client.cidade}` : ""}</span>
+                            </p>
+                          )}
+                          {client.cep && (
+                            <p className="text-xs text-muted-foreground">CEP: {client.cep}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button variant="outline" onClick={() => setIsPhotoModalOpen(false)}>
