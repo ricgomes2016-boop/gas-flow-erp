@@ -1941,6 +1941,62 @@ export type Database = {
           },
         ]
       }
+      cupons_desconto: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string | null
+          id: string
+          limite_uso: number | null
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          usos: number
+          validade: string | null
+          valor: number
+          valor_minimo: number
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          limite_uso?: number | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          usos?: number
+          validade?: string | null
+          valor?: number
+          valor_minimo?: number
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          limite_uso?: number | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          usos?: number
+          validade?: string | null
+          valor?: number
+          valor_minimo?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cupons_desconto_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devolucao_itens: {
         Row: {
           created_at: string
@@ -3945,6 +4001,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      promocoes: {
+        Row: {
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          status: string
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promocoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rota_historico: {
         Row: {

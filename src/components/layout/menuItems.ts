@@ -141,6 +141,7 @@ export const menuItems: MenuItem[] = [
     submenu: [
       { icon: UserPlus, label: "Clientes", path: "/clientes/cadastro" },
       { icon: RefreshCw, label: "Contratos Recorrentes", path: "/clientes/contratos" },
+      { icon: Ticket, label: "Promoções e Cupons", path: "/clientes/promocoes" },
       { icon: Megaphone, label: "Campanhas", path: "/clientes/campanhas" },
       { icon: Heart, label: "Fidelidade / Indicações", path: "/clientes/fidelidade" },
       { icon: MessageSquare, label: "CRM", path: "/clientes/crm" },
