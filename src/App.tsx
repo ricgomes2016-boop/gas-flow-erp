@@ -93,6 +93,10 @@ const ContasReceber = lazy(() => import("./pages/financeiro/ContasReceber"));
 const AprovarDespesas = lazy(() => import("./pages/financeiro/AprovarDespesas"));
 const Conciliacao = lazy(() => import("./pages/financeiro/Conciliacao"));
 const Contador = lazy(() => import("./pages/financeiro/Contador"));
+const ContadorHome = lazy(() => import("./pages/contador/ContadorHome"));
+const ContadorCalendario = lazy(() => import("./pages/contador/ContadorCalendario"));
+const ContadorSolicitacoes = lazy(() => import("./pages/contador/ContadorSolicitacoes"));
+const ContadorComunicados = lazy(() => import("./pages/contador/ContadorComunicados"));
 const TerminaisCartao = lazy(() => import("./pages/financeiro/TerminaisCartao"));
 const EmissaoBoleto = lazy(() => import("./pages/financeiro/EmissaoBoleto"));
 const CalendarioFinanceiro = lazy(() => import("./pages/financeiro/CalendarioFinanceiro"));
@@ -547,7 +551,27 @@ const App = () => (
                   } />
                   <Route path="/financeiro/contador" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
+                      <ContadorHome />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/contador/calendario" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
+                      <ContadorCalendario />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/contador/documentos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
                       <Contador />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/contador/solicitacoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
+                      <ContadorSolicitacoes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/contador/comunicados" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
+                      <ContadorComunicados />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/terminais" element={
