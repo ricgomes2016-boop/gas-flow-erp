@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Image, Sun, Moon, Printer, Upload, Check, Save } from "lucide-react";
+import { Palette, Image, Sun, Moon, Printer, Upload, Check, Save, Building2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 const COLOR_OPTIONS = [
   { hsl: "187 65% 38%", label: "Teal", hex: "#219ebc" },
@@ -20,51 +22,41 @@ const COLOR_OPTIONS = [
   { hsl: "152 69% 40%", label: "Verde", hex: "#1f9e5c" },
 ];
 
-const STORAGE_KEY = "gasfacil_personalizacao";
+interface ComprovanteConfig {
+  mostrarLogo: boolean;
+  mostrarEndereco: boolean;
+  mostrarTelefone: boolean;
+  rodape: string;
+}
 
 interface PersonalizacaoConfig {
   darkMode: boolean;
   corPrimaria: string;
   nomeEmpresa: string;
   logoUrl: string | null;
-  comprovante: {
-    mostrarLogo: boolean;
-    mostrarEndereco: boolean;
-    mostrarTelefone: boolean;
-    rodape: string;
-  };
+  comprovante: ComprovanteConfig;
 }
 
-function loadConfig(): PersonalizacaoConfig {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return {
-    darkMode: false,
-    corPrimaria: "187 65% 38%",
-    nomeEmpresa: "Gás Fácil",
-    logoUrl: null,
-    comprovante: {
-      mostrarLogo: true,
-      mostrarEndereco: true,
-      mostrarTelefone: true,
-      rodape: "Obrigado pela preferência! ♻️ Recicle seu botijão.",
-    },
-  };
-}
+const DEFAULT_CONFIG: PersonalizacaoConfig = {
+  darkMode: false,
+  corPrimaria: "187 65% 38%",
+  nomeEmpresa: "Gás Fácil",
+  logoUrl: null,
+  comprovante: {
+    mostrarLogo: true,
+    mostrarEndereco: true,
+    mostrarTelefone: true,
+    rodape: "Obrigado pela preferência! ♻️ Recicle seu botijão.",
+  },
+};
 
 function applyTheme(darkMode: boolean, corPrimaria: string) {
   const root = document.documentElement;
-
-  // Apply dark/light mode
   if (darkMode) {
     root.classList.add("dark");
   } else {
     root.classList.remove("dark");
   }
-
-  // Apply primary color
   root.style.setProperty("--primary", corPrimaria);
   root.style.setProperty("--sidebar-primary", corPrimaria);
   root.style.setProperty("--ring", corPrimaria);
@@ -72,22 +64,121 @@ function applyTheme(darkMode: boolean, corPrimaria: string) {
 }
 
 export default function PersonalizacaoVisual() {
-  const [config, setConfig] = useState<PersonalizacaoConfig>(loadConfig);
-  const [logoPreview, setLogoPreview] = useState<string | null>(config.logoUrl);
+  const { unidadeAtual } = useUnidade();
+  const [config, setConfig] = useState<PersonalizacaoConfig>(DEFAULT_CONFIG);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Apply theme on mount and whenever it changes
+  // Load config from DB whenever unidade changes
+  useEffect(() => {
+    if (!unidadeAtual) return;
+    loadConfig();
+  }, [unidadeAtual?.id]);
+
+  // Apply theme whenever it changes
   useEffect(() => {
     applyTheme(config.darkMode, config.corPrimaria);
   }, [config.darkMode, config.corPrimaria]);
 
-  const handleSave = () => {
-    const toSave = { ...config, logoUrl: logoPreview };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    setSaved(true);
-    toast.success("Personalização salva com sucesso!");
-    setTimeout(() => setSaved(false), 2000);
+  const loadConfig = async () => {
+    if (!unidadeAtual) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("configuracoes_visuais")
+        .select("*")
+        .eq("unidade_id", unidadeAtual.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        const comprovante = (data.comprovante as unknown as ComprovanteConfig) ?? DEFAULT_CONFIG.comprovante;
+        const loaded: PersonalizacaoConfig = {
+          darkMode: data.dark_mode ?? false,
+          corPrimaria: data.cor_primaria ?? DEFAULT_CONFIG.corPrimaria,
+          nomeEmpresa: data.nome_empresa ?? DEFAULT_CONFIG.nomeEmpresa,
+          logoUrl: data.logo_url ?? null,
+          comprovante,
+        };
+        setConfig(loaded);
+        setLogoPreview(data.logo_url ?? null);
+      } else {
+        // No config yet for this unidade — use defaults
+        setConfig({ ...DEFAULT_CONFIG, nomeEmpresa: unidadeAtual.nome ?? DEFAULT_CONFIG.nomeEmpresa });
+        setLogoPreview(null);
+      }
+      setLogoFile(null);
+    } catch (err) {
+      console.error("Erro ao carregar personalização:", err);
+      toast.error("Erro ao carregar configurações da loja.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadLogo = async (): Promise<string | null> => {
+    if (!logoFile || !unidadeAtual) return config.logoUrl;
+
+    const ext = logoFile.name.split(".").pop();
+    const path = `logos/${unidadeAtual.id}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(path, logoFile, { upsert: true, contentType: logoFile.type });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(path);
+
+    return urlData.publicUrl;
+  };
+
+  const handleSave = async () => {
+    if (!unidadeAtual) return;
+    setSaving(true);
+    try {
+      const uploadedLogoUrl = await uploadLogo();
+
+      const comprovanteJson = JSON.parse(JSON.stringify(config.comprovante));
+
+      const { error } = await supabase
+        .from("configuracoes_visuais")
+        .upsert(
+          [{
+            unidade_id: unidadeAtual.id,
+            dark_mode: config.darkMode,
+            cor_primaria: config.corPrimaria,
+            nome_empresa: config.nomeEmpresa,
+            logo_url: logoPreview === null ? null : (uploadedLogoUrl ?? config.logoUrl),
+            comprovante: comprovanteJson,
+          }],
+          { onConflict: "unidade_id" }
+        );
+
+      if (error) throw error;
+
+      if (uploadedLogoUrl) {
+        setLogoPreview(uploadedLogoUrl);
+        setConfig((p) => ({ ...p, logoUrl: uploadedLogoUrl }));
+      }
+      setLogoFile(null);
+
+      setSaved(true);
+      toast.success("Personalização salva para esta loja!");
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error("Erro ao salvar:", err);
+      toast.error("Erro ao salvar configurações.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +188,7 @@ export default function PersonalizacaoVisual() {
       toast.error("Arquivo muito grande. Máximo 2MB.");
       return;
     }
+    setLogoFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       setLogoPreview(ev.target?.result as string);
@@ -106,13 +198,36 @@ export default function PersonalizacaoVisual() {
 
   const handleRemoveLogo = () => {
     setLogoPreview(null);
+    setLogoFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Personalização Visual" subtitle="Customize a identidade visual do sistema" />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
       <Header title="Personalização Visual" subtitle="Customize a identidade visual do sistema" />
       <div className="p-4 md:p-6 space-y-6">
+
+        {/* Unidade indicator */}
+        {unidadeAtual && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary/10 border border-primary/20 w-fit">
+            <Building2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">
+              Configurando: <strong>{unidadeAtual.nome}</strong>
+            </span>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Logo e Marca */}
           <Card>
@@ -198,7 +313,7 @@ export default function PersonalizacaoVisual() {
                   {config.darkMode ? (
                     <Moon className="h-5 w-5 text-muted-foreground" />
                   ) : (
-                    <Sun className="h-5 w-5 text-amber-500" />
+                    <Sun className="h-5 w-5 text-foreground/60" />
                   )}
                   <div>
                     <p className="font-medium">Modo Escuro</p>
@@ -366,8 +481,13 @@ export default function PersonalizacaoVisual() {
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button onClick={handleSave} className="min-w-36" disabled={saved}>
-            {saved ? (
+          <Button onClick={handleSave} className="min-w-36" disabled={saving || saved}>
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : saved ? (
               <>
                 <Check className="mr-2 h-4 w-4" />
                 Salvo!
