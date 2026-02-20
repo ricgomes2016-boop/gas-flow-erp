@@ -470,7 +470,7 @@ export default function Pedidos() {
 
         {/* Filters - #6 added entregador filter */}
         <Card>
-          <CardContent className="pt-4 md:pt-6">
+          <CardContent className="pt-3 md:pt-6">
             <div className="flex flex-col gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -481,19 +481,17 @@ export default function Pedidos() {
                   className="h-9 pl-9"
                 />
               </div>
-              <div className="flex flex-wrap gap-2 items-end">
-                <div className="flex gap-2 items-center">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Início</label>
-                    <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-[125px] sm:w-[140px] h-9 text-xs" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Fim</label>
-                    <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-[125px] sm:w-[140px] h-9 text-xs" />
-                  </div>
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-end">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground block">Início</label>
+                  <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-9 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground block">Fim</label>
+                  <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-9 text-xs" />
                 </div>
                 <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                  <SelectTrigger className="w-[120px] sm:w-[140px] h-9 text-xs">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -505,7 +503,7 @@ export default function Pedidos() {
                   </SelectContent>
                 </Select>
                 <Select value={filtroEntregador} onValueChange={setFiltroEntregador}>
-                  <SelectTrigger className="w-[130px] sm:w-[160px] h-9 text-xs">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Entregador" />
                   </SelectTrigger>
                   <SelectContent>
@@ -516,7 +514,7 @@ export default function Pedidos() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="h-9" onClick={() => { setBusca(""); setDataInicio(hoje); setDataFim(hoje); setFiltroStatus("todos"); setFiltroEntregador("todos"); }}>
+                <Button variant="outline" size="sm" className="h-9 col-span-2 sm:col-span-1" onClick={() => { setBusca(""); setDataInicio(hoje); setDataFim(hoje); setFiltroStatus("todos"); setFiltroEntregador("todos"); }}>
                   <RefreshCw className="h-3.5 w-3.5 mr-1" /> Limpar
                 </Button>
               </div>

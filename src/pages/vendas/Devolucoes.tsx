@@ -111,37 +111,37 @@ export default function Devolucoes() {
   return (
     <MainLayout>
       <Header title="Devoluções e Trocas" subtitle="Gestão de devoluções, trocas de produtos e estornos" />
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 grid-cols-3">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <RotateCcw className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold">{devolucoes.length}</p>
-                  <p className="text-xs text-muted-foreground">Total registros</p>
+            <CardContent className="p-3 sm:pt-6 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <RotateCcw className="h-5 w-5 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold">{devolucoes.length}</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-orange-600" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.pendentes}</p>
-                  <p className="text-xs text-muted-foreground">Pendentes aprovação</p>
+            <CardContent className="p-3 sm:pt-6 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Clock className="h-5 w-5 text-warning shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold">{stats.pendentes}</p>
+                  <p className="text-xs text-muted-foreground">Pendentes</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <DollarSign className="h-5 w-5 text-destructive" />
-                <div>
-                  <p className="text-2xl font-bold">R$ {stats.valorTotal.toFixed(2)}</p>
+            <CardContent className="p-3 sm:pt-6 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <DollarSign className="h-5 w-5 text-destructive shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base sm:text-2xl font-bold truncate">R$ {stats.valorTotal.toFixed(2)}</p>
                   <p className="text-xs text-muted-foreground">Valor total</p>
                 </div>
               </div>
@@ -150,7 +150,7 @@ export default function Devolucoes() {
         </div>
 
         {/* Filters + Action */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar cliente..." className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
@@ -214,58 +214,72 @@ export default function Devolucoes() {
 
         {/* Table */}
         <Card>
-          <CardContent className="pt-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Motivo</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtradas.map((d) => {
-                  const tipo = tipoConfig[d.tipo] || tipoConfig.devolucao;
-                  const status = statusConfig[d.status] || statusConfig.pendente;
-                  const TipoIcon = tipo.icon;
-                  return (
-                    <TableRow key={d.id}>
-                      <TableCell className="text-sm">
-                        {format(new Date(d.created_at), "dd/MM/yy", { locale: ptBR })}
-                      </TableCell>
-                      <TableCell className="font-medium">{d.cliente_nome}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <TipoIcon className="h-3.5 w-3.5" />
-                          {tipo.label}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{d.motivo}</TableCell>
-                      <TableCell className="text-right">R$ {Number(d.valor_total).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant={status.variant}>{status.label}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {d.status === "pendente" && (
-                          <div className="flex justify-end gap-1">
-                            <Button size="sm" variant="ghost" className="text-green-600 h-7" onClick={() => handleAprovar(d.id)}>
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-destructive h-7" onClick={() => handleRecusar(d.id)}>
-                              <XCircle className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
+          <CardContent className="p-0 sm:p-6 sm:pt-4">
+            {loading ? (
+              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+            ) : filtradas.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table className="min-w-[520px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Data</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                      <TableHead className="hidden md:table-cell">Motivo</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right w-20">Ações</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filtradas.map((d) => {
+                      const tipo = tipoConfig[d.tipo] || tipoConfig.devolucao;
+                      const status = statusConfig[d.status] || statusConfig.pendente;
+                      const TipoIcon = tipo.icon;
+                      return (
+                        <TableRow key={d.id}>
+                          <TableCell className="text-xs">
+                            {format(new Date(d.created_at), "dd/MM/yy", { locale: ptBR })}
+                          </TableCell>
+                          <TableCell className="font-medium text-sm">
+                            <div>{d.cliente_nome}</div>
+                            <div className="sm:hidden flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                              <TipoIcon className="h-3 w-3" />{tipo.label}
+                            </div>
+                            <div className="md:hidden text-xs text-muted-foreground mt-0.5 max-w-[140px] truncate">{d.motivo}</div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <TipoIcon className="h-3.5 w-3.5" />
+                              {tipo.label}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell max-w-[180px] truncate text-sm">{d.motivo}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap text-sm">R$ {Number(d.valor_total).toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge variant={status.variant} className="text-xs whitespace-nowrap">{status.label}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {d.status === "pendente" && (
+                              <div className="flex justify-end gap-1">
+                                <Button size="sm" variant="ghost" className="text-success h-7 w-7 p-0" onClick={() => handleAprovar(d.id)}>
+                                  <CheckCircle className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="text-destructive h-7 w-7 p-0" onClick={() => handleRecusar(d.id)}>
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
