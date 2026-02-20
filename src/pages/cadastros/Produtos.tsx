@@ -46,6 +46,7 @@ interface Produto {
   nome: string;
   categoria: string | null;
   preco: number;
+  preco_custo?: number | null;
   estoque: number | null;
   ativo: boolean | null;
   codigo_barras: string | null;
@@ -58,6 +59,7 @@ interface ProdutoForm {
   nome: string;
   categoria: string;
   preco: string;
+  preco_custo: string;
   estoque: string;
   estoque_vazio: string;
   codigo_barras: string;
@@ -70,6 +72,7 @@ const initialForm: ProdutoForm = {
   nome: "",
   categoria: "",
   preco: "",
+  preco_custo: "",
   estoque: "",
   estoque_vazio: "0",
   codigo_barras: "",
@@ -173,6 +176,7 @@ export default function Produtos() {
           nome: dados.nome,
           categoria,
           preco: parseFloat(dados.preco.replace(",", ".")) || 0,
+          preco_custo: dados.preco_custo ? parseFloat(dados.preco_custo.replace(",", ".")) : null,
           estoque: parseInt(dados.estoque) || 0,
           codigo_barras: dados.codigo_barras || null,
           descricao: dados.descricao || null,
@@ -241,6 +245,7 @@ export default function Produtos() {
           nome: dados.nome,
           categoria: dados.categoria || null,
           preco: parseFloat(dados.preco.replace(",", ".")) || 0,
+          preco_custo: dados.preco_custo ? parseFloat(dados.preco_custo.replace(",", ".")) : null,
           estoque: parseInt(dados.estoque) || 0,
           codigo_barras: dados.codigo_barras || null,
           descricao: dados.descricao || null,
@@ -312,6 +317,7 @@ export default function Produtos() {
       nome: produto.nome,
       categoria: produto.categoria || "",
       preco: produto.preco.toString().replace(".", ","),
+      preco_custo: (produto.preco_custo ?? "").toString().replace(".", ","),
       estoque: (produto.estoque || 0).toString(),
       estoque_vazio: "0",
       codigo_barras: produto.codigo_barras || "",
@@ -480,6 +486,14 @@ export default function Produtos() {
                     />
                   </div>
                 )}
+                <div className="space-y-2">
+                  <Label>Preço de Custo (R$)</Label>
+                  <Input
+                    placeholder="0,00"
+                    value={form.preco_custo}
+                    onChange={(e) => setForm({ ...form, preco_custo: e.target.value })}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Preço de Venda (R$) *</Label>
                   <Input
@@ -669,7 +683,8 @@ export default function Produtos() {
                     <TableHead className="w-16 hidden sm:table-cell">Imagem</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                    <TableHead>Preço</TableHead>
+                    <TableHead className="hidden md:table-cell">Preço Custo</TableHead>
+                    <TableHead>Preço Venda</TableHead>
                     <TableHead className="hidden sm:table-cell">Estoque</TableHead>
                     <TableHead className="hidden lg:table-cell">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -716,6 +731,9 @@ export default function Produtos() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <Badge variant="outline">{produto.categoria || "Sem categoria"}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {produto.preco_custo != null ? `R$ ${produto.preco_custo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
                       </TableCell>
                       <TableCell>
                         R$ {produto.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}

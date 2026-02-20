@@ -20,6 +20,7 @@ interface Produto {
   id: string;
   nome: string;
   preco?: number;
+  preco_custo?: number;
   estoque: number;
 }
 
@@ -68,7 +69,7 @@ export default function TransferenciaEstoque() {
     if (!unidadeAtual) return;
     const { data } = await supabase
       .from("produtos")
-      .select("id, nome, preco, estoque")
+      .select("id, nome, preco, preco_custo, estoque")
       .eq("unidade_id", unidadeAtual.id)
       .eq("ativo", true)
       .order("nome");
@@ -137,10 +138,14 @@ export default function TransferenciaEstoque() {
       produto_id: prod.id,
       produto_nome: prod.nome,
       quantidade: qtdSel,
-      preco_compra: prod.preco || 0,
+      preco_compra: prod.preco_custo ?? prod.preco ?? 0,
     }]);
     setProdutoSel("");
     setQtdSel(1);
+  };
+
+  const updateItemPreco = (prodId: string, novoPreco: number) => {
+    setItens(itens.map(i => i.produto_id === prodId ? { ...i, preco_compra: novoPreco } : i));
   };
 
   const removeItem = (prodId: string) => {
@@ -407,7 +412,16 @@ export default function TransferenciaEstoque() {
                           <TableRow key={i.produto_id}>
                             <TableCell>{i.produto_nome}</TableCell>
                             <TableCell className="text-right">{i.quantidade}</TableCell>
-                            <TableCell className="text-right">R$ {i.preco_compra.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={i.preco_compra}
+                                onChange={e => updateItemPreco(i.produto_id, parseFloat(e.target.value) || 0)}
+                                className="w-24 text-right ml-auto"
+                              />
+                            </TableCell>
                             <TableCell className="text-right">R$ {(i.quantidade * i.preco_compra).toFixed(2)}</TableCell>
                             <TableCell><Button variant="ghost" size="icon" onClick={() => removeItem(i.produto_id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                           </TableRow>
