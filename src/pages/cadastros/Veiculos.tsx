@@ -35,7 +35,7 @@ interface Veiculo {
   entregador_id: string | null;
 }
 
-const emptyForm = { placa: "", modelo: "", marca: "", ano: "", km_atual: "", tipo: "moto", entregador_id: "" };
+const emptyForm = { placa: "", modelo: "", marca: "", ano: "", km_atual: "", tipo: "moto", entregador_id: "", valor_fipe: "" };
 
 export default function Veiculos() {
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
@@ -83,6 +83,7 @@ export default function Veiculos() {
       km_atual: form.km_atual ? parseFloat(form.km_atual) : 0,
       tipo: form.tipo || "moto",
       entregador_id: form.entregador_id || null,
+      valor_fipe: form.valor_fipe ? parseFloat(form.valor_fipe) : null,
     };
     if (!editId && unidadeAtual?.id) {
       payload.unidade_id = unidadeAtual.id;
@@ -112,6 +113,7 @@ export default function Veiculos() {
       km_atual: v.km_atual?.toString() || "",
       tipo: v.tipo || "moto",
       entregador_id: v.entregador_id || "",
+      valor_fipe: (v as any).valor_fipe?.toString() || "",
     });
     setEditId(v.id);
     setOpen(true);
@@ -172,6 +174,10 @@ export default function Veiculos() {
                 <div className="space-y-2">
                   <Label>Tipo</Label>
                   <Input value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})} placeholder="moto, carro, caminhão" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Valor FIPE (R$)</Label>
+                  <Input type="number" value={form.valor_fipe} onChange={e => setForm({...form, valor_fipe: e.target.value})} placeholder="25000.00" />
                 </div>
                 <div className="col-span-2 space-y-2">
                   <Label>Entregador Vinculado</Label>
