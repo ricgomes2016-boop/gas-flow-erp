@@ -3933,6 +3933,120 @@ export type Database = {
           },
         ]
       }
+      orcamento_itens: {
+        Row: {
+          created_at: string
+          descricao: string
+          id: string
+          orcamento_id: string
+          preco_unitario: number
+          produto_id: string | null
+          quantidade: number
+          subtotal: number
+        }
+        Insert: {
+          created_at?: string
+          descricao: string
+          id?: string
+          orcamento_id: string
+          preco_unitario?: number
+          produto_id?: string | null
+          quantidade?: number
+          subtotal?: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          id?: string
+          orcamento_id?: string
+          preco_unitario?: number
+          produto_id?: string | null
+          quantidade?: number
+          subtotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_itens_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamento_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamentos: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string
+          created_at: string
+          created_by: string | null
+          data_emissao: string
+          desconto: number | null
+          id: string
+          numero: number
+          observacoes: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          validade: string
+          valor_total: number
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome: string
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string
+          desconto?: number | null
+          id?: string
+          numero?: number
+          observacoes?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          validade?: string
+          valor_total?: number
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string
+          desconto?: number | null
+          id?: string
+          numero?: number
+          observacoes?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          validade?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedido_itens: {
         Row: {
           created_at: string
