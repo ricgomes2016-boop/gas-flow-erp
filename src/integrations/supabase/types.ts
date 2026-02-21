@@ -1142,6 +1142,7 @@ export type Database = {
           data_emissao: string
           data_vencimento: string
           depositado_em_conta_id: string | null
+          foto_url: string | null
           id: string
           motivo_devolucao: string | null
           numero_cheque: string
@@ -1163,6 +1164,7 @@ export type Database = {
           data_emissao?: string
           data_vencimento: string
           depositado_em_conta_id?: string | null
+          foto_url?: string | null
           id?: string
           motivo_devolucao?: string | null
           numero_cheque: string
@@ -1184,6 +1186,7 @@ export type Database = {
           data_emissao?: string
           data_vencimento?: string
           depositado_em_conta_id?: string | null
+          foto_url?: string | null
           id?: string
           motivo_devolucao?: string | null
           numero_cheque?: string
@@ -4519,11 +4522,15 @@ export type Database = {
           bairro_entrega: string | null
           canal_venda: string | null
           cep_entrega: string | null
+          cheque_banco: string | null
+          cheque_foto_url: string | null
+          cheque_numero: string | null
           cidade_entrega: string | null
           cliente_id: string | null
           complemento_entrega: string | null
           created_at: string
           data_agendamento: string | null
+          data_vencimento_fiado: string | null
           endereco_entrega: string | null
           entregador_id: string | null
           forma_pagamento: string | null
@@ -4543,11 +4550,15 @@ export type Database = {
           bairro_entrega?: string | null
           canal_venda?: string | null
           cep_entrega?: string | null
+          cheque_banco?: string | null
+          cheque_foto_url?: string | null
+          cheque_numero?: string | null
           cidade_entrega?: string | null
           cliente_id?: string | null
           complemento_entrega?: string | null
           created_at?: string
           data_agendamento?: string | null
+          data_vencimento_fiado?: string | null
           endereco_entrega?: string | null
           entregador_id?: string | null
           forma_pagamento?: string | null
@@ -4567,11 +4578,15 @@ export type Database = {
           bairro_entrega?: string | null
           canal_venda?: string | null
           cep_entrega?: string | null
+          cheque_banco?: string | null
+          cheque_foto_url?: string | null
+          cheque_numero?: string | null
           cidade_entrega?: string | null
           cliente_id?: string | null
           complemento_entrega?: string | null
           created_at?: string
           data_agendamento?: string | null
+          data_vencimento_fiado?: string | null
           endereco_entrega?: string | null
           entregador_id?: string | null
           forma_pagamento?: string | null

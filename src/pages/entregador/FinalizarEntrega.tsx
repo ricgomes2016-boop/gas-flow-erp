@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Package, CreditCard, Plus, QrCode, CheckCircle, Trash2, AlertCircle,
-  Keyboard, Loader2, Pencil,
+  Keyboard, Loader2, Pencil, Camera, ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
@@ -21,15 +21,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PixQRCode } from "@/components/pix/PixQRCode";
+import { format, addDays } from "date-fns";
+import { toast as sonnerToast } from "sonner";
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás",
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás", "Cheque", "Fiado",
 ];
 
 interface Pagamento {
   forma: string;
   valor: number;
   valeGasInfo?: { parceiro: string; codigo: string; valido: boolean; valeId?: string };
+  cheque_numero?: string;
+  cheque_banco?: string;
+  cheque_foto_url?: string;
+  data_vencimento_fiado?: string;
 }
 
 interface PedidoItem {
@@ -74,6 +80,15 @@ export default function FinalizarEntrega() {
   const [chavePix, setChavePix] = useState<string | null>(null);
   const [nomeUnidade, setNomeUnidade] = useState<string | null>(null);
   const [showPixQR, setShowPixQR] = useState(false);
+  // Cheque fields
+  const [chequeNumero, setChequeNumero] = useState("");
+  const [chequeBanco, setChequeBanco] = useState("");
+  const [chequeFotoUrl, setChequeFotoUrl] = useState<string | null>(null);
+  const [isUploadingCheque, setIsUploadingCheque] = useState(false);
+  // Fiado fields
+  const [dataVencimentoFiado, setDataVencimentoFiado] = useState("");
+  const chequePhotoRef = useRef<HTMLInputElement>(null);
+  const chequeCameraRef = useRef<HTMLInputElement>(null);
 
   // Fetch real pedido data
   useEffect(() => {
@@ -133,13 +148,69 @@ export default function FinalizarEntrega() {
 
   const adicionarPagamento = () => {
     if (novoPagamentoForma && Number(novoPagamentoValor) > 0) {
-      setPagamentos((prev) => [
-        ...prev,
-        { forma: novoPagamentoForma, valor: Number(novoPagamentoValor) },
-      ]);
+      // Validate cheque fields
+      if (novoPagamentoForma === "Cheque" && (!chequeNumero || !chequeBanco)) {
+        toast({ title: "Preencha número e banco do cheque", variant: "destructive" });
+        return;
+      }
+      const pag: Pagamento = { forma: novoPagamentoForma, valor: Number(novoPagamentoValor) };
+      if (novoPagamentoForma === "Cheque") {
+        pag.cheque_numero = chequeNumero;
+        pag.cheque_banco = chequeBanco;
+        pag.cheque_foto_url = chequeFotoUrl || undefined;
+      }
+      if (novoPagamentoForma === "Fiado") {
+        pag.data_vencimento_fiado = dataVencimentoFiado || format(addDays(new Date(), 30), "yyyy-MM-dd");
+      }
+      setPagamentos((prev) => [...prev, pag]);
       setNovoPagamentoForma("");
       setNovoPagamentoValor("");
+      setChequeNumero("");
+      setChequeBanco("");
+      setChequeFotoUrl(null);
+      setDataVencimentoFiado("");
       setDialogPagamentoAberto(false);
+    }
+  };
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxW = 1200;
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleChequeFoto = async (file: File) => {
+    setIsUploadingCheque(true);
+    try {
+      const compressed = await compressImage(file);
+      const blob = await (await fetch(compressed)).blob();
+      const fileName = `cheques/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      const { error } = await supabase.storage.from("product-images").upload(fileName, blob, { cacheControl: "3600" });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(fileName);
+      setChequeFotoUrl(urlData.publicUrl);
+      sonnerToast.success("Foto do cheque enviada!");
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Erro ao enviar foto");
+    } finally {
+      setIsUploadingCheque(false);
     }
   };
 
@@ -207,9 +278,19 @@ export default function FinalizarEntrega() {
       
       // Se houver pagamento com Vale Gás, usar o nome do parceiro como canal de venda
       const valeGasPag = pagamentos.find(p => p.forma === "Vale Gás" && p.valeGasInfo?.parceiro);
+      const chequePag = pagamentos.find(p => p.forma === "Cheque");
+      const fiadoPag = pagamentos.find(p => p.forma === "Fiado");
       const updateData: any = { status: "entregue", forma_pagamento: formaStr, valor_total: totalItens };
       if (valeGasPag) {
         updateData.canal_venda = valeGasPag.valeGasInfo!.parceiro;
+      }
+      if (chequePag) {
+        updateData.cheque_numero = chequePag.cheque_numero || null;
+        updateData.cheque_banco = chequePag.cheque_banco || null;
+        updateData.cheque_foto_url = chequePag.cheque_foto_url || null;
+      }
+      if (fiadoPag) {
+        updateData.data_vencimento_fiado = fiadoPag.data_vencimento_fiado || null;
       }
       
       const { error } = await supabase
@@ -472,11 +553,50 @@ export default function FinalizarEntrega() {
                         <div className="p-3 rounded-lg bg-warning/10 text-warning text-sm text-center">
                           Chave PIX não configurada para esta unidade.
                         </div>
-                      )}
-                      <div>
-                        <Label>Valor (R$)</Label>
-                        <Input type="number" step="0.01" value={novoPagamentoValor} onChange={(e) => setNovoPagamentoValor(e.target.value)} placeholder="0,00" />
-                      </div>
+                       )}
+                       {/* Cheque fields */}
+                       {novoPagamentoForma === "Cheque" && (
+                         <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-dashed">
+                           <p className="text-xs font-medium text-muted-foreground uppercase">Dados do Cheque</p>
+                           <div className="grid grid-cols-2 gap-2">
+                             <div>
+                               <Label className="text-xs">Nº Cheque *</Label>
+                               <Input value={chequeNumero} onChange={e => setChequeNumero(e.target.value)} placeholder="000001" className="h-8 text-sm" />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Banco *</Label>
+                               <Input value={chequeBanco} onChange={e => setChequeBanco(e.target.value)} placeholder="Itaú, BB..." className="h-8 text-sm" />
+                             </div>
+                           </div>
+                           <div className="flex items-center gap-2">
+                             <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => chequePhotoRef.current?.click()} disabled={isUploadingCheque}>
+                               {isUploadingCheque ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ImageIcon className="h-3 w-3 mr-1" />}
+                               Foto
+                             </Button>
+                             <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => chequeCameraRef.current?.click()} disabled={isUploadingCheque}>
+                               <Camera className="h-3 w-3 mr-1" />Câmera
+                             </Button>
+                             {chequeFotoUrl && <img src={chequeFotoUrl} alt="Cheque" className="h-8 w-12 rounded border object-cover" />}
+                             <input ref={chequePhotoRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleChequeFoto(f); e.target.value = ""; }} />
+                             <input ref={chequeCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleChequeFoto(f); e.target.value = ""; }} />
+                           </div>
+                         </div>
+                       )}
+                       {/* Fiado fields */}
+                       {novoPagamentoForma === "Fiado" && (
+                         <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
+                           <p className="text-xs font-medium text-muted-foreground uppercase">Dados do Fiado</p>
+                           <div>
+                             <Label className="text-xs">Data de Vencimento</Label>
+                             <Input type="date" value={dataVencimentoFiado} onChange={e => setDataVencimentoFiado(e.target.value)} min={new Date().toISOString().split("T")[0]} className="h-8 text-sm" />
+                             <p className="text-xs text-muted-foreground mt-1">Padrão: 30 dias ({format(addDays(new Date(), 30), "dd/MM/yyyy")})</p>
+                           </div>
+                         </div>
+                       )}
+                       <div>
+                         <Label>Valor (R$)</Label>
+                         <Input type="number" step="0.01" value={novoPagamentoValor} onChange={(e) => setNovoPagamentoValor(e.target.value)} placeholder="0,00" />
+                       </div>
                       <Button onClick={adicionarPagamento} className="w-full gradient-primary text-white">Adicionar</Button>
                     </div>
                   </DialogContent>
@@ -487,9 +607,11 @@ export default function FinalizarEntrega() {
           <CardContent className="space-y-3">
             {pagamentos.map((pag, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium text-sm">{pag.forma}</p>
                   {pag.valeGasInfo && <p className="text-xs text-muted-foreground">{pag.valeGasInfo.parceiro} • {pag.valeGasInfo.codigo}</p>}
+                  {pag.cheque_numero && <p className="text-xs text-muted-foreground">Cheque #{pag.cheque_numero} • {pag.cheque_banco}</p>}
+                  {pag.data_vencimento_fiado && <p className="text-xs text-muted-foreground">Venc: {format(new Date(pag.data_vencimento_fiado + "T12:00:00"), "dd/MM/yyyy")}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold">R$ {pag.valor.toFixed(2)}</span>
