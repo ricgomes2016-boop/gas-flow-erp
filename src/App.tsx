@@ -106,6 +106,9 @@ const ValeGasControle = lazy(() => import("./pages/financeiro/ValeGasControle"))
 const ValeGasAcerto = lazy(() => import("./pages/financeiro/ValeGasAcerto"));
 const ValeGasRelatorio = lazy(() => import("./pages/financeiro/ValeGasRelatorio"));
 const Orcamentos = lazy(() => import("./pages/financeiro/Orcamentos"));
+const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"));
+const ControleCheques = lazy(() => import("./pages/financeiro/ControleCheques"));
+const VendaAntecipada = lazy(() => import("./pages/financeiro/VendaAntecipada"));
 
 // Frota
 const DashboardFrota = lazy(() => import("./pages/frota/DashboardFrota"));
@@ -619,6 +622,21 @@ const App = () => (
                   <Route path="/financeiro/vale-gas/relatorio" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
                       <ValeGasRelatorio />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/contas-bancarias" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ContasBancarias />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/cheques" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <ControleCheques />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/venda-antecipada" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <VendaAntecipada />
                     </ProtectedRoute>
                   } />
                   

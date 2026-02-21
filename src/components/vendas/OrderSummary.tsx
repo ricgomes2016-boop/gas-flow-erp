@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Truck, CheckCircle, XCircle } from "lucide-react";
+import { ShoppingCart, Truck, CheckCircle, XCircle, CalendarClock } from "lucide-react";
 import type { ItemVenda } from "./ProductSearch";
 import type { Pagamento } from "./PaymentSection";
 
@@ -13,6 +13,7 @@ interface OrderSummaryProps {
   canalVenda: string;
   onFinalizar: () => void;
   onCancelar: () => void;
+  onAgendar?: () => void;
   isLoading?: boolean;
 }
 
@@ -23,6 +24,7 @@ export function OrderSummary({
   canalVenda,
   onFinalizar,
   onCancelar,
+  onAgendar,
   isLoading = false,
 }: OrderSummaryProps) {
   const subtotal = itens.reduce((acc, item) => acc + item.total, 0);
@@ -138,6 +140,17 @@ export function OrderSummary({
               </>
             )}
           </Button>
+          {onAgendar && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={onAgendar}
+              disabled={itens.length === 0 || isLoading}
+            >
+              <CalendarClock className="h-4 w-4 mr-2" />
+              Agendar Entrega
+            </Button>
+          )}
           <Button
             variant="outline"
             className="w-full"

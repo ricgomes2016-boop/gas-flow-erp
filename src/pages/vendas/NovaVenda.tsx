@@ -15,7 +15,10 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon, RotateCcw, Check, User, Package as PackageIcon, CreditCard, CheckCircle } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Calendar, ShoppingBag, Sparkles, Loader2, Send, Mic, MicOff, Camera, ImageIcon, RotateCcw, Check, User, Package as PackageIcon, CreditCard, CheckCircle, CalendarClock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
@@ -131,6 +134,9 @@ export default function NovaVenda() {
   const [aiLoading, setAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [agendarOpen, setAgendarOpen] = useState(false);
+  const [dataAgendamento, setDataAgendamento] = useState("");
+  const [horaAgendamento, setHoraAgendamento] = useState("08:00");
   const recognitionRef = useRef<any>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -679,6 +685,63 @@ export default function NovaVenda() {
     }
   };
 
+  const handleAgendar = () => {
+    if (itens.length === 0) {
+      toast({ title: "Erro", description: "Adicione pelo menos um produto.", variant: "destructive" });
+      return;
+    }
+    setAgendarOpen(true);
+  };
+
+  const handleConfirmarAgendamento = async () => {
+    if (!dataAgendamento) {
+      toast({ title: "Selecione a data", variant: "destructive" }); return;
+    }
+    setIsLoading(true);
+    try {
+      const enderecoCompleto = [
+        customer.endereco, customer.numero && `Nº ${customer.numero}`,
+        customer.complemento, customer.bairro,
+      ].filter(Boolean).join(", ");
+
+      const agendamentoDate = new Date(`${dataAgendamento}T${horaAgendamento}:00`);
+
+      const { data: pedido, error: pedidoError } = await supabase
+        .from("pedidos")
+        .insert({
+          cliente_id: customer.id, entregador_id: entregador.id,
+          endereco_entrega: enderecoCompleto, valor_total: totalVenda,
+          forma_pagamento: pagamentos.map((p) => p.forma).join(", "),
+          canal_venda: canalVenda, observacoes: customer.observacao,
+          status: "pendente", unidade_id: unidadeAtual?.id,
+          agendado: true, data_agendamento: agendamentoDate.toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (pedidoError) throw pedidoError;
+
+      const itensInsert = itens.map((item) => ({
+        pedido_id: pedido.id, produto_id: item.produto_id,
+        quantidade: item.quantidade, preco_unitario: item.preco_unitario,
+      }));
+      await supabase.from("pedido_itens").insert(itensInsert);
+
+      clearDraft();
+      setAgendarOpen(false);
+      toast({
+        title: "Entrega agendada!",
+        description: `Pedido #${pedido.id.slice(0, 6)} agendado para ${dataAgendamento} às ${horaAgendamento}.`,
+      });
+      navigate("/vendas/pedidos");
+    } catch (error: any) {
+      console.error(error);
+      toast({ title: "Erro ao agendar", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCancelar = () => {
     if (itens.length > 0 || pagamentos.length > 0) {
       if (!confirm("Deseja realmente cancelar esta venda? Os dados serão perdidos.")) return;
@@ -839,12 +902,39 @@ export default function NovaVenda() {
               canalVenda={canalVenda}
               onFinalizar={handleFinalizar}
               onCancelar={handleCancelar}
+              onAgendar={handleAgendar}
               isLoading={isLoading}
             />
             <CustomerHistory clienteId={customer.id} />
           </div>
         </div>
       </div>
+
+      {/* Dialog Agendamento */}
+      <Dialog open={agendarOpen} onOpenChange={setAgendarOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5" />Agendar Entrega</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Data da Entrega *</Label>
+              <Input type="date" value={dataAgendamento} onChange={e => setDataAgendamento(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+            </div>
+            <div>
+              <Label>Horário Previsto</Label>
+              <Input type="time" value={horaAgendamento} onChange={e => setHoraAgendamento(e.target.value)} />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              O pedido será criado com status "pendente" e marcado como agendado.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAgendarOpen(false)}>Cancelar</Button>
+              <Button onClick={handleConfirmarAgendamento} disabled={isLoading}>
+                {isLoading ? "Agendando..." : "Confirmar Agendamento"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
