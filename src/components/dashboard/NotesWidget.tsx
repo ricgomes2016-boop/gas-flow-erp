@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +12,8 @@ import {
   PinOff,
   X,
   Bell,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,23 +21,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 const CORES = [
-  { value: "yellow", label: "Amarelo", class: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700" },
-  { value: "blue", label: "Azul", class: "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700" },
-  { value: "green", label: "Verde", class: "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700" },
-  { value: "pink", label: "Rosa", class: "bg-pink-100 dark:bg-pink-900/30 border-pink-300 dark:border-pink-700" },
-  { value: "purple", label: "Roxo", class: "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700" },
+  { value: "yellow", label: "Amarelo", dot: "bg-amber-400", card: "border-l-amber-400" },
+  { value: "blue", label: "Azul", dot: "bg-blue-400", card: "border-l-blue-400" },
+  { value: "green", label: "Verde", dot: "bg-emerald-400", card: "border-l-emerald-400" },
+  { value: "pink", label: "Rosa", dot: "bg-pink-400", card: "border-l-pink-400" },
+  { value: "purple", label: "Roxo", dot: "bg-violet-400", card: "border-l-violet-400" },
 ];
 
-function getCorClass(cor: string) {
-  return CORES.find((c) => c.value === cor)?.class || CORES[0].class;
+function getCorConfig(cor: string) {
+  return CORES.find((c) => c.value === cor) || CORES[0];
 }
 
 export function NotesWidget({ className }: { className?: string }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [titulo, setTitulo] = useState("");
   const [conteudo, setConteudo] = useState("");
   const [cor, setCor] = useState("yellow");
@@ -106,153 +109,216 @@ export function NotesWidget({ className }: { className?: string }) {
   );
 
   return (
-    <Card className={className}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <StickyNote className="h-4 w-4 text-primary" />
-            Anotações & Lembretes
-            {lembretesPendentes.length > 0 && (
-              <Badge variant="destructive" className="text-xs">
-                {lembretesPendentes.length}
-              </Badge>
-            )}
-          </CardTitle>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-accent/10 shadow-md",
+        className
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 shadow-sm">
+            <StickyNote className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground leading-none">
+              Anotações & Lembretes
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {anotacoes.length} nota{anotacoes.length !== 1 ? "s" : ""}
+              {lembretesPendentes.length > 0 && (
+                <Badge variant="destructive" className="text-[10px] ml-1.5 px-1.5 py-0 h-4">
+                  {lembretesPendentes.length} pendente{lembretesPendentes.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
           <Button
-            variant={showForm ? "ghost" : "outline"}
-            size="sm"
-            onClick={() => setShowForm(!showForm)}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setExpanded(!expanded)}
           >
-            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant={showForm ? "secondary" : "default"}
+            size="sm"
+            className="h-7 px-2.5 text-xs gap-1 rounded-lg"
+            onClick={() => { setShowForm(!showForm); if (!expanded) setExpanded(true); }}
+          >
+            {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {showForm ? "Fechar" : "Nova"}
           </Button>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {showForm && (
-          <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
+      </div>
+
+      {/* Form */}
+      {showForm && expanded && (
+        <div className="mx-4 mb-3 p-3 rounded-xl border border-border/80 bg-background/80 backdrop-blur-sm space-y-2">
+          <Input
+            placeholder="Título da anotação..."
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            className="text-sm h-8 bg-background"
+          />
+          <Textarea
+            placeholder="Conteúdo (opcional)..."
+            value={conteudo}
+            onChange={(e) => setConteudo(e.target.value)}
+            className="text-sm min-h-[50px] bg-background"
+          />
+          <div className="flex items-center gap-2">
+            <Bell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <Input
-              placeholder="Título da anotação..."
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              className="text-sm"
+              type="datetime-local"
+              value={lembreteData}
+              onChange={(e) => setLembreteData(e.target.value)}
+              className="text-sm flex-1 h-8 bg-background"
             />
-            <Textarea
-              placeholder="Conteúdo (opcional)..."
-              value={conteudo}
-              onChange={(e) => setConteudo(e.target.value)}
-              className="text-sm min-h-[60px]"
-            />
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              <Input
-                type="datetime-local"
-                value={lembreteData}
-                onChange={(e) => setLembreteData(e.target.value)}
-                className="text-sm flex-1"
-              />
-            </div>
-            <div className="flex items-center gap-1">
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
               {CORES.map((c) => (
                 <button
                   key={c.value}
                   onClick={() => setCor(c.value)}
-                  className={`h-6 w-6 rounded-full border-2 ${c.class} ${
-                    cor === c.value ? "ring-2 ring-primary ring-offset-1" : ""
-                  }`}
+                  className={cn(
+                    "h-5 w-5 rounded-full transition-all",
+                    c.dot,
+                    cor === c.value ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110" : "opacity-60 hover:opacity-100"
+                  )}
                   title={c.label}
                 />
               ))}
             </div>
             <Button
               size="sm"
-              className="w-full"
+              className="h-7 px-4 text-xs rounded-lg"
               disabled={!titulo.trim() || addMutation.isPending}
               onClick={() => addMutation.mutate()}
             >
               Salvar
             </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {anotacoes.length === 0 && !showForm ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            Nenhuma anotação ainda. Clique em + para adicionar.
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-            {anotacoes.map((nota: any) => (
-              <div
-                key={nota.id}
-                className={`p-3 rounded-lg border ${getCorClass(nota.cor)} transition-all ${
-                  nota.concluido ? "opacity-60" : ""
-                }`}
+      {/* Notes list */}
+      {expanded && (
+        <div className="px-4 pb-4">
+          {anotacoes.length === 0 && !showForm ? (
+            <div className="text-center py-6">
+              <StickyNote className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Nenhuma anotação ainda.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2 text-xs"
+                onClick={() => setShowForm(true)}
               >
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    checked={nota.concluido}
-                    onCheckedChange={(v) =>
-                      toggleMutation.mutate({ id: nota.id, field: "concluido", value: !!v })
-                    }
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-medium ${
-                        nota.concluido ? "line-through text-muted-foreground" : ""
-                      }`}
-                    >
-                      {nota.titulo}
-                    </p>
-                    {nota.conteudo && (
-                      <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
-                        {nota.conteudo}
-                      </p>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Criar primeira nota
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-[280px] overflow-y-auto pr-1">
+              {anotacoes.map((nota: any) => {
+                const corConfig = getCorConfig(nota.cor);
+                const isOverdue = nota.lembrete_data && !nota.concluido && isPast(new Date(nota.lembrete_data));
+
+                return (
+                  <div
+                    key={nota.id}
+                    className={cn(
+                      "group relative p-3 rounded-xl border border-border/60 bg-background/70 backdrop-blur-sm transition-all hover:shadow-sm border-l-[3px]",
+                      corConfig.card,
+                      nota.concluido && "opacity-50"
                     )}
-                    {nota.lembrete_data && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Bell className="h-3 w-3" />
-                        <span
-                          className={`text-xs ${
-                            !nota.concluido && isPast(new Date(nota.lembrete_data))
-                              ? "text-destructive font-medium"
-                              : "text-muted-foreground"
-                          }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={nota.concluido}
+                        onCheckedChange={(v) =>
+                          toggleMutation.mutate({ id: nota.id, field: "concluido", value: !!v })
+                        }
+                        className="mt-0.5 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={cn(
+                            "text-sm font-medium leading-tight",
+                            nota.concluido && "line-through text-muted-foreground"
+                          )}
                         >
-                          {format(new Date(nota.lembrete_data), "dd/MM HH:mm", { locale: ptBR })}
-                        </span>
+                          {nota.titulo}
+                        </p>
+                        {nota.conteudo && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">
+                            {nota.conteudo}
+                          </p>
+                        )}
+                        {nota.lembrete_data && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <Bell className="h-3 w-3 shrink-0" />
+                            <span
+                              className={cn(
+                                "text-[11px]",
+                                isOverdue ? "text-destructive font-semibold" : "text-muted-foreground"
+                              )}
+                            >
+                              {format(new Date(nota.lembrete_data), "dd/MM HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Hover actions */}
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {nota.fixado && (
+                        <Pin className="h-3 w-3 text-primary mr-0.5" />
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={() =>
+                          toggleMutation.mutate({ id: nota.id, field: "fixado", value: !nota.fixado })
+                        }
+                      >
+                        {nota.fixado ? (
+                          <PinOff className="h-3 w-3 text-muted-foreground" />
+                        ) : (
+                          <Pin className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 hover:text-destructive"
+                        onClick={() => deleteMutation.mutate(nota.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {/* Pin indicator (always visible) */}
+                    {nota.fixado && (
+                      <div className="absolute top-1.5 right-1.5 group-hover:hidden">
+                        <Pin className="h-3 w-3 text-primary" />
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() =>
-                        toggleMutation.mutate({ id: nota.id, field: "fixado", value: !nota.fixado })
-                      }
-                    >
-                      {nota.fixado ? (
-                        <Pin className="h-3 w-3 text-primary" />
-                      ) : (
-                        <PinOff className="h-3 w-3 text-muted-foreground" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive"
-                      onClick={() => deleteMutation.mutate(nota.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
