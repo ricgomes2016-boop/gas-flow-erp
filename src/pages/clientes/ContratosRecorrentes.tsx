@@ -98,6 +98,14 @@ export default function ContratosRecorrentes() {
       return;
     }
 
+    // Calculate proxima_entrega
+    const hoje = new Date();
+    const dia = form.dia_preferencial ? parseInt(form.dia_preferencial) : hoje.getDate();
+    let proximaEntrega = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+    if (proximaEntrega <= hoje) {
+      proximaEntrega.setMonth(proximaEntrega.getMonth() + 1);
+    }
+
     const { error } = await supabase.from("contratos_recorrentes").insert({
       cliente_id: clienteId,
       cliente_nome: form.cliente_nome,
@@ -107,6 +115,7 @@ export default function ContratosRecorrentes() {
       frequencia: form.frequencia,
       dia_preferencial: form.dia_preferencial ? parseInt(form.dia_preferencial) : null,
       observacoes: form.observacoes || null,
+      proxima_entrega: proximaEntrega.toISOString().split("T")[0],
     });
 
     if (error) {
