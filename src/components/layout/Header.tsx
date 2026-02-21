@@ -1,5 +1,6 @@
-import { Bell, User, LogOut, Settings, UserCircle } from "lucide-react";
+import { User, LogOut, Settings, UserCircle } from "lucide-react";
 import { CommandPalette } from "./CommandPalette";
+import { NotificationCenter } from "./NotificationCenter";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -69,10 +70,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         <CommandPalette />
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />
-        </Button>
+        <NotificationCenter />
 
         {/* User Menu */}
         <DropdownMenu>
