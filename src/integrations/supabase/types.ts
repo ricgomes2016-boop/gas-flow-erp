@@ -3518,6 +3518,75 @@ export type Database = {
           },
         ]
       }
+      movimentacoes_bancarias: {
+        Row: {
+          categoria: string
+          conta_bancaria_id: string
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+          observacoes: string | null
+          referencia_id: string | null
+          referencia_tipo: string | null
+          saldo_apos: number | null
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+          user_id: string | null
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          conta_bancaria_id: string
+          created_at?: string
+          data?: string
+          descricao: string
+          id?: string
+          observacoes?: string | null
+          referencia_id?: string | null
+          referencia_tipo?: string | null
+          saldo_apos?: number | null
+          tipo: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          conta_bancaria_id?: string
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          referencia_id?: string | null
+          referencia_tipo?: string | null
+          saldo_apos?: number | null
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_bancarias_conta_bancaria_id_fkey"
+            columns: ["conta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_bancarias_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimentacoes_caixa: {
         Row: {
           categoria: string | null
