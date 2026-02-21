@@ -9,6 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useState, useMemo } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -23,6 +25,7 @@ const fmt = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigi
 export default function BalancoPatrimonial() {
   const { unidadeAtual } = useUnidade();
   const [mesRef, setMesRef] = useState(format(new Date(), "yyyy-MM"));
+  const [usarCusto, setUsarCusto] = useState(true);
 
   const mesesOpcoes = useMemo(() => {
     const arr = [];
@@ -61,7 +64,7 @@ export default function BalancoPatrimonial() {
   const { data: estoque = [] } = useQuery({
     queryKey: ["balanco_estoque", unidadeAtual?.id],
     queryFn: async () => {
-      let q = supabase.from("produtos").select("nome, preco_custo, estoque, tipo_botijao").eq("ativo", true).gt("estoque", 0);
+      let q = supabase.from("produtos").select("nome, preco, preco_custo, estoque, tipo_botijao").eq("ativo", true).gt("estoque", 0);
       if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
       const { data } = await q;
       return data || [];
@@ -115,7 +118,8 @@ export default function BalancoPatrimonial() {
   // === CÁLCULOS ===
   const saldoBancos = contasBancarias.reduce((s: number, c: any) => s + Number(c.saldo_atual || 0), 0);
   const totalReceber = receber.reduce((s: number, c: any) => s + Number(c.valor), 0);
-  const totalEstoque = estoque.reduce((s: number, p: any) => s + (Number(p.preco_custo || 0) * Number(p.estoque || 0)), 0);
+  const precoField = usarCusto ? "preco_custo" : "preco";
+  const totalEstoque = estoque.reduce((s: number, p: any) => s + (Number(p[precoField] || 0) * Number(p.estoque || 0)), 0);
   const totalCheques = cheques.reduce((s: number, c: any) => s + Number(c.valor), 0);
   const ativoCirculante = saldoBancos + totalReceber + totalEstoque + totalCheques;
 
@@ -182,6 +186,16 @@ export default function BalancoPatrimonial() {
               ))}
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-2 ml-4">
+            <Checkbox
+              id="usar-custo"
+              checked={usarCusto}
+              onCheckedChange={(v) => setUsarCusto(!!v)}
+            />
+            <Label htmlFor="usar-custo" className="text-sm cursor-pointer">
+              {usarCusto ? "Estoque a preço de custo" : "Estoque a preço de venda"}
+            </Label>
+          </div>
         </div>
 
         {/* KPI Cards */}
