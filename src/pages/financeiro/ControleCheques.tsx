@@ -374,6 +374,20 @@ export default function ControleCheques() {
                 )}
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Nº Cheque *</Label><Input value={form.numero_cheque} onChange={e => setForm({ ...form, numero_cheque: e.target.value })} /></div>
+                <div><Label>Banco *</Label><Input value={form.banco_emitente} onChange={e => setForm({ ...form, banco_emitente: e.target.value })} placeholder="Itaú, BB..." /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Agência</Label><Input value={form.agencia} onChange={e => setForm({ ...form, agencia: e.target.value })} /></div>
+                <div><Label>Conta</Label><Input value={form.conta} onChange={e => setForm({ ...form, conta: e.target.value })} /></div>
+              </div>
+              <div><Label>Valor *</Label><Input value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} placeholder="0,00" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Data Emissão</Label><Input type="date" value={form.data_emissao} onChange={e => setForm({ ...form, data_emissao: e.target.value })} /></div>
+                <div><Label>Data Vencimento *</Label><Input type="date" value={form.data_vencimento} onChange={e => setForm({ ...form, data_vencimento: e.target.value })} /></div>
+              </div>
+
               <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
