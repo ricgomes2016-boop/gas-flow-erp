@@ -288,6 +288,55 @@ export default function ControleCheques() {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editingId ? "Editar Cheque" : "Novo Cheque"}</DialogTitle></DialogHeader>
             <div className="space-y-3 pt-2">
+              {/* Foto do cheque - acima do cliente */}
+              <div>
+                <Label>Foto do Cheque (preenche campos automaticamente)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => {
+                    if (cameraInputRef.current) {
+                      cameraInputRef.current.value = "";
+                      cameraInputRef.current.click();
+                    }
+                  }} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Camera className="h-4 w-4 mr-1" />}
+                    Tirar Foto
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => {
+                    if (photoInputRef.current) {
+                      photoInputRef.current.value = "";
+                      photoInputRef.current.click();
+                    }
+                  }} disabled={isUploading}>
+                    <ImageIcon className="h-4 w-4 mr-1" />
+                    Galeria
+                  </Button>
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFoto(f); }}
+                  />
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFoto(f); }}
+                  />
+                </div>
+                {fotoPreview && (
+                  <div className="relative mt-2 inline-block">
+                    <img src={fotoPreview} alt="Foto do cheque" className="h-32 rounded-lg border object-cover" />
+                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6"
+                      onClick={() => { setForm({ ...form, foto_url: null }); setFotoPreview(null); }}>
+                      <XCircle className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {/* Busca de cliente */}
               <div>
                 <Label>Cliente</Label>
@@ -321,45 +370,6 @@ export default function ControleCheques() {
                         ))}
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Nº Cheque *</Label><Input value={form.numero_cheque} onChange={e => setForm({ ...form, numero_cheque: e.target.value })} /></div>
-                <div><Label>Banco *</Label><Input value={form.banco_emitente} onChange={e => setForm({ ...form, banco_emitente: e.target.value })} placeholder="Itaú, BB..." /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Agência</Label><Input value={form.agencia} onChange={e => setForm({ ...form, agencia: e.target.value })} /></div>
-                <div><Label>Conta</Label><Input value={form.conta} onChange={e => setForm({ ...form, conta: e.target.value })} /></div>
-              </div>
-              <div><Label>Valor *</Label><Input value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} placeholder="0,00" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Data Emissão</Label><Input type="date" value={form.data_emissao} onChange={e => setForm({ ...form, data_emissao: e.target.value })} /></div>
-                <div><Label>Data Vencimento *</Label><Input type="date" value={form.data_vencimento} onChange={e => setForm({ ...form, data_vencimento: e.target.value })} /></div>
-              </div>
-
-              {/* Foto do cheque */}
-              <div>
-                <Label>Foto do Cheque</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Button type="button" variant="outline" size="sm" onClick={() => photoInputRef.current?.click()} disabled={isUploading}>
-                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ImageIcon className="h-4 w-4 mr-1" />}
-                    Galeria
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => cameraInputRef.current?.click()} disabled={isUploading}>
-                    <Camera className="h-4 w-4 mr-1" />Câmera
-                  </Button>
-                  <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFoto(f); e.target.value = ""; }} />
-                  <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFoto(f); e.target.value = ""; }} />
-                </div>
-                {fotoPreview && (
-                  <div className="relative mt-2 inline-block">
-                    <img src={fotoPreview} alt="Foto do cheque" className="h-32 rounded-lg border object-cover" />
-                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6"
-                      onClick={() => { setForm({ ...form, foto_url: null }); setFotoPreview(null); }}>
-                      <XCircle className="h-3 w-3" />
-                    </Button>
                   </div>
                 )}
               </div>
