@@ -25,7 +25,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function EntregadorDashboard() {
-  const { simulateNewDelivery, pendingDeliveries } = useDeliveryNotifications();
+  const { pendingDeliveries } = useDeliveryNotifications();
   const { permission, requestPermission } = useNotifications();
   const { user, profile } = useAuth();
   
@@ -135,18 +135,6 @@ export default function EntregadorDashboard() {
           </Card>
         )}
 
-        {/* Botão de teste (remover em produção) */}
-        {permission === "granted" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={simulateNewDelivery}
-            className="w-full"
-          >
-            <BellRing className="h-4 w-4 mr-2" />
-            Simular Nova Entrega (Teste)
-          </Button>
-        )}
         {/* Header com saudação */}
         <div className="gradient-primary rounded-2xl p-4 text-white shadow-lg">
           <div className="flex items-center justify-between">

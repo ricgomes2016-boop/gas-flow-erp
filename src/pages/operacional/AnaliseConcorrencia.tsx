@@ -22,20 +22,14 @@ interface RegistroPreco {
 }
 
 export default function AnaliseConcorrencia() {
-  const [registros, setRegistros] = useState<RegistroPreco[]>([
-    { id: "1", concorrente: "Gás Popular", produto: "P13 Cheio", preco: 110, data: "2026-02-14", fonte: "Visita" },
-    { id: "2", concorrente: "Gás Popular", produto: "P45 Cheio", preco: 350, data: "2026-02-14", fonte: "WhatsApp" },
-    { id: "3", concorrente: "Gás do Zé", produto: "P13 Cheio", preco: 105, data: "2026-02-13", fonte: "Cliente" },
-    { id: "4", concorrente: "Ultragaz", produto: "P13 Cheio", preco: 115, data: "2026-02-12", fonte: "Site" },
-    { id: "5", concorrente: "Consigaz", produto: "P13 Cheio", preco: 112, data: "2026-02-12", fonte: "Visita" },
-  ]);
+  const [registros, setRegistros] = useState<RegistroPreco[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [novoConcorrente, setNovoConcorrente] = useState("");
   const [novoProduto, setNovoProduto] = useState("");
   const [novoPreco, setNovoPreco] = useState("");
   const [novaFonte, setNovaFonte] = useState("Visita");
 
-  // Nossos preços (mock - idealmente viriam do banco)
+  // Preços base dos produtos (idealmente viriam do banco)
   const nossosPrecos: Record<string, number> = {
     "P13 Cheio": 108,
     "P45 Cheio": 340,

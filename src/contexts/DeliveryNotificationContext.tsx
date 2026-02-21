@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface Delivery {
@@ -17,56 +17,18 @@ interface DeliveryNotificationContextType {
   pendingDeliveries: Delivery[];
   addDelivery: (delivery: Delivery) => void;
   removeDelivery: (id: number) => void;
-  simulateNewDelivery: () => void;
 }
 
 const DeliveryNotificationContext = createContext<DeliveryNotificationContextType | undefined>(undefined);
 
-// Dados simulados para demonstração
-const mockNewDeliveries: Omit<Delivery, "id">[] = [
-  {
-    pedidoId: 2001,
-    cliente: "Roberto Almeida",
-    endereco: "Rua das Acácias, 456",
-    bairro: "Jardim Europa",
-    produto: "Botijão P13",
-    quantidade: 2,
-    horarioPrevisto: "14:30",
-    valorTotal: 240.0,
-  },
-  {
-    pedidoId: 2002,
-    cliente: "Fernanda Lima",
-    endereco: "Av. Central, 789",
-    bairro: "Centro",
-    produto: "Botijão P45",
-    quantidade: 1,
-    horarioPrevisto: "15:00",
-    valorTotal: 450.0,
-  },
-  {
-    pedidoId: 2003,
-    cliente: "Pedro Souza",
-    endereco: "Rua dos Pinheiros, 123",
-    bairro: "Vila Nova",
-    produto: "Botijão P13",
-    quantidade: 3,
-    horarioPrevisto: "15:30",
-    valorTotal: 360.0,
-  },
-];
-
 export function DeliveryNotificationProvider({ children }: { children: ReactNode }) {
   const [pendingDeliveries, setPendingDeliveries] = useState<Delivery[]>([]);
-  const [nextId, setNextId] = useState(100);
-  const [mockIndex, setMockIndex] = useState(0);
   const { notifyNewDelivery, permission } = useNotifications();
 
   const addDelivery = useCallback(
     (delivery: Delivery) => {
       setPendingDeliveries((prev) => [...prev, delivery]);
       
-      // Enviar notificação push
       if (permission === "granted") {
         notifyNewDelivery(delivery.cliente, delivery.endereco, delivery.pedidoId);
       }
@@ -78,28 +40,12 @@ export function DeliveryNotificationProvider({ children }: { children: ReactNode
     setPendingDeliveries((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
-  const simulateNewDelivery = useCallback(() => {
-    const mockDelivery = mockNewDeliveries[mockIndex % mockNewDeliveries.length];
-    const newDelivery: Delivery = {
-      ...mockDelivery,
-      id: nextId,
-      pedidoId: mockDelivery.pedidoId + nextId,
-    };
-
-    addDelivery(newDelivery);
-    setNextId((prev) => prev + 1);
-    setMockIndex((prev) => prev + 1);
-  }, [addDelivery, mockIndex, nextId]);
-
-  // Simulação automática desativada - entregas reais virão do banco de dados
-
   return (
     <DeliveryNotificationContext.Provider
       value={{
         pendingDeliveries,
         addDelivery,
         removeDelivery,
-        simulateNewDelivery,
       }}
     >
       {children}

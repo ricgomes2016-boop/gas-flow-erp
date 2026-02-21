@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, Gauge, AlertCircle, CheckCircle } from "lucide-react";
+import { Truck, Gauge, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Veículos disponíveis (mock)
-const veiculosDisponiveis = [
-  { id: 1, placa: "ABC-1234", modelo: "Fiorino 1.4", status: "Disponível" },
-  { id: 2, placa: "DEF-5678", modelo: "Strada 1.4", status: "Disponível" },
-  { id: 4, placa: "JKL-3456", modelo: "Saveiro 1.6", status: "Disponível" },
-];
+interface Veiculo {
+  id: string;
+  placa: string;
+  modelo: string;
+  status: string | null;
+}
 
 interface IniciarRotaModalProps {
   isOpen: boolean;
@@ -39,16 +40,34 @@ export function IniciarRotaModal({
   onConfirm, 
   entregaNome 
 }: IniciarRotaModalProps) {
+  const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
+  const [loading, setLoading] = useState(false);
   const [veiculoSelecionado, setVeiculoSelecionado] = useState<string>("");
   const [kmInicial, setKmInicial] = useState<string>("");
   const [erro, setErro] = useState<string>("");
 
-  const veiculoInfo = veiculosDisponiveis.find(
-    v => v.id.toString() === veiculoSelecionado
+  useEffect(() => {
+    if (isOpen) {
+      fetchVeiculos();
+    }
+  }, [isOpen]);
+
+  const fetchVeiculos = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("veiculos")
+      .select("id, placa, modelo, status")
+      .or("status.eq.ativo,status.is.null")
+      .order("placa");
+    setVeiculos((data || []) as Veiculo[]);
+    setLoading(false);
+  };
+
+  const veiculoInfo = veiculos.find(
+    v => v.id === veiculoSelecionado
   );
 
   const handleConfirmar = () => {
-    // Validações
     if (!veiculoSelecionado) {
       setErro("Selecione um veículo para continuar");
       return;
@@ -66,7 +85,6 @@ export function IniciarRotaModal({
       parseInt(kmInicial)
     );
     
-    // Limpar estado
     setVeiculoSelecionado("");
     setKmInicial("");
   };
@@ -103,27 +121,33 @@ export function IniciarRotaModal({
               <Truck className="h-4 w-4" />
               Veículo *
             </Label>
-            <Select 
-              value={veiculoSelecionado} 
-              onValueChange={(value) => {
-                setVeiculoSelecionado(value);
-                setErro("");
-              }}
-            >
-              <SelectTrigger id="veiculo">
-                <SelectValue placeholder="Selecione o veículo" />
-              </SelectTrigger>
-              <SelectContent>
-                {veiculosDisponiveis.map((veiculo) => (
-                  <SelectItem key={veiculo.id} value={veiculo.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{veiculo.placa}</span>
-                      <span className="text-muted-foreground">- {veiculo.modelo}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {loading ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando veículos...
+              </div>
+            ) : (
+              <Select 
+                value={veiculoSelecionado} 
+                onValueChange={(value) => {
+                  setVeiculoSelecionado(value);
+                  setErro("");
+                }}
+              >
+                <SelectTrigger id="veiculo">
+                  <SelectValue placeholder="Selecione o veículo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {veiculos.map((veiculo) => (
+                    <SelectItem key={veiculo.id} value={veiculo.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{veiculo.placa}</span>
+                        <span className="text-muted-foreground">- {veiculo.modelo}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Veículo Selecionado Info */}
