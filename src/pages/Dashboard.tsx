@@ -9,6 +9,7 @@ import { SalesChart } from "@/components/dashboard/SalesChart";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { NotesWidget } from "@/components/dashboard/NotesWidget";
 import { DeliveryDriverStatus } from "@/components/dashboard/DeliveryDriverStatus";
+import { AiInsightsWidget } from "@/components/dashboard/AiInsightsWidget";
 import { DailySalesGoal } from "@/components/dashboard/DailySalesGoal";
 import { StockAlerts } from "@/components/dashboard/StockAlerts";
 import { ShoppingCart, Truck, Users, DollarSign, TrendingUp, Flame } from "lucide-react";
@@ -184,6 +185,7 @@ export default function Dashboard() {
             <SalesChart />
           </div>
           <div className="space-y-4 md:space-y-6">
+            <AiInsightsWidget />
             <DailySalesGoal />
             <DeliveryDriverStatus />
           </div>
