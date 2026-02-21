@@ -16,23 +16,24 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from "date-fns";
+import { subDays, startOfWeek, startOfMonth, startOfDay, endOfDay } from "date-fns";
+import { getBrasiliaDate, getBrasiliaStartOfDay, getBrasiliaEndOfDay } from "@/lib/utils";
 
 type Period = "hoje" | "semana" | "mes";
 
 export default function Dashboard() {
   const { unidadeAtual } = useUnidade();
   const [period, setPeriod] = useState<Period>("hoje");
-  const today = new Date();
+  const today = getBrasiliaDate();
 
   const getRange = (p: Period) => {
     switch (p) {
       case "semana":
-        return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfDay(today) };
+        return { start: startOfWeek(today, { weekStartsOn: 1 }).toISOString(), end: getBrasiliaEndOfDay(today) };
       case "mes":
-        return { start: startOfMonth(today), end: endOfDay(today) };
+        return { start: startOfMonth(today).toISOString(), end: getBrasiliaEndOfDay(today) };
       default:
-        return { start: startOfDay(today), end: endOfDay(today) };
+        return { start: getBrasiliaStartOfDay(today), end: getBrasiliaEndOfDay(today) };
     }
   };
 
@@ -48,7 +49,7 @@ export default function Dashboard() {
 
       const { data: pedidos } = await baseFilter(
         supabase.from("pedidos").select("valor_total, status")
-          .gte("created_at", start.toISOString()).lte("created_at", end.toISOString())
+          .gte("created_at", start).lte("created_at", end)
       );
 
       const valid = (pedidos || []).filter((p: any) => p.status !== "cancelado");
@@ -64,8 +65,8 @@ export default function Dashboard() {
         const yesterday = subDays(today, 1);
         const { data: pedidosOntem } = await baseFilter(
           supabase.from("pedidos").select("valor_total, status")
-            .gte("created_at", startOfDay(yesterday).toISOString())
-            .lte("created_at", endOfDay(yesterday).toISOString())
+            .gte("created_at", getBrasiliaStartOfDay(yesterday))
+            .lte("created_at", getBrasiliaEndOfDay(yesterday))
         );
 
         const validOntem = (pedidosOntem || []).filter((p: any) => p.status !== "cancelado");
