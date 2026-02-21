@@ -42,12 +42,21 @@ export default function DashboardFinanceiro() {
     },
   });
 
-  // Movimentações últimos 6 meses
+  // Saldo bancário real
+  const { data: saldoBancario = 0 } = useQuery({
+    queryKey: ["dash_fin_saldo_bancario"],
+    queryFn: async () => {
+      const { data } = await supabase.from("contas_bancarias").select("saldo_atual").eq("ativo", true);
+      return data?.reduce((s, c) => s + Number(c.saldo_atual || 0), 0) || 0;
+    },
+  });
+
+  // Movimentações bancárias reais últimos 6 meses
   const { data: movimentacoes = [] } = useQuery({
-    queryKey: ["dash_fin_movs", unidadeAtual?.id],
+    queryKey: ["dash_fin_movs_bancarias", unidadeAtual?.id],
     queryFn: async () => {
       const inicio = format(subMonths(startOfMonth(new Date()), 5), "yyyy-MM-dd");
-      let q = supabase.from("movimentacoes_caixa").select("tipo, valor, created_at").gte("created_at", inicio);
+      let q = supabase.from("movimentacoes_bancarias").select("tipo, valor, data").gte("data", inicio);
       if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
       const { data } = await q;
       return data || [];
@@ -80,7 +89,7 @@ export default function DashboardFinanceiro() {
       meses[format(d, "yyyy-MM")] = { entradas: 0, saidas: 0 };
     }
     movimentacoes.forEach((m: any) => {
-      const key = format(new Date(m.created_at), "yyyy-MM");
+      const key = format(new Date(m.data), "yyyy-MM");
       if (meses[key]) {
         if (m.tipo === "entrada") meses[key].entradas += Number(m.valor);
         else meses[key].saidas += Number(m.valor);
@@ -151,12 +160,12 @@ export default function DashboardFinanceiro() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Inadimplência</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-warning" />
+              <CardTitle className="text-xs sm:text-sm font-medium">Saldo Bancário</CardTitle>
+              <Banknote className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold text-warning">{fmt(totalVencidasReceber)}</div>
-              <p className="text-xs text-muted-foreground">{vencidasReceber.length} vencido(s)</p>
+              <div className={`text-lg sm:text-2xl font-bold ${saldoBancario >= 0 ? "text-primary" : "text-destructive"}`}>{fmt(saldoBancario)}</div>
+              <p className="text-xs text-muted-foreground">Todas as contas</p>
             </CardContent>
           </Card>
         </div>

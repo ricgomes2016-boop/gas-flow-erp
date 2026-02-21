@@ -78,7 +78,7 @@ export function RemindersWidget() {
         }
       }
 
-      // 2. Contas a vencer (próximos 3 dias)
+      // 2. Contas a pagar — vencidas + próximos 3 dias
       let contasQuery = supabase
         .from("contas_pagar")
         .select("id, descricao, valor, vencimento")
@@ -96,11 +96,37 @@ export function RemindersWidget() {
           icon: CreditCard,
           iconColor: vencidas.length > 0 ? "text-destructive" : "text-amber-500",
           bgColor: vencidas.length > 0 ? "bg-destructive/10" : "bg-amber-500/10",
-          title: `${contas.length} conta${contas.length > 1 ? "s" : ""} ${vencidas.length > 0 ? "vencida(s)" : "vencem em breve"}`,
+          title: `${contas.length} conta(s) a pagar ${vencidas.length > 0 ? "vencida(s)" : "vencem em breve"}`,
           description: `Total: R$ ${total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
           badge: vencidas.length > 0 ? "Urgente" : "3 dias",
           badgeVariant: vencidas.length > 0 ? "destructive" : "outline",
-          link: "/financeiro/contas-pagar",
+          link: "/financeiro/pagar",
+        });
+      }
+
+      // 2b. Contas a receber — próximas de vencer (3 dias)
+      let receberProxQuery = supabase
+        .from("contas_receber")
+        .select("id, descricao, valor, vencimento")
+        .eq("status", "pendente")
+        .gte("vencimento", hojeStr)
+        .lte("vencimento", em3dias)
+        .order("vencimento");
+      if (unidadeAtual?.id) receberProxQuery = receberProxQuery.eq("unidade_id", unidadeAtual.id);
+      const { data: receberProx } = await receberProxQuery;
+
+      if (receberProx && receberProx.length > 0) {
+        const total = receberProx.reduce((s, c) => s + (Number(c.valor) || 0), 0);
+        items.push({
+          id: "receber-vencendo",
+          icon: Bell,
+          iconColor: "text-chart-4",
+          bgColor: "bg-chart-4/10",
+          title: `${receberProx.length} recebível(is) vence(m) em 3 dias`,
+          description: `Total: R$ ${total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+          badge: "Cobrar",
+          badgeVariant: "outline",
+          link: "/financeiro/receber",
         });
       }
 

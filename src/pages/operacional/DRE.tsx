@@ -38,7 +38,10 @@ export default function DRE({ embedded = false }: { embedded?: boolean }) {
       for (let i = 2; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const inicio = d.toISOString();
-        const fim = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString();
+        const inicioDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        const fimD = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const fim = fimD.toISOString();
+        const fimDate = `${fimD.getFullYear()}-${String(fimD.getMonth() + 1).padStart(2, '0')}-01`;
         mesesCalc.push(nomesMeses[d.getMonth()]);
 
         // Receita bruta = total pedidos
@@ -47,15 +50,26 @@ export default function DRE({ embedded = false }: { embedded?: boolean }) {
         const { data: pedidos } = await pq;
         receitaBruta.push(pedidos?.reduce((s, p) => s + (p.valor_total || 0), 0) || 0);
 
-        // Despesas por categoria
-        let dq = supabase.from("movimentacoes_caixa").select("valor, categoria").eq("tipo", "saida").gte("created_at", inicio).lt("created_at", fim);
+        // Despesas reais do extrato bancário (movimentacoes_bancarias)
+        let dq = supabase.from("movimentacoes_bancarias").select("valor, categoria").eq("tipo", "saida").gte("data", inicioDate).lt("data", fimDate);
         if (unidadeAtual?.id) dq = dq.eq("unidade_id", unidadeAtual.id);
-        const { data: despesas } = await dq;
+        const { data: despesasBanco } = await dq;
+
+        // Também puxar contas_pagar pagas no período
+        let cpq = supabase.from("contas_pagar").select("valor, categoria").eq("status", "pago").gte("vencimento", inicioDate).lt("vencimento", fimDate);
+        if (unidadeAtual?.id) cpq = cpq.eq("unidade_id", unidadeAtual.id);
+        const { data: contasPagas } = await cpq;
+
+        // Mesclar despesas
+        const todasDespesas = [
+          ...(despesasBanco || []).map(d => ({ categoria: d.categoria, valor: Number(d.valor) })),
+          ...(contasPagas || []).map(d => ({ categoria: (d as any).categoria, valor: Number(d.valor) })),
+        ];
 
         let op = 0, admin = 0, pessoal = 0, fin = 0, custo = 0;
-        despesas?.forEach(d => {
+        todasDespesas.forEach(d => {
           const cat = (d.categoria || "").toLowerCase();
-          const val = Number(d.valor) || 0;
+          const val = d.valor || 0;
           if (cat.includes("mercadoria") || cat.includes("compra") || cat.includes("estoque")) custo += val;
           else if (cat.includes("pessoal") || cat.includes("salário") || cat.includes("salario")) pessoal += val;
           else if (cat.includes("financ")) fin += val;
