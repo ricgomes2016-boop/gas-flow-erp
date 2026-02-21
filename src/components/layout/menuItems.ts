@@ -191,6 +191,7 @@ export const menuItems: MenuItem[] = [
       { icon: Banknote, label: "Emissão de Boletos", path: "/financeiro/boletos" },
       { icon: TrendingDown, label: "Aging Report", path: "/financeiro/aging" },
       { icon: CalendarDays, label: "Calendário Financeiro", path: "/financeiro/calendario" },
+      { icon: FileText, label: "Orçamentos", path: "/financeiro/orcamentos" },
       { icon: Users2, label: "Vale Gás - Parceiros", path: "/financeiro/vale-gas/parceiros" },
       { icon: Ticket, label: "Vale Gás - Emissão", path: "/financeiro/vale-gas/emissao" },
       { icon: BadgeCheck, label: "Vale Gás - Controle", path: "/financeiro/vale-gas/controle" },

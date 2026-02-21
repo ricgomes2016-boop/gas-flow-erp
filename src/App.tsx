@@ -105,6 +105,7 @@ const ValeGasEmissao = lazy(() => import("./pages/financeiro/ValeGasEmissao"));
 const ValeGasControle = lazy(() => import("./pages/financeiro/ValeGasControle"));
 const ValeGasAcerto = lazy(() => import("./pages/financeiro/ValeGasAcerto"));
 const ValeGasRelatorio = lazy(() => import("./pages/financeiro/ValeGasRelatorio"));
+const Orcamentos = lazy(() => import("./pages/financeiro/Orcamentos"));
 
 // Frota
 const DashboardFrota = lazy(() => import("./pages/frota/DashboardFrota"));
@@ -572,6 +573,11 @@ const App = () => (
                   <Route path="/financeiro/contador/comunicados" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "contador"]}>
                       <ContadorComunicados />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/orcamentos" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro", "operacional"]}>
+                      <Orcamentos />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/terminais" element={
