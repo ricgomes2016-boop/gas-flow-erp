@@ -24,13 +24,23 @@ export function VoiceAssistant({ userName = "Gestor" }: VoiceAssistantProps) {
   const [open, setOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef(window.speechSynthesis);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
 
   const isSupported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
+  // Ensure voices are loaded before trying to speak
   useEffect(() => {
+    const synth = synthRef.current;
+    const loadVoices = () => {
+      const voices = synth.getVoices();
+      if (voices.length > 0) setVoicesLoaded(true);
+    };
+    loadVoices();
+    synth.addEventListener("voiceschanged", loadVoices);
     return () => {
+      synth.removeEventListener("voiceschanged", loadVoices);
       recognitionRef.current?.abort();
-      synthRef.current?.cancel();
+      synth.cancel();
     };
   }, []);
 
