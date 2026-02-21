@@ -1131,6 +1131,101 @@ export type Database = {
           },
         ]
       }
+      cheques: {
+        Row: {
+          agencia: string | null
+          banco_emitente: string
+          cliente_id: string | null
+          conta: string | null
+          created_at: string
+          data_compensacao: string | null
+          data_emissao: string
+          data_vencimento: string
+          depositado_em_conta_id: string | null
+          id: string
+          motivo_devolucao: string | null
+          numero_cheque: string
+          observacoes: string | null
+          pedido_id: string | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          agencia?: string | null
+          banco_emitente: string
+          cliente_id?: string | null
+          conta?: string | null
+          created_at?: string
+          data_compensacao?: string | null
+          data_emissao?: string
+          data_vencimento: string
+          depositado_em_conta_id?: string | null
+          id?: string
+          motivo_devolucao?: string | null
+          numero_cheque: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          agencia?: string | null
+          banco_emitente?: string
+          cliente_id?: string | null
+          conta?: string | null
+          created_at?: string
+          data_compensacao?: string | null
+          data_emissao?: string
+          data_vencimento?: string
+          depositado_em_conta_id?: string | null
+          id?: string
+          motivo_devolucao?: string | null
+          numero_cheque?: string
+          observacoes?: string | null
+          pedido_id?: string | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cheques_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheques_depositado_em_conta_id_fkey"
+            columns: ["depositado_em_conta_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheques_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheques_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cliente_enderecos: {
         Row: {
           apelido: string
@@ -1827,6 +1922,62 @@ export type Database = {
           tipo?: string
         }
         Relationships: []
+      }
+      contas_bancarias: {
+        Row: {
+          agencia: string | null
+          ativo: boolean
+          banco: string
+          chave_pix: string | null
+          conta: string | null
+          created_at: string
+          id: string
+          nome: string
+          saldo_atual: number
+          saldo_inicial: number
+          tipo: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agencia?: string | null
+          ativo?: boolean
+          banco: string
+          chave_pix?: string | null
+          conta?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          saldo_atual?: number
+          saldo_inicial?: number
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agencia?: string | null
+          ativo?: boolean
+          banco?: string
+          chave_pix?: string | null
+          conta?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          saldo_atual?: number
+          saldo_inicial?: number
+          tipo?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_bancarias_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contas_pagar: {
         Row: {
@@ -4124,6 +4275,7 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          agendado: boolean
           bairro_entrega: string | null
           canal_venda: string | null
           cep_entrega: string | null
@@ -4131,6 +4283,7 @@ export type Database = {
           cliente_id: string | null
           complemento_entrega: string | null
           created_at: string
+          data_agendamento: string | null
           endereco_entrega: string | null
           entregador_id: string | null
           forma_pagamento: string | null
@@ -4146,6 +4299,7 @@ export type Database = {
           valor_total: number | null
         }
         Insert: {
+          agendado?: boolean
           bairro_entrega?: string | null
           canal_venda?: string | null
           cep_entrega?: string | null
@@ -4153,6 +4307,7 @@ export type Database = {
           cliente_id?: string | null
           complemento_entrega?: string | null
           created_at?: string
+          data_agendamento?: string | null
           endereco_entrega?: string | null
           entregador_id?: string | null
           forma_pagamento?: string | null
@@ -4168,6 +4323,7 @@ export type Database = {
           valor_total?: number | null
         }
         Update: {
+          agendado?: boolean
           bairro_entrega?: string | null
           canal_venda?: string | null
           cep_entrega?: string | null
@@ -4175,6 +4331,7 @@ export type Database = {
           cliente_id?: string | null
           complemento_entrega?: string | null
           created_at?: string
+          data_agendamento?: string | null
           endereco_entrega?: string | null
           entregador_id?: string | null
           forma_pagamento?: string | null
@@ -4769,6 +4926,60 @@ export type Database = {
             columns: ["transferencia_id"]
             isOneToOne: false
             referencedRelation: "transferencias_estoque"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transferencias_bancarias: {
+        Row: {
+          conta_destino_id: string
+          conta_origem_id: string
+          created_at: string
+          data_transferencia: string
+          descricao: string | null
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          conta_destino_id: string
+          conta_origem_id: string
+          created_at?: string
+          data_transferencia?: string
+          descricao?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          conta_destino_id?: string
+          conta_origem_id?: string
+          created_at?: string
+          data_transferencia?: string
+          descricao?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transferencias_bancarias_conta_destino_id_fkey"
+            columns: ["conta_destino_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transferencias_bancarias_conta_origem_id_fkey"
+            columns: ["conta_origem_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
             referencedColumns: ["id"]
           },
         ]
@@ -5466,6 +5677,85 @@ export type Database = {
           },
           {
             foreignKeyName: "veiculos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendas_antecipadas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string
+          created_at: string
+          data_validade: string | null
+          data_venda: string
+          forma_pagamento: string
+          id: string
+          observacoes: string | null
+          pedido_utilizacao_id: string | null
+          saldo_restante: number | null
+          status: string
+          unidade_id: string | null
+          updated_at: string
+          user_id: string
+          valor_pago: number
+          valor_utilizado: number
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome: string
+          created_at?: string
+          data_validade?: string | null
+          data_venda?: string
+          forma_pagamento: string
+          id?: string
+          observacoes?: string | null
+          pedido_utilizacao_id?: string | null
+          saldo_restante?: number | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id: string
+          valor_pago: number
+          valor_utilizado?: number
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string
+          created_at?: string
+          data_validade?: string | null
+          data_venda?: string
+          forma_pagamento?: string
+          id?: string
+          observacoes?: string | null
+          pedido_utilizacao_id?: string | null
+          saldo_restante?: number | null
+          status?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_pago?: number
+          valor_utilizado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_antecipadas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_antecipadas_pedido_utilizacao_id_fkey"
+            columns: ["pedido_utilizacao_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_antecipadas_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"

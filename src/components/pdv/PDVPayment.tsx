@@ -25,6 +25,8 @@ const formasPagamento = [
   { value: "pix", label: "PIX", icon: Smartphone },
   { value: "credito", label: "Cartão Crédito", icon: CreditCard },
   { value: "debito", label: "Cartão Débito", icon: CreditCard },
+  { value: "vale_gas", label: "Vale Gás", icon: Receipt },
+  { value: "cheque", label: "Cheque", icon: Receipt },
 ];
 
 export function PDVPayment({ open, onClose, total, onConfirm, isLoading }: PDVPaymentProps) {
