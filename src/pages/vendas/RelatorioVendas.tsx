@@ -18,8 +18,13 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  FileSpreadsheet, Download, Filter, TrendingUp, DollarSign, ShoppingCart, Calendar, RefreshCw, Users, Megaphone, Pencil,
+  FileSpreadsheet, Download, Filter, TrendingUp, DollarSign, ShoppingCart, Calendar, RefreshCw, Users, Megaphone, Pencil, Upload,
 } from "lucide-react";
+import { SmartImportButtons } from "@/components/import/SmartImportButtons";
+import { ImportReviewDialog } from "@/components/import/ImportReviewDialog";
+import { DailySalesGoal } from "@/components/dashboard/DailySalesGoal";
+import { RecompraAlerts } from "@/components/vendas/RecompraAlerts";
+import { toast as sonnerToast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -76,6 +81,9 @@ export default function RelatorioVendas() {
   const [statusFiltro, setStatusFiltro] = useState<string>("todos");
   const [canalFiltro, setCanalFiltro] = useState<string>("todos");
   const [editandoCanalId, setEditandoCanalId] = useState<string | null>(null);
+  const [importItems, setImportItems] = useState<any[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [savingImport, setSavingImport] = useState(false);
 
   // Buscar canais de venda cadastrados
   const { data: canaisVenda = [] } = useQuery({
@@ -311,19 +319,98 @@ export default function RelatorioVendas() {
 
   const formatCurrency = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 
+  const handleImportData = (data: any) => {
+    const pedidos = data?.pedidos || [];
+    if (pedidos.length === 0) {
+      sonnerToast.error("Nenhum pedido encontrado na imagem");
+      return;
+    }
+    const items = pedidos.map((p: any) => ({
+      cliente_nome: p.cliente_nome || "",
+      cliente_id: p.cliente_id || null,
+      data: p.data || new Date().toISOString().split("T")[0],
+      itens_desc: (p.itens || []).map((i: any) => `${i.quantidade}x ${i.nome}`).join(", "),
+      itens_raw: p.itens || [],
+      valor_total: p.valor_total || 0,
+      forma_pagamento: p.forma_pagamento || "dinheiro",
+      status: p.status || "entregue",
+      endereco: p.endereco || "",
+      observacoes: p.observacoes || "",
+    }));
+    setImportItems(items);
+    setImportDialogOpen(true);
+    sonnerToast.success(`${items.length} pedido(s) extraído(s)!`);
+  };
+
+  const salvarImportacao = async () => {
+    setSavingImport(true);
+    try {
+      for (const item of importItems) {
+        const pedidoData: any = {
+          cliente_id: item.cliente_id || null,
+          valor_total: item.valor_total,
+          forma_pagamento: item.forma_pagamento,
+          status: item.status,
+          canal_venda: "importado",
+          observacoes: `[Importado] ${item.observacoes || ""}`.trim(),
+          endereco_entrega: item.endereco || null,
+          created_at: `${item.data}T12:00:00-03:00`,
+        };
+        if (unidadeAtual?.id) pedidoData.unidade_id = unidadeAtual.id;
+
+        const { data: pedido, error: pedidoErr } = await supabase
+          .from("pedidos")
+          .insert(pedidoData)
+          .select("id")
+          .single();
+
+        if (pedidoErr) {
+          console.error("Erro ao inserir pedido:", pedidoErr);
+          continue;
+        }
+
+        if (item.itens_raw?.length > 0) {
+          const itens = item.itens_raw.map((it: any) => ({
+            pedido_id: pedido.id,
+            produto_id: it.produto_id || null,
+            quantidade: it.quantidade || 1,
+            preco_unitario: it.preco_unitario || 0,
+          }));
+          await supabase.from("pedido_itens").insert(itens);
+        }
+      }
+
+      sonnerToast.success(`${importItems.length} pedido(s) importado(s)!`);
+      setImportDialogOpen(false);
+      setImportItems([]);
+      refetch();
+    } catch (err: any) {
+      sonnerToast.error(err.message || "Erro ao salvar importação");
+    } finally {
+      setSavingImport(false);
+    }
+  };
+
   return (
     <MainLayout>
       <Header title="Relatório de Vendas" subtitle="Análise detalhada das vendas" />
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex gap-2">
+         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2 items-center">
             <Button variant="outline" className="gap-2" onClick={exportarPDF}>
               <Download className="h-4 w-4" />PDF
             </Button>
             <Button className="gap-2" onClick={exportarExcel}>
               <FileSpreadsheet className="h-4 w-4" />Excel
             </Button>
+            <div className="flex items-center gap-2 border-l pl-2 ml-1">
+              <span className="text-xs text-muted-foreground hidden sm:inline">Importar legado:</span>
+              <SmartImportButtons
+                edgeFunctionName="parse-orders-history"
+                onDataExtracted={handleImportData}
+              />
+            </div>
           </div>
         </div>
 
@@ -379,6 +466,12 @@ export default function RelatorioVendas() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Meta Diária + Alertas Recompra */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <DailySalesGoal />
+          <RecompraAlerts />
+        </div>
 
         {/* Métricas */}
         <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-5">
@@ -655,6 +748,31 @@ export default function RelatorioVendas() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Import Review Dialog */}
+        <ImportReviewDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          title="Revisar Pedidos Importados"
+          description="Revise e corrija os dados extraídos antes de importar para o sistema."
+          items={importItems}
+          columns={[
+            { key: "data", label: "Data", type: "date", width: "120px" },
+            { key: "cliente_nome", label: "Cliente", width: "150px" },
+            { key: "itens_desc", label: "Itens", width: "180px" },
+            { key: "valor_total", label: "Valor (R$)", type: "number", width: "100px" },
+            { key: "forma_pagamento", label: "Pagamento", width: "120px" },
+            { key: "observacoes", label: "Obs", width: "120px" },
+          ]}
+          onUpdateItem={(index, field, value) => {
+            setImportItems(prev => prev.map((it, i) => i === index ? { ...it, [field]: value } : it));
+          }}
+          onRemoveItem={(index) => {
+            setImportItems(prev => prev.filter((_, i) => i !== index));
+          }}
+          onConfirm={salvarImportacao}
+          saving={savingImport}
+        />
       </div>
     </MainLayout>
   );

@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.bina-webhook]
 verify_jwt = false
+
+[functions.recompra-alerts]
+verify_jwt = false
