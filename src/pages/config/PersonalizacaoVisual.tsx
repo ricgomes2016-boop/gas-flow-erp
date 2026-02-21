@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Palette, Image, Sun, Moon, Printer, Upload, Check, Save, Building2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -20,6 +21,43 @@ const COLOR_OPTIONS = [
   { hsl: "350 70% 50%", label: "Vermelho", hex: "#cc1a2e" },
   { hsl: "30 80% 50%", label: "Laranja", hex: "#cc6b1a" },
   { hsl: "152 69% 40%", label: "Verde", hex: "#1f9e5c" },
+  { hsl: "220 70% 45%", label: "Índigo", hex: "#2246a8" },
+  { hsl: "340 82% 52%", label: "Rosa", hex: "#e81e63" },
+];
+
+const THEME_PRESETS = [
+  {
+    id: "gas-classico",
+    label: "Gás Clássico",
+    description: "Azul confiança, ideal para revendas tradicionais",
+    cor: "210 80% 50%",
+    hex: "#1a6fcc",
+    dark: false,
+  },
+  {
+    id: "eco-verde",
+    label: "Eco Verde",
+    description: "Verde sustentável, perfeito para revendas ecológicas",
+    cor: "152 69% 40%",
+    hex: "#1f9e5c",
+    dark: false,
+  },
+  {
+    id: "premium-dark",
+    label: "Premium Dark",
+    description: "Tema escuro sofisticado com destaque roxo",
+    cor: "260 60% 50%",
+    hex: "#6b3fa0",
+    dark: true,
+  },
+  {
+    id: "energia-laranja",
+    label: "Energia",
+    description: "Laranja vibrante, transmite dinamismo e agilidade",
+    cor: "30 80% 50%",
+    hex: "#cc6b1a",
+    dark: false,
+  },
 ];
 
 interface ComprovanteConfig {
@@ -326,6 +364,38 @@ export default function PersonalizacaoVisual() {
                   checked={config.darkMode}
                   onCheckedChange={(v) => setConfig((p) => ({ ...p, darkMode: v }))}
                 />
+              </div>
+              <Separator />
+              {/* Theme Presets */}
+              <div className="space-y-3">
+                <Label>Temas Prontos</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {THEME_PRESETS.map((preset) => {
+                    const isActive = config.corPrimaria === preset.cor && config.darkMode === preset.dark;
+                    return (
+                      <button
+                        key={preset.id}
+                        className={cn(
+                          "rounded-lg border-2 p-3 text-left transition-all hover:shadow-md",
+                          isActive
+                            ? "border-foreground shadow-md"
+                            : "border-border hover:border-foreground/20"
+                        )}
+                        onClick={() => setConfig((p) => ({ ...p, corPrimaria: preset.cor, darkMode: preset.dark }))}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div
+                            className="h-5 w-5 rounded-full shrink-0 border"
+                            style={{ backgroundColor: preset.hex }}
+                          />
+                          <span className="text-sm font-semibold">{preset.label}</span>
+                          {isActive && <Check className="h-3.5 w-3.5 text-primary ml-auto" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-tight">{preset.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <Separator />
               <div className="space-y-3">
