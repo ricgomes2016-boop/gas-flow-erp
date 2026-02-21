@@ -10,7 +10,7 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 import { format, addDays, addMonths, startOfDay, endOfDay, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export default function PrevisaoCaixa() {
+export default function PrevisaoCaixa({ embedded }: { embedded?: boolean } = {}) {
   const { unidadeAtual } = useUnidade();
 
   // Saldo atual from movimentacoes_caixa
@@ -129,10 +129,8 @@ export default function PrevisaoCaixa() {
   const previsao30 = saldoAtual + projecoes[1].saldo;
   const alertas = projecoes.filter((p) => p.saldo < 0).length;
 
-  return (
-    <MainLayout>
-      <Header title="Previsão de Caixa" subtitle="Projeções financeiras baseadas em histórico" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
 
 
 
@@ -233,7 +231,14 @@ export default function PrevisaoCaixa() {
             </Card>
           ))}
         </div>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Previsão de Caixa" subtitle="Projeções financeiras baseadas em histórico" />
+      {content}
     </MainLayout>
   );
 }

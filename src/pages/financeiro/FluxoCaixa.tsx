@@ -29,7 +29,7 @@ interface Movimentacao {
   created_at: string;
 }
 
-export default function FluxoCaixa() {
+export default function FluxoCaixa({ embedded }: { embedded?: boolean } = {}) {
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -79,10 +79,8 @@ export default function FluxoCaixa() {
     return Object.entries(days).map(([data, v]) => ({ data, ...v }));
   }, [movs]);
 
-  return (
-    <MainLayout>
-      <Header title="Fluxo de Caixa" subtitle="Entradas e saídas em tempo real" />
-      <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+  const content = (
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center justify-between">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Movimentação</Button></DialogTrigger>
@@ -163,7 +161,14 @@ export default function FluxoCaixa() {
             )}
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Fluxo de Caixa" subtitle="Entradas e saídas em tempo real" />
+      {content}
     </MainLayout>
   );
 }

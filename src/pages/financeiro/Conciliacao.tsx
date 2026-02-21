@@ -82,7 +82,7 @@ function parseCSV(text: string): Array<{ data: string; descricao: string; valor:
 
 // --- Component ---
 
-export default function Conciliacao() {
+export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
   const { unidadeAtual } = useUnidade();
   const queryClient = useQueryClient();
   const ofxInputRef = useRef<HTMLInputElement>(null);
@@ -286,10 +286,8 @@ export default function Conciliacao() {
       });
   }, [pedidos, linkedPedidoIds, pedidoSearch]);
 
-  return (
-    <MainLayout>
-      <Header title="Conciliação Bancária" subtitle="Importe e concilie extratos" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
         <input type="file" ref={ofxInputRef} accept=".ofx" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileImport(f, "ofx"); e.target.value = ""; }}
         />
@@ -524,7 +522,14 @@ export default function Conciliacao() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Conciliação Bancária" subtitle="Importe e concilie extratos" />
+      {content}
     </MainLayout>
   );
 }

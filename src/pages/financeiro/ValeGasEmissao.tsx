@@ -179,7 +179,7 @@ function CupomPrint({ cupons, onClose }: { cupons: CupomVale[]; onClose: () => v
   );
 }
 
-export default function ValeGasEmissao() {
+export default function ValeGasEmissao({ embedded }: { embedded?: boolean } = {}) {
   const { parceiros, lotes, vales, emitirLote, cancelarLote, registrarPagamentoLote, proximoNumeroVale } = useValeGas();
   const { unidadeAtual } = useUnidade();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -366,10 +366,8 @@ export default function ValeGasEmissao() {
     valorRecebido: lotesAtivos.reduce((s, l) => s + Number(l.valor_pago), 0),
   }), [lotesAtivos]);
 
-  return (
-    <MainLayout>
-      <Header title="Emissão de Vale Gás" subtitle="Emita e gerencie lotes de vales" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
         <div className="flex items-center justify-end">
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setPreviewVales([]); }}>
             <DialogTrigger asChild>
@@ -691,7 +689,14 @@ export default function ValeGasEmissao() {
             </Table>
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Emissão de Vale Gás" subtitle="Emita e gerencie lotes de vales" />
+      {content}
     </MainLayout>
   );
 }

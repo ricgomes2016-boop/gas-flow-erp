@@ -87,7 +87,7 @@ const periodoPresets = [
   { label: "Últimos 3 meses", days: 90 },
 ];
 
-export default function ValeGasRelatorio() {
+export default function ValeGasRelatorio({ embedded }: { embedded?: boolean } = {}) {
   const { toast } = useToast();
   const { vales, parceiros, lotes } = useValeGas();
   const [dataInicio, setDataInicio] = useState<Date>(subDays(new Date(), 30));
@@ -395,10 +395,8 @@ export default function ValeGasRelatorio() {
     }
   };
 
-  return (
-    <MainLayout>
-      <Header title="Relatório de Vale Gás" subtitle="Análise gerencial de emissão, vendas e utilização" />
-      <div className="space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
         {/* Cabeçalho */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4">
           <DropdownMenu>
@@ -811,7 +809,14 @@ export default function ValeGasRelatorio() {
             </div>
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Relatório de Vale Gás" subtitle="Análise gerencial de emissão, vendas e utilização" />
+      {content}
     </MainLayout>
   );
 }

@@ -18,12 +18,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Plus, ArrowRightLeft, Landmark, Wallet, Send } from "lucide-react";
+import { Building2, Plus, ArrowRightLeft, Landmark, Wallet, Send, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import Conciliacao from "./Conciliacao";
 
 interface ContaBancaria {
   id: string;
@@ -250,6 +251,7 @@ export default function ContasBancarias() {
           <TabsList>
             <TabsTrigger value="contas"><Landmark className="h-4 w-4 mr-1" />Contas</TabsTrigger>
             <TabsTrigger value="transferencias"><ArrowRightLeft className="h-4 w-4 mr-1" />Transferências</TabsTrigger>
+            <TabsTrigger value="conciliacao"><FileSpreadsheet className="h-4 w-4 mr-1" />Extrato / Conciliação</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contas" className="mt-4">
@@ -337,6 +339,10 @@ export default function ContasBancarias() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="conciliacao" className="mt-4">
+            <Conciliacao embedded />
           </TabsContent>
         </Tabs>
       </div>
