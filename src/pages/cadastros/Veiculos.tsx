@@ -18,10 +18,11 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, Plus, Search, Edit, Trash2, User, Car, Bike, Ban, UserCheck, ExternalLink } from "lucide-react";
+import { Truck, Plus, Search, Edit, Trash2, User, Car, ExternalLink, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { VeiculoDetalheDialog } from "@/components/frota/VeiculoDetalheDialog";
 
 interface Entregador {
   id: string;
@@ -40,6 +41,9 @@ interface Veiculo {
   status: string | null;
   entregador_id: string | null;
   valor_fipe: number | null;
+  crlv_vencimento: string | null;
+  seguro_vencimento: string | null;
+  seguro_empresa: string | null;
 }
 
 const statusOptions = [
@@ -60,6 +64,7 @@ export default function Veiculos() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [filtroStatus, setFiltroStatus] = useState("ativo");
+  const [detalheVeiculo, setDetalheVeiculo] = useState<Veiculo | null>(null);
   const { unidadeAtual } = useUnidade();
 
   const fetchVeiculos = async () => {
@@ -342,6 +347,9 @@ export default function Veiculos() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => setDetalheVeiculo(v)} title="Detalhes">
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(v)} title="Editar">
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -380,6 +388,13 @@ export default function Veiculos() {
             )}
           </CardContent>
         </Card>
+
+        {/* Detalhe Dialog */}
+        <VeiculoDetalheDialog
+          open={!!detalheVeiculo}
+          onOpenChange={(o) => { if (!o) setDetalheVeiculo(null); }}
+          veiculo={detalheVeiculo}
+        />
       </div>
     </MainLayout>
   );
