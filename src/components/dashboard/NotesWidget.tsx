@@ -33,7 +33,7 @@ function getCorClass(cor: string) {
   return CORES.find((c) => c.value === cor)?.class || CORES[0].class;
 }
 
-export function NotesWidget() {
+export function NotesWidget({ className }: { className?: string }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -106,7 +106,7 @@ export function NotesWidget() {
   );
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">

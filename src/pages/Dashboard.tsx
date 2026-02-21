@@ -137,6 +137,9 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Anotações & Lembretes em destaque */}
+        <NotesWidget className="bg-[hsl(20,10%,12%)] dark:bg-[hsl(20,10%,8%)] border-[hsl(25,90%,50%,0.25)] shadow-lg text-[hsl(30,20%,90%)] [&_.text-muted-foreground]:!text-[hsl(30,10%,60%)] [&_.text-destructive]:!text-[hsl(0,70%,60%)] [&_.bg-muted\\/30]:bg-[hsl(0,0%,100%,0.08)] [&_.border]:border-[hsl(0,0%,100%,0.1)]" />
+
         {/* Filtro de período */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
@@ -191,12 +194,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Vendas recentes + Estoque + Entregas */}
+        {/* Vendas recentes */}
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <RecentSales />
           </div>
-          <NotesWidget />
         </div>
 
         <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
