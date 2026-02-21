@@ -16,7 +16,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
-    const today = new Date().toISOString().split("T")[0];
+    // Use Brasília timezone (UTC-3)
+    const nowBrasilia = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const today = nowBrasilia.toISOString().split("T")[0];
 
     // Gather data in parallel
     const [
@@ -41,7 +43,7 @@ serve(async (req) => {
 
     const context = {
       nome_gestor: user_name || "Gestor",
-      hora: new Date().getHours(),
+      hora: nowBrasilia.getHours(),
       vendas_hoje: { total: pedidosHoje?.length || 0, valor: totalVendasHoje },
       pedidos_pendentes: pedidosPendentes?.length || 0,
       estoque_baixo: (estoqueBaixo || []).map((p: any) => ({ nome: p.nome, atual: p.estoque_atual, minimo: p.estoque_minimo })),
