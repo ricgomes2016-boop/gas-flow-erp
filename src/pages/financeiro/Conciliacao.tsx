@@ -123,6 +123,21 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
     },
   });
 
+  // Fetch movimentações bancárias reais para cruzamento OFX ↔ Extrato Real
+  const { data: movimentacoesBancarias = [] } = useQuery({
+    queryKey: ["movs_bancarias_conciliacao", unidadeAtual?.id],
+    queryFn: async () => {
+      let query = supabase
+        .from("movimentacoes_bancarias")
+        .select("id, data, tipo, categoria, descricao, valor")
+        .order("data", { ascending: false });
+      if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Already linked pedido_ids
   const linkedPedidoIds = useMemo(() => {
     return new Set(extrato.filter((e: any) => e.pedido_id).map((e: any) => e.pedido_id));
@@ -175,7 +190,7 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
     },
   });
 
-  // Auto-reconciliation logic
+  // Auto-reconciliation logic — matches OFX entries against pedidos AND movimentações bancárias reais
   const handleAutoReconcile = async () => {
     const pendingLancamentos = extrato.filter((e: any) => !e.conciliado && !e.pedido_id);
     if (pendingLancamentos.length === 0) {
@@ -184,52 +199,78 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
     }
 
     setAutoReconciling(true);
-    let matched = 0;
+    let matchedPedidos = 0;
+    let matchedExtrato = 0;
 
     try {
-      // Build list of available pedidos (not yet linked)
+      // 1. Match against pedidos
       const availablePedidos = pedidos.filter((p: any) => !linkedPedidoIds.has(p.id));
-
-      const updates: Array<{ lancamentoId: string; pedidoId: string }> = [];
+      const pedidoUpdates: Array<{ lancamentoId: string; pedidoId: string }> = [];
+      const matchedLancIds = new Set<string>();
 
       for (const lancamento of pendingLancamentos) {
         const valor = Math.abs(Number(lancamento.valor));
         const lancDate = new Date(lancamento.data);
 
-        // Find matching pedido by value (within 1% tolerance) and date (within 3 days)
         const matchIdx = availablePedidos.findIndex((p: any) => {
-          if (updates.some((u) => u.pedidoId === p.id)) return false; // already matched in this batch
+          if (pedidoUpdates.some((u) => u.pedidoId === p.id)) return false;
           const pedidoValor = Math.abs(Number(p.valor_total));
           const pedidoDate = new Date(p.created_at);
           const valorDiff = Math.abs(valor - pedidoValor);
-          const tolerance = pedidoValor * 0.01; // 1%
+          const tolerance = pedidoValor * 0.01;
           const daysDiff = Math.abs((lancDate.getTime() - pedidoDate.getTime()) / (1000 * 60 * 60 * 24));
           return valorDiff <= tolerance && daysDiff <= 3;
         });
 
         if (matchIdx >= 0) {
-          updates.push({
-            lancamentoId: lancamento.id,
-            pedidoId: availablePedidos[matchIdx].id,
-          });
-          matched++;
+          pedidoUpdates.push({ lancamentoId: lancamento.id, pedidoId: availablePedidos[matchIdx].id });
+          matchedLancIds.add(lancamento.id);
+          matchedPedidos++;
         }
       }
 
-      // Execute all updates
-      for (const update of updates) {
-        await supabase
-          .from("extrato_bancario")
-          .update({ pedido_id: update.pedidoId, conciliado: true })
-          .eq("id", update.lancamentoId);
+      // 2. Match remaining against movimentações bancárias reais (por valor e data)
+      const remainingLancs = pendingLancamentos.filter((l: any) => !matchedLancIds.has(l.id));
+      const usedMovIds = new Set<string>();
+
+      for (const lancamento of remainingLancs) {
+        const valor = Math.abs(Number(lancamento.valor));
+        const lancDate = new Date(lancamento.data);
+
+        const match = movimentacoesBancarias.find((m: any) => {
+          if (usedMovIds.has(m.id)) return false;
+          const movValor = Math.abs(Number(m.valor));
+          const movDate = new Date(m.data);
+          const valorDiff = Math.abs(valor - movValor);
+          const tolerance = movValor * 0.02; // 2% tolerance
+          const daysDiff = Math.abs((lancDate.getTime() - movDate.getTime()) / (1000 * 60 * 60 * 24));
+          return valorDiff <= tolerance && daysDiff <= 2;
+        });
+
+        if (match) {
+          usedMovIds.add(match.id);
+          matchedLancIds.add(lancamento.id);
+          matchedExtrato++;
+          // Mark as conciliado (matched with extrato real)
+          await supabase.from("extrato_bancario").update({ conciliado: true }).eq("id", lancamento.id);
+        }
+      }
+
+      // Execute pedido updates
+      for (const update of pedidoUpdates) {
+        await supabase.from("extrato_bancario").update({ pedido_id: update.pedidoId, conciliado: true }).eq("id", update.lancamentoId);
       }
 
       queryClient.invalidateQueries({ queryKey: ["extrato_bancario"] });
+      const total = matchedPedidos + matchedExtrato;
 
-      if (matched > 0) {
-        toast.success(`${matched} lançamento(s) vinculado(s) automaticamente!`);
+      if (total > 0) {
+        const msgs = [];
+        if (matchedPedidos > 0) msgs.push(`${matchedPedidos} com pedidos`);
+        if (matchedExtrato > 0) msgs.push(`${matchedExtrato} com extrato real`);
+        toast.success(`${total} lançamento(s) conciliado(s): ${msgs.join(", ")}!`);
       } else {
-        toast.info("Nenhum pedido correspondente encontrado (valor ±1%, data ±3 dias).");
+        toast.info("Nenhuma correspondência encontrada (valor ±1-2%, data ±2-3 dias).");
       }
     } catch (err: any) {
       toast.error("Erro na reconciliação: " + (err.message || "erro desconhecido"));
