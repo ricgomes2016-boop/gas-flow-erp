@@ -608,19 +608,35 @@ export default function NovaVenda() {
         customer.bairro,
       ].filter(Boolean).join(", ");
 
+      // Extract cheque/fiado data from pagamentos
+      const chequePag = pagamentos.find(p => p.forma === "cheque");
+      const fiadoPag = pagamentos.find(p => p.forma === "fiado");
+
+      const pedidoInsert: any = {
+        cliente_id: customer.id,
+        entregador_id: entregador.id,
+        endereco_entrega: enderecoCompleto,
+        valor_total: totalVenda,
+        forma_pagamento: pagamentos.map((p) => p.forma).join(", "),
+        canal_venda: canalVenda,
+        observacoes: customer.observacao,
+        status: "pendente",
+        unidade_id: unidadeAtual?.id,
+      };
+
+      if (chequePag) {
+        pedidoInsert.cheque_numero = chequePag.cheque_numero || null;
+        pedidoInsert.cheque_banco = chequePag.cheque_banco || null;
+        pedidoInsert.cheque_foto_url = chequePag.cheque_foto_url || null;
+      }
+
+      if (fiadoPag) {
+        pedidoInsert.data_vencimento_fiado = fiadoPag.data_vencimento_fiado || null;
+      }
+
       const { data: pedido, error: pedidoError } = await supabase
         .from("pedidos")
-        .insert({
-          cliente_id: customer.id,
-          entregador_id: entregador.id,
-          endereco_entrega: enderecoCompleto,
-          valor_total: totalVenda,
-          forma_pagamento: pagamentos.map((p) => p.forma).join(", "),
-          canal_venda: canalVenda,
-          observacoes: customer.observacao,
-          status: "pendente",
-          unidade_id: unidadeAtual?.id,
-        })
+        .insert(pedidoInsert)
         .select("id")
         .single();
 
