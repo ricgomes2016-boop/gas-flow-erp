@@ -23,9 +23,12 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X, Mic, MicOff, AudioLines, FileText, Eye, Copy, FileUp } from "lucide-react";
+import { CreditCard, Search, Plus, AlertCircle, CheckCircle2, Clock, MoreHorizontal, Pencil, Trash2, DollarSign, Download, Camera, Loader2, Layers, ChevronRight, Building2, Filter, X, Mic, MicOff, AudioLines, FileText, Eye, Copy, FileUp, CalendarRange } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ParcelamentoDialog } from "@/components/financeiro/ParcelamentoDialog";
+import { CompromissosFuturos } from "@/components/financeiro/CompromissosFuturos";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -114,6 +117,7 @@ export default function ContasPagar() {
 
   // Consolidation states
   const [unificarDialogOpen, setUnificarDialogOpen] = useState(false);
+  const [parcelamentoOpen, setParcelamentoOpen] = useState(false);
   const [selectedFornecedor, setSelectedFornecedor] = useState<string | null>(null);
   const [selectedContasIds, setSelectedContasIds] = useState<Set<string>>(new Set());
   const [unificarVencimento, setUnificarVencimento] = useState("");
@@ -733,8 +737,14 @@ export default function ContasPagar() {
 
   return (
     <MainLayout>
-      <Header title="Contas a Pagar" subtitle="Gerencie todas as contas" />
+      <Header title="Contas a Pagar" subtitle="Gerencie todas as contas, parcelamentos e empréstimos" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+        <Tabs defaultValue="contas">
+          <TabsList>
+            <TabsTrigger value="contas"><CreditCard className="h-4 w-4 mr-1" />Contas</TabsTrigger>
+            <TabsTrigger value="compromissos"><CalendarRange className="h-4 w-4 mr-1" />Compromissos Futuros</TabsTrigger>
+          </TabsList>
+          <TabsContent value="contas" className="mt-4 space-y-4 md:space-y-6">
         <div className="flex flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
@@ -816,6 +826,10 @@ export default function ContasPagar() {
               <span className="hidden sm:inline">Unificar Fornecedor</span><span className="sm:hidden">Unificar</span>
             </Button>
           )}
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => setParcelamentoOpen(true)}>
+            <CalendarRange className="h-4 w-4" />
+            <span className="hidden sm:inline">Parcelar / Empréstimo</span><span className="sm:hidden">Parcelar</span>
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -1125,7 +1139,11 @@ export default function ContasPagar() {
             )}
           </CardContent>
         </Card>
-      </div>
+          </TabsContent>
+          <TabsContent value="compromissos" className="mt-4">
+            <CompromissosFuturos />
+          </TabsContent>
+        </Tabs>
 
       {/* Dialog Pagar com múltiplas formas */}
       <Dialog open={pagarDialogOpen} onOpenChange={setPagarDialogOpen}>
@@ -1662,6 +1680,15 @@ export default function ContasPagar() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ParcelamentoDialog
+        open={parcelamentoOpen}
+        onOpenChange={setParcelamentoOpen}
+        unidadeId={unidadeAtual?.id}
+        categorias={categoriasNomes}
+        onSuccess={fetchContas}
+      />
+      </div>
     </MainLayout>
   );
 }
