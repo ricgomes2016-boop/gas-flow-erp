@@ -5884,9 +5884,11 @@ export type Database = {
           placa: string
           seguro_empresa: string | null
           seguro_vencimento: string | null
+          status: string | null
           tipo: string | null
           unidade_id: string | null
           updated_at: string
+          valor_fipe: number | null
         }
         Insert: {
           ano?: number | null
@@ -5901,9 +5903,11 @@ export type Database = {
           placa: string
           seguro_empresa?: string | null
           seguro_vencimento?: string | null
+          status?: string | null
           tipo?: string | null
           unidade_id?: string | null
           updated_at?: string
+          valor_fipe?: number | null
         }
         Update: {
           ano?: number | null
@@ -5918,9 +5922,11 @@ export type Database = {
           placa?: string
           seguro_empresa?: string | null
           seguro_vencimento?: string | null
+          status?: string | null
           tipo?: string | null
           unidade_id?: string | null
           updated_at?: string
+          valor_fipe?: number | null
         }
         Relationships: [
           {

@@ -11,9 +11,14 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Truck, Plus, Search, Edit, Trash2, User } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Truck, Plus, Search, Edit, Trash2, User, Car, Bike, Ban, UserCheck, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -32,10 +37,19 @@ interface Veiculo {
   km_atual: number | null;
   tipo: string | null;
   ativo: boolean | null;
+  status: string | null;
   entregador_id: string | null;
+  valor_fipe: number | null;
 }
 
-const emptyForm = { placa: "", modelo: "", marca: "", ano: "", km_atual: "", tipo: "moto", entregador_id: "", valor_fipe: "" };
+const statusOptions = [
+  { value: "ativo", label: "Ativo", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  { value: "terceiro", label: "Terceiro", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+  { value: "inativo", label: "Inativo", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
+  { value: "excluido", label: "Excluído", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" },
+];
+
+const emptyForm = { placa: "", modelo: "", marca: "", ano: "", km_atual: "", tipo: "moto", entregador_id: "", valor_fipe: "", status: "ativo" };
 
 export default function Veiculos() {
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
@@ -45,13 +59,13 @@ export default function Veiculos() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
+  const [filtroStatus, setFiltroStatus] = useState("ativo");
   const { unidadeAtual } = useUnidade();
 
   const fetchVeiculos = async () => {
     let query = supabase
       .from("veiculos")
       .select("*")
-      .eq("ativo", true)
       .order("placa");
     
     if (unidadeAtual?.id) {
@@ -76,7 +90,7 @@ export default function Veiculos() {
       return;
     }
     const payload: any = {
-      placa: form.placa,
+      placa: form.placa.toUpperCase(),
       modelo: form.modelo,
       marca: form.marca || null,
       ano: form.ano ? parseInt(form.ano) : null,
@@ -84,6 +98,8 @@ export default function Veiculos() {
       tipo: form.tipo || "moto",
       entregador_id: form.entregador_id || null,
       valor_fipe: form.valor_fipe ? parseFloat(form.valor_fipe) : null,
+      status: form.status || "ativo",
+      ativo: form.status !== "excluido",
     };
     if (!editId && unidadeAtual?.id) {
       payload.unidade_id = unidadeAtual.id;
@@ -113,16 +129,17 @@ export default function Veiculos() {
       km_atual: v.km_atual?.toString() || "",
       tipo: v.tipo || "moto",
       entregador_id: v.entregador_id || "",
-      valor_fipe: (v as any).valor_fipe?.toString() || "",
+      valor_fipe: v.valor_fipe?.toString() || "",
+      status: v.status || "ativo",
     });
     setEditId(v.id);
     setOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("veiculos").update({ ativo: false }).eq("id", id);
+    const { error } = await supabase.from("veiculos").update({ status: "excluido", ativo: false }).eq("id", id);
     if (error) { toast.error("Erro ao excluir"); return; }
-    toast.success("Veículo removido");
+    toast.success("Veículo marcado como excluído");
     fetchVeiculos();
   };
 
@@ -131,21 +148,42 @@ export default function Veiculos() {
     return entregadores.find(e => e.id === id)?.nome || null;
   };
 
-  const filtered = veiculos.filter(v =>
-    v.placa.toLowerCase().includes(search.toLowerCase()) ||
-    v.modelo.toLowerCase().includes(search.toLowerCase())
-  );
+  const getStatusBadge = (status: string | null) => {
+    const s = statusOptions.find(o => o.value === (status || "ativo"));
+    return s ? <Badge className={`${s.color} border-0`}>{s.label}</Badge> : <Badge variant="outline">{status}</Badge>;
+  };
+
+  const filtered = veiculos.filter(v => {
+    const matchSearch = v.placa.toLowerCase().includes(search.toLowerCase()) ||
+      v.modelo.toLowerCase().includes(search.toLowerCase()) ||
+      (v.marca || "").toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filtroStatus === "todos" || (v.status || "ativo") === filtroStatus;
+    return matchSearch && matchStatus;
+  });
+
+  const countByStatus = (s: string) => veiculos.filter(v => (v.status || "ativo") === s).length;
+  const totalFipe = veiculos.filter(v => (v.status || "ativo") !== "excluido").reduce((sum, v) => sum + Number(v.valor_fipe || 0), 0);
 
   return (
     <MainLayout>
       <Header title="Veículos" subtitle="Gerencie a frota de veículos" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Top actions */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <Tabs value={filtroStatus} onValueChange={setFiltroStatus}>
+            <TabsList>
+              <TabsTrigger value="todos">Todos ({veiculos.length})</TabsTrigger>
+              <TabsTrigger value="ativo">Ativos ({countByStatus("ativo")})</TabsTrigger>
+              <TabsTrigger value="terceiro">Terceiros ({countByStatus("terceiro")})</TabsTrigger>
+              <TabsTrigger value="inativo">Inativos ({countByStatus("inativo")})</TabsTrigger>
+              <TabsTrigger value="excluido">Excluídos ({countByStatus("excluido")})</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Veículo</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editId ? "Editar Veículo" : "Cadastrar Novo Veículo"}</DialogTitle>
                 <DialogDescription>Preencha os dados do veículo</DialogDescription>
@@ -153,7 +191,7 @@ export default function Veiculos() {
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
                   <Label>Placa *</Label>
-                  <Input value={form.placa} onChange={e => setForm({...form, placa: e.target.value})} placeholder="ABC-1234" />
+                  <Input value={form.placa} onChange={e => setForm({...form, placa: e.target.value.toUpperCase()})} placeholder="ABC1D23" />
                 </div>
                 <div className="space-y-2">
                   <Label>Modelo *</Label>
@@ -169,15 +207,36 @@ export default function Veiculos() {
                 </div>
                 <div className="space-y-2">
                   <Label>KM Atual</Label>
-                  <Input value={form.km_atual} onChange={e => setForm({...form, km_atual: e.target.value})} placeholder="45000" />
+                  <Input type="number" value={form.km_atual} onChange={e => setForm({...form, km_atual: e.target.value})} placeholder="45000" />
                 </div>
                 <div className="space-y-2">
                   <Label>Tipo</Label>
-                  <Input value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})} placeholder="moto, carro, caminhão" />
+                  <Select value={form.tipo} onValueChange={v => setForm({...form, tipo: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="moto">Moto</SelectItem>
+                      <SelectItem value="carro">Carro</SelectItem>
+                      <SelectItem value="utilitario">Utilitário</SelectItem>
+                      <SelectItem value="caminhao">Caminhão</SelectItem>
+                      <SelectItem value="van">Van</SelectItem>
+                      <SelectItem value="bicicleta">Bicicleta</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Valor FIPE (R$)</Label>
                   <Input type="number" value={form.valor_fipe} onChange={e => setForm({...form, valor_fipe: e.target.value})} placeholder="25000.00" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={form.status} onValueChange={v => setForm({...form, status: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(s => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="col-span-2 space-y-2">
                   <Label>Entregador Vinculado</Label>
@@ -200,37 +259,46 @@ export default function Veiculos() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+              <Car className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{veiculos.length}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{countByStatus("ativo")}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Motos</CardTitle>
-              <Truck className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm font-medium">Terceiros</CardTitle>
+              <ExternalLink className="h-4 w-4 text-blue-600" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{veiculos.filter(v => v.tipo === "moto").length}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{countByStatus("terceiro")}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Com Entregador</CardTitle>
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{veiculos.filter(v => v.entregador_id).length}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{veiculos.filter(v => v.entregador_id && (v.status || "ativo") !== "excluido").length}</div></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Valor Total FIPE</CardTitle>
+              <Truck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">R$ {totalFipe.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent>
           </Card>
         </div>
 
+        {/* Table */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Lista de Veículos</CardTitle>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar..." className="pl-10 w-[250px]" value={search} onChange={e => setSearch(e.target.value)} />
+                <Input placeholder="Buscar placa, modelo, marca..." className="pl-10 w-[280px]" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             </div>
           </CardHeader>
@@ -245,19 +313,23 @@ export default function Veiculos() {
                     <TableHead>Ano</TableHead>
                     <TableHead>KM</TableHead>
                     <TableHead>Tipo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Valor FIPE</TableHead>
                     <TableHead>Entregador</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(v => (
-                    <TableRow key={v.id}>
-                      <TableCell className="font-medium">{v.placa}</TableCell>
+                    <TableRow key={v.id} className={(v.status === "excluido" || v.status === "inativo") ? "opacity-60" : ""}>
+                      <TableCell className="font-mono font-bold">{v.placa}</TableCell>
                       <TableCell>{v.modelo}</TableCell>
-                      <TableCell>{v.marca || "-"}</TableCell>
-                      <TableCell>{v.ano || "-"}</TableCell>
+                      <TableCell>{v.marca || "—"}</TableCell>
+                      <TableCell>{v.ano || "—"}</TableCell>
                       <TableCell>{v.km_atual?.toLocaleString("pt-BR") || 0} km</TableCell>
-                      <TableCell><Badge variant="outline">{v.tipo || "-"}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{v.tipo || "—"}</Badge></TableCell>
+                      <TableCell>{getStatusBadge(v.status)}</TableCell>
+                      <TableCell>{v.valor_fipe ? `R$ ${Number(v.valor_fipe).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
                       <TableCell>
                         {getEntregadorNome(v.entregador_id) ? (
                           <Badge variant="secondary" className="gap-1">
@@ -270,18 +342,38 @@ export default function Veiculos() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(v)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(v)} title="Editar">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {v.status !== "excluido" && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Excluir">
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir veículo?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    O veículo <strong>{v.placa}</strong> será marcado como excluído. Você poderá restaurá-lo editando o status.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(v.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (
-                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum veículo encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nenhum veículo encontrado</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
