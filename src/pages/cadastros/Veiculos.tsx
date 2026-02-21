@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, Plus, Search, Edit, Trash2, User, Car, ExternalLink, Eye } from "lucide-react";
+import { Truck, Plus, Search, Edit, Trash2, User, Car, ExternalLink, Eye, MapPin, Fuel, WifiOff } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -27,6 +28,16 @@ import { VeiculoDetalheDialog } from "@/components/frota/VeiculoDetalheDialog";
 interface Entregador {
   id: string;
   nome: string;
+  latitude: number | null;
+  longitude: number | null;
+  updated_at: string;
+}
+
+interface AbastecimentoAgg {
+  veiculo_id: string;
+  km_min: number;
+  km_max: number;
+  litros_total: number;
 }
 
 interface Veiculo {
@@ -65,6 +76,7 @@ export default function Veiculos() {
   const [editId, setEditId] = useState<string | null>(null);
   const [filtroStatus, setFiltroStatus] = useState("ativo");
   const [detalheVeiculo, setDetalheVeiculo] = useState<Veiculo | null>(null);
+  const [abastAgg, setAbastAgg] = useState<AbastecimentoAgg[]>([]);
   const { unidadeAtual } = useUnidade();
 
   const fetchVeiculos = async () => {
@@ -77,13 +89,28 @@ export default function Veiculos() {
       query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     }
 
-    const [{ data, error }, { data: entData }] = await Promise.all([
+    const [{ data, error }, { data: entData }, { data: abastData }] = await Promise.all([
       query,
-      supabase.from("entregadores").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("entregadores").select("id, nome, latitude, longitude, updated_at").eq("ativo", true).order("nome"),
+      supabase.from("abastecimentos").select("veiculo_id, km, litros").order("km", { ascending: true }),
     ]);
     if (error) { console.error(error); return; }
     setVeiculos((data || []) as Veiculo[]);
-    setEntregadores(entData || []);
+    setEntregadores((entData || []) as Entregador[]);
+
+    // Aggregate KM/L per vehicle
+    const aggMap = new Map<string, { kms: number[]; litros: number }>();
+    (abastData || []).forEach((a: any) => {
+      const entry = aggMap.get(a.veiculo_id) || { kms: [], litros: 0 };
+      entry.kms.push(Number(a.km));
+      entry.litros += Number(a.litros);
+      aggMap.set(a.veiculo_id, entry);
+    });
+    const agg: AbastecimentoAgg[] = [];
+    aggMap.forEach((v, k) => {
+      agg.push({ veiculo_id: k, km_min: Math.min(...v.kms), km_max: Math.max(...v.kms), litros_total: v.litros });
+    });
+    setAbastAgg(agg);
     setLoading(false);
   };
 
@@ -148,9 +175,26 @@ export default function Veiculos() {
     fetchVeiculos();
   };
 
-  const getEntregadorNome = (id: string | null) => {
+  const getEntregador = (id: string | null) => {
     if (!id) return null;
-    return entregadores.find(e => e.id === id)?.nome || null;
+    return entregadores.find(e => e.id === id) || null;
+  };
+
+  const getEntregadorNome = (id: string | null) => getEntregador(id)?.nome || null;
+
+  const getGpsStatus = (entregadorId: string | null) => {
+    const ent = getEntregador(entregadorId);
+    if (!ent || !ent.latitude || !ent.longitude) return { online: false, label: "Sem GPS" };
+    const lastUpdate = new Date(ent.updated_at);
+    const diffMin = (Date.now() - lastUpdate.getTime()) / 60000;
+    if (diffMin > 5) return { online: false, label: `Offline (${Math.round(diffMin)}min)` };
+    return { online: true, label: "Online" };
+  };
+
+  const getKmL = (veiculoId: string) => {
+    const agg = abastAgg.find(a => a.veiculo_id === veiculoId);
+    if (!agg || agg.litros_total <= 0 || agg.km_max <= agg.km_min) return null;
+    return (agg.km_max - agg.km_min) / agg.litros_total;
   };
 
   const getStatusBadge = (status: string | null) => {
@@ -168,6 +212,11 @@ export default function Veiculos() {
 
   const countByStatus = (s: string) => veiculos.filter(v => (v.status || "ativo") === s).length;
   const totalFipe = veiculos.filter(v => (v.status || "ativo") !== "excluido").reduce((sum, v) => sum + Number(v.valor_fipe || 0), 0);
+  const avgKmL = useMemo(() => {
+    const vals = veiculos.map(v => getKmL(v.id)).filter(Boolean) as number[];
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }, [veiculos, abastAgg]);
+  const gpsOnlineCount = veiculos.filter(v => v.entregador_id && getGpsStatus(v.entregador_id).online).length;
 
   return (
     <MainLayout>
@@ -265,34 +314,48 @@ export default function Veiculos() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Ativos</CardTitle>
-              <Car className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-xs font-medium">Ativos</CardTitle>
+              <Car className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent><div className="text-2xl font-bold">{countByStatus("ativo")}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Terceiros</CardTitle>
-              <ExternalLink className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-xs font-medium">Terceiros</CardTitle>
+              <ExternalLink className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent><div className="text-2xl font-bold">{countByStatus("terceiro")}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Com Entregador</CardTitle>
+              <CardTitle className="text-xs font-medium">GPS Online</CardTitle>
+              <MapPin className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{gpsOnlineCount}</div></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium">KM/L Médio</CardTitle>
+              <Fuel className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{avgKmL > 0 ? avgKmL.toFixed(1) : "—"}</div></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium">Com Entregador</CardTitle>
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent><div className="text-2xl font-bold">{veiculos.filter(v => v.entregador_id && (v.status || "ativo") !== "excluido").length}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Valor Total FIPE</CardTitle>
+              <CardTitle className="text-xs font-medium">Valor FIPE</CardTitle>
               <Truck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">R$ {totalFipe.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-lg font-bold">R$ {totalFipe.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</div></CardContent>
           </Card>
         </div>
 
@@ -314,27 +377,59 @@ export default function Veiculos() {
                   <TableRow>
                     <TableHead>Placa</TableHead>
                     <TableHead>Modelo</TableHead>
-                    <TableHead>Marca</TableHead>
-                    <TableHead>Ano</TableHead>
-                    <TableHead>KM</TableHead>
                     <TableHead>Tipo</TableHead>
+                    <TableHead>KM</TableHead>
+                    <TableHead>KM/L</TableHead>
+                    <TableHead>GPS</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Valor FIPE</TableHead>
                     <TableHead>Entregador</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(v => (
+                  {filtered.map(v => {
+                    const gps = getGpsStatus(v.entregador_id);
+                    const kmL = getKmL(v.id);
+                    return (
                     <TableRow key={v.id} className={(v.status === "excluido" || v.status === "inativo") ? "opacity-60" : ""}>
                       <TableCell className="font-mono font-bold">{v.placa}</TableCell>
-                      <TableCell>{v.modelo}</TableCell>
-                      <TableCell>{v.marca || "—"}</TableCell>
-                      <TableCell>{v.ano || "—"}</TableCell>
-                      <TableCell>{v.km_atual?.toLocaleString("pt-BR") || 0} km</TableCell>
+                      <TableCell>
+                        <div className="text-sm">{v.modelo}</div>
+                        {v.marca && <div className="text-xs text-muted-foreground">{v.marca} {v.ano || ""}</div>}
+                      </TableCell>
                       <TableCell><Badge variant="outline">{v.tipo || "—"}</Badge></TableCell>
+                      <TableCell className="text-sm">{v.km_atual?.toLocaleString("pt-BR") || 0}</TableCell>
+                      <TableCell>
+                        {kmL ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Badge variant={kmL >= 8 ? "default" : "destructive"} className="gap-1">
+                                  <Fuel className="h-3 w-3" />
+                                  {kmL.toFixed(1)}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>KM por litro</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {v.entregador_id ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Badge variant="outline" className={`gap-1 ${gps.online ? "border-primary text-primary" : "text-muted-foreground"}`}>
+                                  {gps.online ? <MapPin className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                                  {gps.online ? "On" : "Off"}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>{gps.label}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
                       <TableCell>{getStatusBadge(v.status)}</TableCell>
-                      <TableCell>{v.valor_fipe ? `R$ ${Number(v.valor_fipe).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
                       <TableCell>
                         {getEntregadorNome(v.entregador_id) ? (
                           <Badge variant="secondary" className="gap-1">
@@ -379,9 +474,10 @@ export default function Veiculos() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {filtered.length === 0 && (
-                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nenhum veículo encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nenhum veículo encontrado</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
