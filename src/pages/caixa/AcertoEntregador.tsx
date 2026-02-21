@@ -490,6 +490,53 @@ export default function AcertoEntregador() {
               </Card>
             </div>
 
+            {/* Resumo automático do acerto */}
+            {!isLoading && entregas.length > 0 && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CheckCircle className="h-5 w-5 text-primary" />
+                    Resumo Automático do Acerto
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">💰 O entregador deve devolver:</p>
+                      <div className="space-y-1.5">
+                        {Object.entries(metricas.porForma).map(([forma, valor]) => {
+                          const isDinheiro = forma === "dinheiro" || forma === "Dinheiro";
+                          return (
+                            <div key={forma} className="flex justify-between text-sm">
+                              <span className={isDinheiro ? "font-medium" : "text-muted-foreground"}>
+                                {isDinheiro ? "💵" : "💳"} {paymentLabels[forma] || forma}
+                              </span>
+                              <span className={isDinheiro ? "font-bold" : ""}>{formatCurrency(valor)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {metricas.totalDespesas > 0 && (
+                        <div className="flex justify-between text-sm border-t pt-1.5 text-destructive">
+                          <span>🧾 Despesas a descontar</span>
+                          <span className="font-medium">- {formatCurrency(metricas.totalDespesas)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-lg bg-background p-4 border">
+                      <p className="text-xs text-muted-foreground mb-1">Dinheiro em espécie a receber</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {formatCurrency(
+                          (metricas.porForma["dinheiro"] || metricas.porForma["Dinheiro"] || 0) - metricas.totalDespesas
+                        )}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-1">(Dinheiro − Despesas)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Formas de pagamento + Resumo de produtos */}
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>

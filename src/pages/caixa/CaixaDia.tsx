@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -89,6 +89,9 @@ export default function CaixaDia() {
   const [aberturaForm, setAberturaForm] = useState({ valor: "", obs: "" });
   const [fechamentoForm, setFechamentoForm] = useState({ valor: "", obs: "" });
 
+  const [entregadoresPendentes, setEntregadoresPendentes] = useState<{ nome: string; entregas: number; total: number }[]>([]);
+  const [sangriasPendentes, setSangriasPendentes] = useState(0);
+
   const fetchData = async () => {
     setLoading(true);
     const inicio = getBrasiliaStartOfDay(dataSelecionada);
@@ -150,6 +153,39 @@ export default function CaixaDia() {
         setProdutosVendidos([]);
       }
     }
+
+    // Fetch entregadores com entregas pendentes de acerto (entregas do dia sem acerto)
+    let qEntregadores = supabase
+      .from("pedidos")
+      .select("entregador_id, valor_total, entregadores(nome)")
+      .gte("created_at", inicio)
+      .lte("created_at", fim)
+      .eq("status", "entregue")
+      .not("entregador_id", "is", null);
+    if (unidadeAtual?.id) qEntregadores = qEntregadores.eq("unidade_id", unidadeAtual.id);
+    const { data: entregasData } = await qEntregadores;
+    
+    const entMap = new Map<string, { nome: string; entregas: number; total: number }>();
+    (entregasData || []).forEach((e: any) => {
+      const id = e.entregador_id;
+      const cur = entMap.get(id) || { nome: e.entregadores?.nome || "Desconhecido", entregas: 0, total: 0 };
+      cur.entregas += 1;
+      cur.total += Number(e.valor_total || 0);
+      entMap.set(id, cur);
+    });
+    setEntregadoresPendentes(Array.from(entMap.values()).sort((a, b) => b.total - a.total));
+
+    // Sangrias pendentes de aprovação
+    let qSangrias = supabase
+      .from("movimentacoes_caixa")
+      .select("id", { count: "exact" })
+      .eq("tipo", "saida")
+      .eq("status", "pendente")
+      .gte("created_at", inicio)
+      .lte("created_at", fim);
+    if (unidadeAtual?.id) qSangrias = qSangrias.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    const { count: sangriasCount } = await qSangrias;
+    setSangriasPendentes(sangriasCount || 0);
 
     setLoading(false);
   };
@@ -354,21 +390,64 @@ export default function CaixaDia() {
             {sessao?.status === "aberto" && (
               <Dialog open={fechamentoOpen} onOpenChange={setFechamentoOpen}>
                 <DialogTrigger asChild><Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10"><DoorClosed className="h-4 w-4 mr-2" />Fechar Caixa</Button></DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Fechamento de Caixa</DialogTitle></DialogHeader>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader><DialogTitle>Fechamento Inteligente de Caixa</DialogTitle></DialogHeader>
                   <div className="space-y-4 pt-4">
-                    <div className="rounded-lg bg-muted p-4 space-y-1 text-sm">
-                      <p>Abertura: <strong>R$ {Number(sessao.valor_abertura).toFixed(2)}</strong></p>
-                      <p>Entradas: <strong className="text-success">R$ {totalEntradas.toFixed(2)}</strong></p>
-                      <p>Saídas: <strong className="text-destructive">R$ {totalSaidas.toFixed(2)}</strong></p>
-                      <p className="pt-1 border-t">Valor esperado: <strong>R$ {(sessao.valor_abertura + saldo).toFixed(2)}</strong></p>
+                    {/* Resumo por forma de pagamento */}
+                    <div className="rounded-lg bg-muted p-4 space-y-2">
+                      <p className="text-sm font-semibold mb-2">Conferência por Forma de Pagamento</p>
+                      {formasPagamento.length > 0 ? formasPagamento.map(fp => (
+                        <div key={fp.forma} className="flex justify-between text-sm">
+                          <span className="capitalize text-muted-foreground">{fp.forma}</span>
+                          <span className="font-medium">R$ {fp.total.toFixed(2)} <span className="text-xs text-muted-foreground">({fp.quantidade} ped.)</span></span>
+                        </div>
+                      )) : (
+                        <p className="text-xs text-muted-foreground">Nenhuma venda registrada</p>
+                      )}
+                      <div className="border-t pt-2 mt-2 space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span>Abertura</span>
+                          <strong>R$ {Number(sessao.valor_abertura).toFixed(2)}</strong>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-success">+ Entradas</span>
+                          <strong className="text-success">R$ {totalEntradas.toFixed(2)}</strong>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-destructive">- Saídas (sangrias)</span>
+                          <strong className="text-destructive">R$ {totalSaidas.toFixed(2)}</strong>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-1 font-bold">
+                          <span>💰 Valor esperado no caixa</span>
+                          <span>R$ {(sessao.valor_abertura + saldo).toFixed(2)}</span>
+                        </div>
+                        {/* Dinheiro em espécie esperado (excluindo pix/cartão que não fica no caixa) */}
+                        {(() => {
+                          const dinheiroVendas = formasPagamento.filter(fp => 
+                            fp.forma === "dinheiro" || fp.forma === "Dinheiro"
+                          ).reduce((s, fp) => s + fp.total, 0);
+                          const dinheiroEsperado = sessao.valor_abertura + dinheiroVendas - totalSaidas;
+                          return (
+                            <div className="flex justify-between text-sm bg-primary/5 rounded p-1.5 mt-1">
+                              <span className="text-primary font-medium">💵 Dinheiro em espécie esperado</span>
+                              <span className="text-primary font-bold">R$ {dinheiroEsperado.toFixed(2)}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                     <div><Label>Valor contado no caixa *</Label><Input type="number" step="0.01" value={fechamentoForm.valor} onChange={e => setFechamentoForm({ ...fechamentoForm, valor: e.target.value })} placeholder="0.00" /></div>
-                    {fechamentoForm.valor && (
-                      <div className={`rounded-lg p-3 text-sm font-medium ${parseFloat(fechamentoForm.valor) - (sessao.valor_abertura + saldo) === 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
-                        Diferença: R$ {(parseFloat(fechamentoForm.valor) - (sessao.valor_abertura + saldo)).toFixed(2)}
-                      </div>
-                    )}
+                    {fechamentoForm.valor && (() => {
+                      const diff = parseFloat(fechamentoForm.valor) - (sessao.valor_abertura + saldo);
+                      const isOk = Math.abs(diff) < 0.01;
+                      return (
+                        <div className={`rounded-lg p-3 text-sm font-medium flex items-center gap-2 ${isOk ? "bg-success/10 text-success" : Math.abs(diff) > 50 ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-600"}`}>
+                          {isOk ? "✅" : Math.abs(diff) > 50 ? "🚨" : "⚠️"}
+                          Diferença: R$ {diff.toFixed(2)}
+                          {Math.abs(diff) > 50 && " — Divergência alta! Verifique."}
+                        </div>
+                      );
+                    })()}
                     <div><Label>Observações</Label><Textarea value={fechamentoForm.obs} onChange={e => setFechamentoForm({ ...fechamentoForm, obs: e.target.value })} placeholder="Observações do fechamento..." /></div>
                     <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setFechamentoOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleFecharCaixa}>Fechar Caixa</Button></div>
                   </div>
@@ -443,6 +522,49 @@ export default function CaixaDia() {
           <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-destructive/10 shrink-0"><TrendingDown className="h-5 w-5 text-destructive" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-destructive truncate">R$ {totalSaidas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saídas</p></div></div></CardContent></Card>
           <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><DollarSign className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold truncate">R$ {saldo.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saldo</p></div></div></CardContent></Card>
         </div>
+
+        {/* Dashboard em tempo real */}
+        {(entregadoresPendentes.length > 0 || sangriasPendentes > 0) && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {entregadoresPendentes.length > 0 && (
+              <Card className="border-amber-500/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Users className="h-5 w-5 text-amber-500" />
+                    Entregadores — Acerto Pendente
+                    <Badge variant="secondary" className="ml-auto">{entregadoresPendentes.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-2">
+                    {entregadoresPendentes.map((ent, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="text-sm font-medium">{ent.nome}</p>
+                          <p className="text-xs text-muted-foreground">{ent.entregas} entregas</p>
+                        </div>
+                        <p className="font-bold text-sm">R$ {ent.total.toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {sangriasPendentes > 0 && (
+              <Card className="border-destructive/30">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-destructive/10 p-3 shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{sangriasPendentes} sangria(s) pendente(s) de aprovação</p>
+                    <p className="text-xs text-muted-foreground">Acesse Despesas (Sangria) para aprovar ou rejeitar</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Abas */}
         <Tabs defaultValue="movimentacoes" className="space-y-4">
