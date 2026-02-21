@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -210,7 +211,7 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
 
       for (const lancamento of pendingLancamentos) {
         const valor = Math.abs(Number(lancamento.valor));
-        const lancDate = new Date(lancamento.data);
+        const lancDate = parseLocalDate(lancamento.data);
 
         const matchIdx = availablePedidos.findIndex((p: any) => {
           if (pedidoUpdates.some((u) => u.pedidoId === p.id)) return false;
@@ -235,12 +236,12 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
 
       for (const lancamento of remainingLancs) {
         const valor = Math.abs(Number(lancamento.valor));
-        const lancDate = new Date(lancamento.data);
+        const lancDate = parseLocalDate(lancamento.data);
 
         const match = movimentacoesBancarias.find((m: any) => {
           if (usedMovIds.has(m.id)) return false;
           const movValor = Math.abs(Number(m.valor));
-          const movDate = new Date(m.data);
+          const movDate = parseLocalDate(m.data);
           const valorDiff = Math.abs(valor - movValor);
           const tolerance = movValor * 0.02; // 2% tolerance
           const daysDiff = Math.abs((lancDate.getTime() - movDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -427,7 +428,7 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
                 <TableBody>
                   {extrato.map((lancamento: any) => (
                     <TableRow key={lancamento.id}>
-                      <TableCell>{new Date(lancamento.data).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{parseLocalDate(lancamento.data).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell className="font-medium">{lancamento.descricao}</TableCell>
                       <TableCell>
                         <Badge variant={lancamento.tipo === "credito" ? "default" : "secondary"}>
@@ -501,7 +502,7 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
                   <span>
                     Lançamento: <strong>{selectedLancamento.descricao}</strong> — R${" "}
                     {Math.abs(Number(selectedLancamento.valor)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} em{" "}
-                    {new Date(selectedLancamento.data).toLocaleDateString("pt-BR")}
+                    {parseLocalDate(selectedLancamento.data).toLocaleDateString("pt-BR")}
                   </span>
                 )}
               </DialogDescription>

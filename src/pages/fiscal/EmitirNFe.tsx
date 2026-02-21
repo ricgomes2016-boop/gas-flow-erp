@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,7 +114,7 @@ export default function EmitirNFe() {
                     ) : notas.map((n) => (
                       <TableRow key={n.id}>
                         <TableCell className="font-mono text-sm">{n.numero || "—"}</TableCell>
-                        <TableCell>{new Date(n.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>{parseLocalDate(n.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell className="font-medium">{n.destinatario_nome || "—"}</TableCell>
                         <TableCell className="font-mono text-sm">{n.destinatario_cpf_cnpj || "—"}</TableCell>
                         <TableCell className="text-right font-semibold">R$ {Number(n.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>

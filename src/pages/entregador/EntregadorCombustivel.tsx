@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +109,7 @@ export default function EntregadorCombustivel() {
     mesInicio.setDate(1);
     mesInicio.setHours(0, 0, 0, 0);
     return abastecimentos
-      .filter((a) => new Date(a.data) >= mesInicio)
+      .filter((a) => parseLocalDate(a.data) >= mesInicio)
       .reduce((s, a) => s + Number(a.valor), 0);
   })();
 
@@ -390,7 +391,7 @@ export default function EntregadorCombustivel() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-muted-foreground">
-                        {new Date(a.data).toLocaleDateString("pt-BR")}
+                        {parseLocalDate(a.data).toLocaleDateString("pt-BR")}
                         {a.posto ? ` • ${a.posto}` : ""}
                         {a.sem_saida_caixa && " • Sem saída caixa"}
                       </div>

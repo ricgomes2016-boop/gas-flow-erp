@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,7 +83,7 @@ export default function EmitirCTe() {
                     ) : notas.map((c) => (
                       <TableRow key={c.id}>
                         <TableCell className="font-mono text-sm">{c.numero || "—"}</TableCell>
-                        <TableCell>{new Date(c.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>{parseLocalDate(c.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell>{c.remetente_nome || "—"}</TableCell>
                         <TableCell className="font-medium">{c.destinatario_nome || "—"}</TableCell>
                         <TableCell>{c.modal || "—"}</TableCell>

@@ -40,3 +40,18 @@ export function getBrasiliaEndOfDay(date?: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}T23:59:59-03:00`;
 }
+
+/**
+ * Parseia uma string de data pura (YYYY-MM-DD) forçando interpretação
+ * no fuso local (sem shift para UTC). Resolve o bug onde
+ * new Date("2026-02-20") era interpretado como UTC meia-noite,
+ * resultando em 19/02 no horário de Brasília.
+ * Para strings com hora (timestamps), retorna new Date() normalmente.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  // Se já tem "T" (timestamp completo), parseia normalmente
+  if (dateStr.includes("T")) return new Date(dateStr);
+  // Data pura: força interpretação local
+  return new Date(dateStr + "T00:00:00");
+}

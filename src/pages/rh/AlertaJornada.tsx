@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,7 @@ export default function AlertaJornada() {
                           {tipoLabel[alerta.tipo] || alerta.tipo}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
-                          {new Date(alerta.data).toLocaleDateString('pt-BR')}
+                          {parseLocalDate(alerta.data).toLocaleDateString('pt-BR')}
                         </span>
                       </div>
                     </div>

@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,7 @@ export default function AvaliacaoDesempenho() {
                       {CRITERIOS.map(c => (
                         <TableCell key={c.key} className="text-center">{av[c.key]}/5</TableCell>
                       ))}
-                      <TableCell>{format(new Date(av.data_avaliacao), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(parseLocalDate(av.data_avaliacao), "dd/MM/yyyy")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

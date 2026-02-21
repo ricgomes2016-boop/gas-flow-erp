@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -172,7 +173,7 @@ export default function ValeGasAcerto({ embedded }: { embedded?: boolean } = {})
                     <TableCell>
                       {acerto.data_pagamento ? (
                         <div className="text-sm">
-                          <p>{format(new Date(acerto.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}</p>
+                          <p>{format(parseLocalDate(acerto.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}</p>
                           <p className="text-muted-foreground">{acerto.forma_pagamento}</p>
                         </div>
                       ) : <span className="text-muted-foreground">-</span>}

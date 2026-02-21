@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -548,10 +549,10 @@ export default function Orcamentos() {
                             <span className="font-medium">{orc.cliente_nome}</span>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {format(new Date(orc.data_emissao), "dd/MM/yyyy")}
+                            {format(parseLocalDate(orc.data_emissao), "dd/MM/yyyy")}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {format(new Date(orc.validade), "dd/MM/yyyy")}
+                            {format(parseLocalDate(orc.validade), "dd/MM/yyyy")}
                           </TableCell>
                           <TableCell>
                             <span className="font-semibold">
@@ -629,11 +630,11 @@ export default function Orcamentos() {
                   </div>
                   <div>
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">Emissão</span>
-                    <p className="mt-0.5">{format(new Date(selectedOrcamento.data_emissao), "dd/MM/yyyy")}</p>
+                    <p className="mt-0.5">{format(parseLocalDate(selectedOrcamento.data_emissao), "dd/MM/yyyy")}</p>
                   </div>
                   <div>
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">Validade</span>
-                    <p className="mt-0.5">{format(new Date(selectedOrcamento.validade), "dd/MM/yyyy")}</p>
+                    <p className="mt-0.5">{format(parseLocalDate(selectedOrcamento.validade), "dd/MM/yyyy")}</p>
                   </div>
                 </div>
 

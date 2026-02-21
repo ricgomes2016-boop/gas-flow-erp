@@ -20,6 +20,7 @@ import {
 import { FileText, Plus, AlertTriangle, CheckCircle2, Clock, XCircle, RotateCcw, Pencil, Camera, Search, Image as ImageIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { parseLocalDate } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format, isBefore, addDays } from "date-fns";
@@ -240,7 +241,7 @@ export default function ControleCheques() {
   };
 
   const totalEmMaos = cheques.filter((c: any) => c.status === "em_maos").reduce((a: number, c: any) => a + Number(c.valor), 0);
-  const totalVencendo = cheques.filter((c: any) => c.status === "em_maos" && isBefore(new Date(c.data_vencimento + "T00:00:00"), addDays(new Date(), 7))).length;
+  const totalVencendo = cheques.filter((c: any) => c.status === "em_maos" && isBefore(parseLocalDate(c.data_vencimento), addDays(new Date(), 7))).length;
   const totalDevolvidos = cheques.filter((c: any) => c.status === "devolvido").reduce((a: number, c: any) => a + Number(c.valor), 0);
 
   return (
@@ -421,16 +422,16 @@ export default function ControleCheques() {
                   <TableBody>
                     {cheques.map((c: any) => {
                       const cfg = statusConfig[c.status] || statusConfig.em_maos;
-                      const vencido = c.status === "em_maos" && isBefore(new Date(c.data_vencimento + "T00:00:00"), new Date());
+                      const vencido = c.status === "em_maos" && isBefore(parseLocalDate(c.data_vencimento), new Date());
                       return (
                         <TableRow key={c.id} className={vencido ? "bg-destructive/5" : ""}>
                           <TableCell className="font-mono font-medium">{c.numero_cheque}</TableCell>
                           <TableCell>{c.banco_emitente}</TableCell>
                           <TableCell className="text-sm">{c.clientes?.nome || <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="font-bold">R$ {Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-sm">{format(new Date(c.data_emissao + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
+                          <TableCell className="text-sm">{format(parseLocalDate(c.data_emissao), "dd/MM/yyyy")}</TableCell>
                           <TableCell className={`text-sm ${vencido ? "text-destructive font-medium" : ""}`}>
-                            {format(new Date(c.data_vencimento + "T00:00:00"), "dd/MM/yyyy")}
+                            {format(parseLocalDate(c.data_vencimento), "dd/MM/yyyy")}
                             {vencido && <span className="ml-1 text-xs">(vencido)</span>}
                           </TableCell>
                           <TableCell>

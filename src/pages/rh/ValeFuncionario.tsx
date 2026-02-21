@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,7 +81,7 @@ export default function ValeFuncionario() {
       funcionario: vale.funcionarios?.nome || "N/A",
       tipo: tipoLabel[vale.tipo] || vale.tipo,
       valor: Number(vale.valor),
-      data: new Date(vale.data).toLocaleDateString("pt-BR"),
+      data: parseLocalDate(vale.data).toLocaleDateString("pt-BR"),
       desconto_referencia: vale.desconto_referencia,
       observacoes: vale.observacoes,
     });
@@ -184,7 +185,7 @@ export default function ValeFuncionario() {
                     <TableRow key={vale.id}>
                       <TableCell className="font-medium">{vale.funcionarios?.nome || "N/A"}</TableCell>
                       <TableCell><Badge variant="outline">{tipoLabel[vale.tipo] || vale.tipo}</Badge></TableCell>
-                      <TableCell>{new Date(vale.data).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{parseLocalDate(vale.data).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="font-medium">R$ {Number(vale.valor).toLocaleString('pt-BR')}</TableCell>
                       <TableCell>{vale.desconto_referencia || "-"}</TableCell>
                       <TableCell>

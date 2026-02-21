@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { ContadorPageWrapper } from "@/components/contador/ContadorPageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,7 +130,7 @@ export default function ContadorSolicitacoes() {
                     <span>{new Date(s.created_at).toLocaleDateString("pt-BR")}</span>
                     {s.prazo && <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      Prazo: {new Date(s.prazo).toLocaleDateString("pt-BR")}
+                      Prazo: {parseLocalDate(s.prazo).toLocaleDateString("pt-BR")}
                     </span>}
                   </div>
                   {s.resposta && (

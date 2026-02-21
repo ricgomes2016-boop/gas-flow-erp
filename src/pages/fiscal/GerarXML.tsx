@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -119,7 +120,7 @@ export default function GerarXML() {
                     <TableCell><Checkbox checked={selecionados.includes(x.id)} onCheckedChange={() => toggle(x.id)} /></TableCell>
                     <TableCell><Badge variant={tipoColor(x.tipo)}>{tipoLabel(x.tipo)}</Badge></TableCell>
                     <TableCell className="font-mono text-sm">{x.numero || "—"}</TableCell>
-                    <TableCell>{new Date(x.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{parseLocalDate(x.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="font-medium">{x.destinatario_nome || "—"}</TableCell>
                     <TableCell className="text-right">{Number(x.valor_total) > 0 ? `R$ ${Number(x.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
                     <TableCell><Badge variant={x.status === "autorizada" ? "default" : "secondary"}>{x.status}</Badge></TableCell>
