@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Fuel, Plus, Search, TrendingUp, Truck, DollarSign, Loader2, FileCheck, Receipt, Camera } from "lucide-react";
+import { Fuel, Plus, Search, TrendingUp, Truck, DollarSign, Loader2, FileCheck, Receipt, Camera, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
@@ -254,6 +255,16 @@ export default function Combustivel() {
       setGerando(false);
     }
   };
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await (supabase as any).from("abastecimentos").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Abastecimento excluído!");
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir");
+    }
+  };
 
   if (loading) {
     return (
@@ -340,11 +351,12 @@ export default function Combustivel() {
                   <TableHead>Tipo</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Caixa</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground">Nenhum abastecimento encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground">Nenhum abastecimento encontrado</TableCell></TableRow>
                 )}
                 {filtered.map((a) => (
                   <TableRow key={a.id}>
@@ -377,6 +389,29 @@ export default function Combustivel() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Normal</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir abastecimento?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Deseja excluir o abastecimento de {Number(a.litros)}L ({(a.veiculos as any)?.placa || "-"}) em {parseLocalDate(a.data).toLocaleDateString("pt-BR")}? Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => handleDelete(a.id)}>
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
