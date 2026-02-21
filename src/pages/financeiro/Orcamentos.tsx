@@ -15,24 +15,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, FileText, Trash2, Eye, Copy, ChevronsUpDown, Check } from "lucide-react";
+import {
+  Plus, Search, FileText, Trash2, Eye, Copy, ChevronsUpDown, Check,
+  Flame, DollarSign, Clock, CheckCircle2, TrendingUp, ReceiptText, ArrowRight
+} from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
-const statusColors: Record<string, string> = {
-  pendente: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  aprovado: "bg-green-500/20 text-green-400 border-green-500/30",
-  recusado: "bg-red-500/20 text-red-400 border-red-500/30",
-  convertido: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  vencido: "bg-muted text-muted-foreground border-muted",
-};
-
-const statusLabels: Record<string, string> = {
-  pendente: "Pendente",
-  aprovado: "Aprovado",
-  recusado: "Recusado",
-  convertido: "Convertido em Venda",
-  vencido: "Vencido",
+const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  pendente: { label: "Pendente", color: "bg-amber-500/15 text-amber-600 border-amber-500/30 dark:text-amber-400", icon: <Clock className="h-3 w-3" /> },
+  aprovado: { label: "Aprovado", color: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400", icon: <CheckCircle2 className="h-3 w-3" /> },
+  recusado: { label: "Recusado", color: "bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400", icon: <Trash2 className="h-3 w-3" /> },
+  convertido: { label: "Convertido", color: "bg-blue-500/15 text-blue-600 border-blue-500/30 dark:text-blue-400", icon: <TrendingUp className="h-3 w-3" /> },
+  vencido: { label: "Vencido", color: "bg-muted text-muted-foreground border-border", icon: <Clock className="h-3 w-3" /> },
 };
 
 interface OrcamentoItem {
@@ -41,6 +37,13 @@ interface OrcamentoItem {
   preco_unitario: number;
   subtotal: number;
   produto_id?: string;
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return { text: "Bom dia", emoji: "☀️" };
+  if (h < 18) return { text: "Boa tarde", emoji: "🌤️" };
+  return { text: "Boa noite", emoji: "🌙" };
 }
 
 export default function Orcamentos() {
@@ -63,6 +66,9 @@ export default function Orcamentos() {
     { descricao: "", quantidade: 1, preco_unitario: 0, subtotal: 0 },
   ]);
   const [produtoOpenIdx, setProdutoOpenIdx] = useState<number | null>(null);
+
+  const greeting = getGreeting();
+  const today = format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   // Fetch clientes
   const { data: clientes = [] } = useQuery({
@@ -248,34 +254,133 @@ export default function Orcamentos() {
     setDialogOpen(true);
   };
 
+  // KPI calculations
+  const pendentes = orcamentos.filter((o: any) => o.status === "pendente");
+  const aprovados = orcamentos.filter((o: any) => o.status === "aprovado");
+  const valorPendente = pendentes.reduce((s: number, o: any) => s + Number(o.valor_total || 0), 0);
+  const valorAprovado = aprovados.reduce((s: number, o: any) => s + Number(o.valor_total || 0), 0);
+
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Orçamentos</h1>
-            <p className="text-muted-foreground">Crie e gerencie orçamentos para seus clientes</p>
+      <div className="space-y-6 pb-8">
+        {/* ── Hero Gradient Card ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-6 md:p-8 text-white shadow-xl">
+          {/* Background flame decoration */}
+          <div className="absolute right-0 top-0 opacity-10">
+            <Flame className="h-56 w-56 -mt-8 -mr-8" strokeWidth={0.8} />
           </div>
+          <div className="absolute left-1/2 bottom-0 opacity-5">
+            <Flame className="h-40 w-40 mb-[-2rem]" strokeWidth={0.6} />
+          </div>
+
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <Flame className="h-5 w-5" />
+              <span className="text-sm font-medium text-white/80">Gás Fácil</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold mb-0.5">
+              {greeting.text}! {greeting.emoji}
+            </h1>
+            <p className="text-sm text-white/70 capitalize mb-6">{today}</p>
+
+            {/* KPI Grid inside hero */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="rounded-lg bg-white/20 p-1.5">
+                    <ReceiptText className="h-4 w-4" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold">{orcamentos.length}</p>
+                <p className="text-xs text-white/70">Total Orçamentos</p>
+              </div>
+
+              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="rounded-lg bg-white/20 p-1.5">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold">{pendentes.length}</p>
+                <p className="text-xs text-white/70">Pendentes</p>
+              </div>
+
+              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="rounded-lg bg-white/20 p-1.5">
+                    <DollarSign className="h-4 w-4" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold">
+                  R$ {valorPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-white/70">Valor Pendente</p>
+              </div>
+
+              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="rounded-lg bg-white/20 p-1.5">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold">
+                  R$ {valorAprovado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-white/70">Valor Aprovado</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Actions Bar ── */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex gap-3 flex-1 w-full sm:w-auto">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente ou nº..."
+                className="pl-9 bg-card"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-40 bg-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {Object.entries(statusConfig).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />Novo Orçamento</Button>
+              <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg shadow-orange-500/25 gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Orçamento
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Novo Orçamento</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <div className="rounded-lg bg-gradient-to-br from-orange-500 to-red-500 p-1.5">
+                    <ReceiptText className="h-4 w-4 text-white" />
+                  </div>
+                  Novo Orçamento
+                </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Cliente Search */}
                   <div>
-                    <Label>Cliente *</Label>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Cliente *</Label>
                     <Popover open={clienteOpen} onOpenChange={setClienteOpen}>
                       <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between font-normal"
-                        >
+                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal mt-1.5">
                           {clienteNome || "Selecionar cliente..."}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -289,11 +394,7 @@ export default function Orcamentos() {
                               {clientes.map((c: any) => {
                                 const label = c.nome || `${c.endereco || ""} ${c.numero || ""}`.trim() || c.telefone || "Sem nome";
                                 return (
-                                  <CommandItem
-                                    key={c.id}
-                                    value={`${c.nome} ${c.telefone} ${c.endereco}`}
-                                    onSelect={() => selectCliente(c)}
-                                  >
+                                  <CommandItem key={c.id} value={`${c.nome} ${c.telefone} ${c.endereco}`} onSelect={() => selectCliente(c)}>
                                     <Check className={cn("mr-2 h-4 w-4", clienteId === c.id ? "opacity-100" : "opacity-0")} />
                                     <div className="flex flex-col">
                                       <span className="font-medium">{label}</span>
@@ -310,25 +411,21 @@ export default function Orcamentos() {
                     </Popover>
                   </div>
                   <div>
-                    <Label>Validade</Label>
-                    <Input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} />
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Validade</Label>
+                    <Input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} className="mt-1.5" />
                   </div>
                 </div>
 
-                {/* Itens com busca de produto */}
+                {/* Itens */}
                 <div>
-                  <Label className="mb-2 block">Itens</Label>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-3 block">Itens do Orçamento</Label>
                   <div className="space-y-2">
                     {itens.map((item, idx) => (
-                      <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-muted/30 rounded-lg p-2">
                         <div className="col-span-5">
                           <Popover open={produtoOpenIdx === idx} onOpenChange={(o) => setProdutoOpenIdx(o ? idx : null)}>
                             <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className="w-full justify-between font-normal text-left h-9 text-sm"
-                              >
+                              <Button variant="outline" role="combobox" className="w-full justify-between font-normal text-left h-9 text-sm">
                                 <span className="truncate">{item.descricao || "Selecionar produto..."}</span>
                                 <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
                               </Button>
@@ -340,11 +437,7 @@ export default function Orcamentos() {
                                   <CommandEmpty>Nenhum produto.</CommandEmpty>
                                   <CommandGroup className="max-h-48 overflow-auto">
                                     {produtos.map((p: any) => (
-                                      <CommandItem
-                                        key={p.id}
-                                        value={p.nome}
-                                        onSelect={() => selectProduto(idx, p)}
-                                      >
+                                      <CommandItem key={p.id} value={p.nome} onSelect={() => selectProduto(idx, p)}>
                                         <Check className={cn("mr-2 h-4 w-4", item.produto_id === p.id ? "opacity-100" : "opacity-0")} />
                                         <div className="flex justify-between w-full">
                                           <span>{p.nome}</span>
@@ -359,181 +452,177 @@ export default function Orcamentos() {
                           </Popover>
                         </div>
                         <div className="col-span-2">
-                          <Input
-                            type="number"
-                            min={1}
-                            placeholder="Qtd"
-                            value={item.quantidade}
-                            onChange={(e) => updateItem(idx, "quantidade", Number(e.target.value))}
-                          />
+                          <Input type="number" min={1} placeholder="Qtd" value={item.quantidade} onChange={(e) => updateItem(idx, "quantidade", Number(e.target.value))} className="h-9" />
                         </div>
-                        <div className="col-span-3">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            placeholder="Preço"
-                            value={item.preco_unitario}
-                            onChange={(e) => updateItem(idx, "preco_unitario", Number(e.target.value))}
-                          />
+                        <div className="col-span-2">
+                          <Input type="number" min={0} step={0.01} placeholder="Preço" value={item.preco_unitario} onChange={(e) => updateItem(idx, "preco_unitario", Number(e.target.value))} className="h-9" />
                         </div>
-                        <div className="col-span-1 text-right text-sm font-medium pt-2">
+                        <div className="col-span-2 text-right text-sm font-semibold pt-2 text-foreground">
                           R$ {item.subtotal.toFixed(2)}
                         </div>
-                        <div className="col-span-1">
-                          <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} disabled={itens.length === 1}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                        <div className="col-span-1 flex justify-center">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(idx)} disabled={itens.length === 1}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>
                       </div>
                     ))}
-                    <Button variant="outline" size="sm" onClick={addItem}>
-                      <Plus className="h-3 w-3 mr-1" />Adicionar Item
+                    <Button variant="outline" size="sm" onClick={addItem} className="gap-1 text-xs">
+                      <Plus className="h-3 w-3" />Adicionar Item
                     </Button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Desconto (R$)</Label>
-                    <Input type="number" min={0} step={0.01} value={desconto} onChange={(e) => setDesconto(Number(e.target.value))} />
-                  </div>
-                  <div className="flex items-end">
-                    <div className="text-lg font-bold">Total: R$ {totalFinal.toFixed(2)}</div>
+                {/* Totals */}
+                <div className="rounded-xl bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border border-orange-200/50 dark:border-orange-800/30 p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Desconto (R$)</Label>
+                      <Input type="number" min={0} step={0.01} value={desconto} onChange={(e) => setDesconto(Number(e.target.value))} className="mt-1 bg-white dark:bg-background" />
+                    </div>
+                    <div className="flex flex-col justify-end">
+                      <p className="text-xs text-muted-foreground">Total Final</p>
+                      <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                        R$ {totalFinal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <Label>Observações</Label>
-                  <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Observações</Label>
+                  <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} className="mt-1.5" rows={2} />
                 </div>
 
                 <Button
-                  className="w-full"
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg gap-2"
                   onClick={() => createMutation.mutate()}
                   disabled={!clienteNome.trim() || createMutation.isPending}
                 >
-                  {createMutation.isPending ? "Salvando..." : "Salvar Orçamento"}
+                  {createMutation.isPending ? "Salvando..." : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Salvar Orçamento
+                    </>
+                  )}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Filtros */}
-        <div className="flex gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por cliente ou nº..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="aprovado">Aprovado</SelectItem>
-              <SelectItem value="recusado">Recusado</SelectItem>
-              <SelectItem value="convertido">Convertido</SelectItem>
-              <SelectItem value="vencido">Vencido</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Total", value: orcamentos.length, color: "text-foreground" },
-            { label: "Pendentes", value: orcamentos.filter((o: any) => o.status === "pendente").length, color: "text-yellow-400" },
-            { label: "Aprovados", value: orcamentos.filter((o: any) => o.status === "aprovado").length, color: "text-green-400" },
-            {
-              label: "Valor Total Pendente",
-              value: `R$ ${orcamentos.filter((o: any) => o.status === "pendente").reduce((s: number, o: any) => s + Number(o.valor_total || 0), 0).toFixed(2)}`,
-              color: "text-primary",
-            },
-          ].map((kpi) => (
-            <Card key={kpi.label}>
-              <CardContent className="p-4 text-center">
-                <p className="text-sm text-muted-foreground">{kpi.label}</p>
-                <p className={`text-xl font-bold ${kpi.color}`}>{kpi.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Tabela */}
-        <Card>
+        {/* ── Table ── */}
+        <Card className="overflow-hidden border-0 shadow-md">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nº</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Validade</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-                ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum orçamento encontrado</TableCell></TableRow>
-                ) : (
-                  filtered.map((orc: any) => (
-                    <TableRow key={orc.id}>
-                      <TableCell className="font-mono">#{orc.numero}</TableCell>
-                      <TableCell className="font-medium">{orc.cliente_nome}</TableCell>
-                      <TableCell>{format(new Date(orc.data_emissao), "dd/MM/yyyy")}</TableCell>
-                      <TableCell>{format(new Date(orc.validade), "dd/MM/yyyy")}</TableCell>
-                      <TableCell className="font-medium">R$ {Number(orc.valor_total).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={orc.status}
-                          onValueChange={(v) => updateStatusMutation.mutate({ id: orc.id, status: v })}
-                        >
-                          <SelectTrigger className="w-40 h-7 text-xs">
-                            <Badge variant="outline" className={statusColors[orc.status] || ""}>
-                              {statusLabels[orc.status] || orc.status}
-                            </Badge>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(statusLabels).map(([k, v]) => (
-                              <SelectItem key={k} value={k}>{v}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => { setSelectedOrcamento(orc); setViewDialogOpen(true); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => duplicar(orc)}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => { if (confirm("Excluir orçamento?")) deleteMutation.mutate(orc.id); }}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="font-semibold">Nº</TableHead>
+                    <TableHead className="font-semibold">Cliente</TableHead>
+                    <TableHead className="font-semibold">Data</TableHead>
+                    <TableHead className="font-semibold">Validade</TableHead>
+                    <TableHead className="font-semibold">Valor</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="text-right font-semibold">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                          <span className="text-sm">Carregando orçamentos...</span>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                          <div className="rounded-full bg-muted p-4">
+                            <ReceiptText className="h-8 w-8" />
+                          </div>
+                          <div>
+                            <p className="font-medium">Nenhum orçamento encontrado</p>
+                            <p className="text-xs">Crie seu primeiro orçamento clicando no botão acima</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((orc: any) => {
+                      const st = statusConfig[orc.status] || statusConfig.pendente;
+                      return (
+                        <TableRow key={orc.id} className="group hover:bg-orange-50/50 dark:hover:bg-orange-950/10 transition-colors">
+                          <TableCell className="font-mono text-sm font-semibold text-orange-600 dark:text-orange-400">
+                            #{orc.numero}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{orc.cliente_nome}</span>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {format(new Date(orc.data_emissao), "dd/MM/yyyy")}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {format(new Date(orc.validade), "dd/MM/yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold">
+                              R$ {Number(orc.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Select value={orc.status} onValueChange={(v) => updateStatusMutation.mutate({ id: orc.id, status: v })}>
+                              <SelectTrigger className="w-36 h-7 border-0 bg-transparent p-0">
+                                <Badge variant="outline" className={cn("gap-1 text-xs", st.color)}>
+                                  {st.icon}
+                                  {st.label}
+                                </Badge>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(statusConfig).map(([k, v]) => (
+                                  <SelectItem key={k} value={k}>
+                                    <span className="flex items-center gap-1.5">
+                                      {v.icon} {v.label}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedOrcamento(orc); setViewDialogOpen(true); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicar(orc)}>
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm("Excluir orçamento?")) deleteMutation.mutate(orc.id); }}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Dialog Visualizar */}
+        {/* ── View Dialog ── */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <div className="rounded-lg bg-gradient-to-br from-orange-500 to-red-500 p-1.5">
+                  <FileText className="h-4 w-4 text-white" />
+                </div>
                 Orçamento #{selectedOrcamento?.numero}
               </DialogTitle>
             </DialogHeader>
@@ -541,62 +630,69 @@ export default function Orcamentos() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Cliente:</span>
-                    <p className="font-medium">{selectedOrcamento.cliente_nome}</p>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Cliente</span>
+                    <p className="font-medium mt-0.5">{selectedOrcamento.cliente_nome}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Status:</span>
-                    <Badge variant="outline" className={`ml-2 ${statusColors[selectedOrcamento.status]}`}>
-                      {statusLabels[selectedOrcamento.status]}
-                    </Badge>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Status</span>
+                    <div className="mt-0.5">
+                      <Badge variant="outline" className={cn("gap-1", statusConfig[selectedOrcamento.status]?.color)}>
+                        {statusConfig[selectedOrcamento.status]?.icon}
+                        {statusConfig[selectedOrcamento.status]?.label}
+                      </Badge>
+                    </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Emissão:</span>
-                    <p>{format(new Date(selectedOrcamento.data_emissao), "dd/MM/yyyy")}</p>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Emissão</span>
+                    <p className="mt-0.5">{format(new Date(selectedOrcamento.data_emissao), "dd/MM/yyyy")}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Validade:</span>
-                    <p>{format(new Date(selectedOrcamento.validade), "dd/MM/yyyy")}</p>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Validade</span>
+                    <p className="mt-0.5">{format(new Date(selectedOrcamento.validade), "dd/MM/yyyy")}</p>
                   </div>
                 </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead className="text-right">Qtd</TableHead>
-                      <TableHead className="text-right">Unit.</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewItens.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.descricao}</TableCell>
-                        <TableCell className="text-right">{item.quantidade}</TableCell>
-                        <TableCell className="text-right">R$ {Number(item.preco_unitario).toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-medium">R$ {Number(item.subtotal).toFixed(2)}</TableCell>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">Qtd</TableHead>
+                        <TableHead className="text-right">Unit.</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {viewItens.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.descricao}</TableCell>
+                          <TableCell className="text-right">{item.quantidade}</TableCell>
+                          <TableCell className="text-right">R$ {Number(item.preco_unitario).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-semibold">R$ {Number(item.subtotal).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
-                <div className="border-t pt-3 space-y-1 text-sm">
+                <div className="rounded-xl bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border border-orange-200/50 dark:border-orange-800/30 p-4 space-y-1">
                   {Number(selectedOrcamento.desconto) > 0 && (
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Desconto:</span>
-                      <span className="text-destructive">- R$ {Number(selectedOrcamento.desconto).toFixed(2)}</span>
+                      <span className="text-destructive font-medium">- R$ {Number(selectedOrcamento.desconto).toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-bold">
-                    <span>Total:</span>
-                    <span>R$ {Number(selectedOrcamento.valor_total).toFixed(2)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Total:</span>
+                    <span className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                      R$ {Number(selectedOrcamento.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
                   </div>
                 </div>
 
                 {selectedOrcamento.observacoes && (
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Observações:</span>
+                  <div className="text-sm rounded-lg bg-muted/50 p-3">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Observações</span>
                     <p className="mt-1">{selectedOrcamento.observacoes}</p>
                   </div>
                 )}
