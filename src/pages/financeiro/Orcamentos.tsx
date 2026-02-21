@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,13 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, FileText, Trash2, Eye, Copy } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Eye, Copy, ChevronsUpDown, Check } from "lucide-react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 const statusColors: Record<string, string> = {
   pendente: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
@@ -51,13 +53,44 @@ export default function Orcamentos() {
   const [selectedOrcamento, setSelectedOrcamento] = useState<any>(null);
 
   // Form state
+  const [clienteId, setClienteId] = useState<string | null>(null);
   const [clienteNome, setClienteNome] = useState("");
+  const [clienteOpen, setClienteOpen] = useState(false);
   const [validade, setValidade] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [desconto, setDesconto] = useState(0);
   const [itens, setItens] = useState<OrcamentoItem[]>([
     { descricao: "", quantidade: 1, preco_unitario: 0, subtotal: 0 },
   ]);
+  const [produtoOpenIdx, setProdutoOpenIdx] = useState<number | null>(null);
+
+  // Fetch clientes
+  const { data: clientes = [] } = useQuery({
+    queryKey: ["clientes-orcamento"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone, endereco, bairro, numero")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch produtos
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["produtos-orcamento"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome, preco_venda, ativo")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: orcamentos = [], isLoading } = useQuery({
     queryKey: ["orcamentos"],
@@ -91,6 +124,7 @@ export default function Orcamentos() {
       const { data: orc, error } = await supabase
         .from("orcamentos")
         .insert({
+          cliente_id: clienteId || undefined,
           cliente_nome: clienteNome,
           validade: validade || undefined,
           observacoes,
@@ -110,6 +144,7 @@ export default function Orcamentos() {
           quantidade: i.quantidade,
           preco_unitario: i.preco_unitario,
           subtotal: i.quantidade * i.preco_unitario,
+          produto_id: i.produto_id || undefined,
         }));
 
       if (itensToInsert.length > 0) {
@@ -132,10 +167,7 @@ export default function Orcamentos() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("orcamentos")
-        .update({ status })
-        .eq("id", id);
+      const { error } = await supabase.from("orcamentos").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -156,11 +188,31 @@ export default function Orcamentos() {
   });
 
   const resetForm = () => {
+    setClienteId(null);
     setClienteNome("");
     setValidade("");
     setObservacoes("");
     setDesconto(0);
     setItens([{ descricao: "", quantidade: 1, preco_unitario: 0, subtotal: 0 }]);
+  };
+
+  const selectCliente = (cliente: any) => {
+    setClienteId(cliente.id);
+    setClienteNome(cliente.nome || `${cliente.endereco || ""} ${cliente.numero || ""}`.trim());
+    setClienteOpen(false);
+  };
+
+  const selectProduto = (index: number, produto: any) => {
+    const updated = [...itens];
+    updated[index] = {
+      ...updated[index],
+      descricao: produto.nome,
+      preco_unitario: Number(produto.preco_venda) || 0,
+      produto_id: produto.id,
+      subtotal: updated[index].quantidade * (Number(produto.preco_venda) || 0),
+    };
+    setItens(updated);
+    setProdutoOpenIdx(null);
   };
 
   const updateItem = (index: number, field: keyof OrcamentoItem, value: any) => {
@@ -189,6 +241,7 @@ export default function Orcamentos() {
   });
 
   const duplicar = (orc: any) => {
+    setClienteId(orc.cliente_id);
     setClienteNome(orc.cliente_nome);
     setObservacoes(orc.observacoes || "");
     setDesconto(orc.desconto || 0);
@@ -213,9 +266,48 @@ export default function Orcamentos() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Cliente Search */}
                   <div>
                     <Label>Cliente *</Label>
-                    <Input value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} placeholder="Nome do cliente" />
+                    <Popover open={clienteOpen} onOpenChange={setClienteOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between font-normal"
+                        >
+                          {clienteNome || "Selecionar cliente..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[350px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar cliente..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                            <CommandGroup className="max-h-60 overflow-auto">
+                              {clientes.map((c: any) => {
+                                const label = c.nome || `${c.endereco || ""} ${c.numero || ""}`.trim() || c.telefone || "Sem nome";
+                                return (
+                                  <CommandItem
+                                    key={c.id}
+                                    value={`${c.nome} ${c.telefone} ${c.endereco}`}
+                                    onSelect={() => selectCliente(c)}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", clienteId === c.id ? "opacity-100" : "opacity-0")} />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{label}</span>
+                                      {c.telefone && <span className="text-xs text-muted-foreground">{c.telefone}</span>}
+                                      {c.endereco && <span className="text-xs text-muted-foreground">{c.endereco}{c.numero ? `, ${c.numero}` : ""} {c.bairro ? `- ${c.bairro}` : ""}</span>}
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <Label>Validade</Label>
@@ -223,17 +315,48 @@ export default function Orcamentos() {
                   </div>
                 </div>
 
+                {/* Itens com busca de produto */}
                 <div>
                   <Label className="mb-2 block">Itens</Label>
                   <div className="space-y-2">
                     {itens.map((item, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-2 items-end">
                         <div className="col-span-5">
-                          <Input
-                            placeholder="Descrição"
-                            value={item.descricao}
-                            onChange={(e) => updateItem(idx, "descricao", e.target.value)}
-                          />
+                          <Popover open={produtoOpenIdx === idx} onOpenChange={(o) => setProdutoOpenIdx(o ? idx : null)}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between font-normal text-left h-9 text-sm"
+                              >
+                                <span className="truncate">{item.descricao || "Selecionar produto..."}</span>
+                                <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Buscar produto..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhum produto.</CommandEmpty>
+                                  <CommandGroup className="max-h-48 overflow-auto">
+                                    {produtos.map((p: any) => (
+                                      <CommandItem
+                                        key={p.id}
+                                        value={p.nome}
+                                        onSelect={() => selectProduto(idx, p)}
+                                      >
+                                        <Check className={cn("mr-2 h-4 w-4", item.produto_id === p.id ? "opacity-100" : "opacity-0")} />
+                                        <div className="flex justify-between w-full">
+                                          <span>{p.nome}</span>
+                                          <span className="text-muted-foreground text-xs">R$ {Number(p.preco_venda).toFixed(2)}</span>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                         <div className="col-span-2">
                           <Input
@@ -386,21 +509,13 @@ export default function Orcamentos() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { setSelectedOrcamento(orc); setViewDialogOpen(true); }}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => { setSelectedOrcamento(orc); setViewDialogOpen(true); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => duplicar(orc)}>
                             <Copy className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { if (confirm("Excluir orçamento?")) deleteMutation.mutate(orc.id); }}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => { if (confirm("Excluir orçamento?")) deleteMutation.mutate(orc.id); }}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
