@@ -11,7 +11,9 @@ import { NotesWidget } from "@/components/dashboard/NotesWidget";
 import { DeliveryDriverStatus } from "@/components/dashboard/DeliveryDriverStatus";
 import { DailySalesGoal } from "@/components/dashboard/DailySalesGoal";
 import { StockAlerts } from "@/components/dashboard/StockAlerts";
-import { ShoppingCart, Truck, Users, DollarSign, TrendingUp } from "lucide-react";
+import { ShoppingCart, Truck, Users, DollarSign, TrendingUp, Flame } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,10 +103,39 @@ export default function Dashboard() {
 
   const periodLabel = { hoje: "Hoje", semana: "Semana", mes: "Mês" }[period];
 
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return { text: "Bom dia", emoji: "☀️" };
+    if (h < 18) return { text: "Boa tarde", emoji: "🌤️" };
+    return { text: "Boa noite", emoji: "🌙" };
+  };
+  const greeting = getGreeting();
+  const todayFormatted = format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
   return (
     <MainLayout>
       <Header title="Dashboard" subtitle="Bem-vindo ao GásPro - Sua revenda de gás" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+        {/* ── Hero Gradient Card ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-6 md:p-8 text-white shadow-xl">
+          <div className="absolute right-0 top-0 opacity-10">
+            <Flame className="h-56 w-56 -mt-8 -mr-8" strokeWidth={0.8} />
+          </div>
+          <div className="absolute left-1/2 bottom-0 opacity-5">
+            <Flame className="h-40 w-40 mb-[-2rem]" strokeWidth={0.6} />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <Flame className="h-5 w-5" />
+              <span className="text-sm font-medium text-white/80">Gás Fácil</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold mb-0.5">
+              {greeting.text}! {greeting.emoji}
+            </h1>
+            <p className="text-sm text-white/70 capitalize">{todayFormatted}</p>
+          </div>
+        </div>
+
         {/* Filtro de período */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>

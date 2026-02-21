@@ -18,7 +18,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus, Search, FileText, Trash2, Eye, Copy, ChevronsUpDown, Check,
-  Flame, DollarSign, Clock, CheckCircle2, TrendingUp, ReceiptText, ArrowRight
+  DollarSign, Clock, CheckCircle2, TrendingUp, ReceiptText
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,12 +40,6 @@ interface OrcamentoItem {
   produto_id?: string;
 }
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return { text: "Bom dia", emoji: "☀️" };
-  if (h < 18) return { text: "Boa tarde", emoji: "🌤️" };
-  return { text: "Boa noite", emoji: "🌙" };
-}
 
 export default function Orcamentos() {
   const { user } = useAuth();
@@ -68,8 +62,6 @@ export default function Orcamentos() {
   ]);
   const [produtoOpenIdx, setProdutoOpenIdx] = useState<number | null>(null);
 
-  const greeting = getGreeting();
-  const today = format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   // Fetch clientes
   const { data: clientes = [] } = useQuery({
@@ -265,73 +257,64 @@ export default function Orcamentos() {
     <MainLayout>
       <Header title="Orçamentos" subtitle="Gestão de propostas comerciais" />
       <div className="space-y-6 pb-8 p-3 md:p-6">
-        {/* ── Hero Gradient Card ── */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-6 md:p-8 text-white shadow-xl">
-          {/* Background flame decoration */}
-          <div className="absolute right-0 top-0 opacity-10">
-            <Flame className="h-56 w-56 -mt-8 -mr-8" strokeWidth={0.8} />
-          </div>
-          <div className="absolute left-1/2 bottom-0 opacity-5">
-            <Flame className="h-40 w-40 mb-[-2rem]" strokeWidth={0.6} />
-          </div>
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-1">
-              <Flame className="h-5 w-5" />
-              <span className="text-sm font-medium text-white/80">Gás Fácil</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-0.5">
-              {greeting.text}! {greeting.emoji}
-            </h1>
-            <p className="text-sm text-white/70 capitalize mb-6">{today}</p>
-
-            {/* KPI Grid inside hero */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="rounded-lg bg-white/20 p-1.5">
-                    <ReceiptText className="h-4 w-4" />
-                  </div>
+        {/* ── KPI Cards ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <ReceiptText className="h-5 w-5 text-primary" />
                 </div>
-                <p className="text-2xl font-bold">{orcamentos.length}</p>
-                <p className="text-xs text-white/70">Total Orçamentos</p>
-              </div>
-
-              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="rounded-lg bg-white/20 p-1.5">
-                    <Clock className="h-4 w-4" />
-                  </div>
+                <div>
+                  <p className="text-2xl font-bold">{orcamentos.length}</p>
+                  <p className="text-xs text-muted-foreground">Total Orçamentos</p>
                 </div>
-                <p className="text-2xl font-bold">{pendentes.length}</p>
-                <p className="text-xs text-white/70">Pendentes</p>
               </div>
-
-              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="rounded-lg bg-white/20 p-1.5">
-                    <DollarSign className="h-4 w-4" />
-                  </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-amber-500/10 p-2">
+                  <Clock className="h-5 w-5 text-amber-600" />
                 </div>
-                <p className="text-2xl font-bold">
-                  R$ {valorPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-white/70">Valor Pendente</p>
-              </div>
-
-              <div className="rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 p-4 transition-transform hover:scale-[1.02]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="rounded-lg bg-white/20 p-1.5">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </div>
+                <div>
+                  <p className="text-2xl font-bold">{pendentes.length}</p>
+                  <p className="text-xs text-muted-foreground">Pendentes</p>
                 </div>
-                <p className="text-2xl font-bold">
-                  R$ {valorAprovado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-white/70">Valor Aprovado</p>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-blue-500/10 p-2">
+                  <DollarSign className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    R$ {valorPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Valor Pendente</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-emerald-500/10 p-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    R$ {valorAprovado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Valor Aprovado</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* ── Actions Bar ── */}
@@ -361,7 +344,7 @@ export default function Orcamentos() {
 
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg shadow-orange-500/25 gap-2">
+              <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 Novo Orçamento
               </Button>
