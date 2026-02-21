@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +124,7 @@ export default function Combustivel() {
       const { data } = await aq;
       setAbastecimentos(data || []);
 
-      const mesData = (data || []).filter((a: any) => new Date(a.data) >= mesInicio);
+      const mesData = (data || []).filter((a: any) => parseLocalDate(a.data) >= mesInicio);
       setGastoMensal(mesData.reduce((s: number, a: any) => s + Number(a.valor), 0));
       setLitrosMensal(mesData.reduce((s: number, a: any) => s + Number(a.litros), 0));
 
@@ -218,7 +219,7 @@ export default function Combustivel() {
       const nfs = selecionados.filter((a) => a.nota_fiscal).map((a) => a.nota_fiscal);
       const obsNfs = nfs.length > 0 ? `NFs: ${nfs.join(", ")}` : "";
       const detalhes = selecionados.map((a) =>
-        `${new Date(a.data).toLocaleDateString("pt-BR")} | ${(a.veiculos as any)?.placa || "-"} | ${a.motorista} | ${Number(a.litros)}L ${a.tipo} | R$${Number(a.valor).toFixed(2)}${a.posto ? ` | ${a.posto}` : ""}${a.nota_fiscal ? ` | NF ${a.nota_fiscal}` : ""}`
+        `${parseLocalDate(a.data).toLocaleDateString("pt-BR")} | ${(a.veiculos as any)?.placa || "-"} | ${a.motorista} | ${Number(a.litros)}L ${a.tipo} | R$${Number(a.valor).toFixed(2)}${a.posto ? ` | ${a.posto}` : ""}${a.nota_fiscal ? ` | NF ${a.nota_fiscal}` : ""}`
       ).join("\n");
 
       const hoje = new Date().toISOString().split("T")[0];
@@ -363,7 +364,7 @@ export default function Combustivel() {
                     </TableCell>
                     <TableCell className="font-medium">{(a.veiculos as any)?.placa || "-"}</TableCell>
                     <TableCell>{a.motorista}</TableCell>
-                    <TableCell>{new Date(a.data).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{parseLocalDate(a.data).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell>{a.posto || "-"}</TableCell>
                     <TableCell>{a.nota_fiscal || "-"}</TableCell>
                     <TableCell>{Number(a.km).toLocaleString("pt-BR")} km</TableCell>
@@ -504,7 +505,7 @@ export default function Combustivel() {
                 {pendentes.map((a) => (
                   <TableRow key={a.id} className={selectedIds.has(a.id) ? "bg-muted/50" : ""}>
                     <TableCell><Checkbox checked={selectedIds.has(a.id)} onCheckedChange={() => toggleSelect(a.id)} /></TableCell>
-                    <TableCell>{new Date(a.data).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{parseLocalDate(a.data).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell>{(a.veiculos as any)?.placa || "-"}</TableCell>
                     <TableCell>{a.posto || "-"}</TableCell>
                     <TableCell>{a.nota_fiscal || "-"}</TableCell>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,7 +170,7 @@ export default function ChecklistSaida() {
                     const itensOk = ITENS_CHECKLIST.filter(i => c[i.key]).length;
                     return (
                       <TableRow key={c.id}>
-                        <TableCell>{new Date(c.data).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>{parseLocalDate(c.data).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell className="font-medium">{c.veiculos?.placa || "—"}</TableCell>
                         <TableCell>{c.entregadores?.nome || "—"}</TableCell>
                         <TableCell>

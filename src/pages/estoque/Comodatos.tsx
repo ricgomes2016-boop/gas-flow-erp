@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -119,7 +120,7 @@ export default function Comodatos() {
   const ativos = comodatos.filter((c: any) => c.status === "ativo");
   const totalQtd = ativos.reduce((s: number, c: any) => s + (c.quantidade || 0), 0);
   const totalDeposito = ativos.reduce((s: number, c: any) => s + (c.deposito || 0), 0);
-  const vencidos = ativos.filter((c: any) => c.prazo_devolucao && new Date(c.prazo_devolucao) < new Date()).length;
+  const vencidos = ativos.filter((c: any) => c.prazo_devolucao && parseLocalDate(c.prazo_devolucao) < new Date()).length;
   const clientesUnicos = new Set(ativos.map((c: any) => c.cliente_id)).size;
 
   return (
@@ -234,19 +235,19 @@ export default function Comodatos() {
                   {filtrados.length === 0 ? (
                     <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum comodato encontrado</TableCell></TableRow>
                   ) : filtrados.map((c: any) => {
-                    const vencido = c.status === "ativo" && c.prazo_devolucao && new Date(c.prazo_devolucao) < new Date();
-                    const diasRestantes = c.prazo_devolucao ? differenceInDays(new Date(c.prazo_devolucao), new Date()) : null;
+                    const vencido = c.status === "ativo" && c.prazo_devolucao && parseLocalDate(c.prazo_devolucao) < new Date();
+                    const diasRestantes = c.prazo_devolucao ? differenceInDays(parseLocalDate(c.prazo_devolucao), new Date()) : null;
                     return (
                       <TableRow key={c.id} className={vencido ? "bg-destructive/5" : ""}>
                         <TableCell className="font-medium">{c.clientes?.nome || "—"}</TableCell>
                         <TableCell>{c.produtos?.nome || "—"}</TableCell>
                         <TableCell className="text-center">{c.quantidade}</TableCell>
                         <TableCell className="text-center">R$ {(c.deposito || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-sm">{format(new Date(c.data_emprestimo), "dd/MM/yy")}</TableCell>
+                        <TableCell className="text-sm">{format(parseLocalDate(c.data_emprestimo), "dd/MM/yy")}</TableCell>
                         <TableCell className="text-sm">
                           {c.prazo_devolucao ? (
                             <span className={vencido ? "text-destructive font-bold" : ""}>
-                              {format(new Date(c.prazo_devolucao), "dd/MM/yy")}
+                              {format(parseLocalDate(c.prazo_devolucao), "dd/MM/yy")}
                               {diasRestantes !== null && c.status === "ativo" && (
                                 <span className="text-xs ml-1">({diasRestantes > 0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d atrás`})</span>
                               )}

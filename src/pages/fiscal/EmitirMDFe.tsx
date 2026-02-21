@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,7 +87,7 @@ export default function EmitirMDFe() {
                     ) : notas.map((m) => (
                       <TableRow key={m.id}>
                         <TableCell className="font-mono text-sm">{m.numero || "—"}</TableCell>
-                        <TableCell>{new Date(m.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>{parseLocalDate(m.data_emissao).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell className="flex items-center gap-1"><MapPin className="h-3 w-3" />{m.uf_carregamento || "?"} → {m.uf_descarregamento || "?"}</TableCell>
                         <TableCell className="font-medium">{m.motorista_nome || "—"}</TableCell>
                         <TableCell className="font-mono">{m.placa || "—"}</TableCell>

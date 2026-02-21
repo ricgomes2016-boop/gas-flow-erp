@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -89,7 +90,7 @@ export default function DashboardFinanceiro() {
       meses[format(d, "yyyy-MM")] = { entradas: 0, saidas: 0 };
     }
     movimentacoes.forEach((m: any) => {
-      const key = format(new Date(m.data), "yyyy-MM");
+      const key = format(parseLocalDate(m.data), "yyyy-MM");
       if (meses[key]) {
         if (m.tipo === "entrada") meses[key].entradas += Number(m.valor);
         else meses[key].saidas += Number(m.valor);

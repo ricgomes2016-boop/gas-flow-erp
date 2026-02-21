@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -149,7 +150,7 @@ export default function AnaliseConcorrencia() {
                   const diff = nosso > 0 ? ((r.preco - nosso) / nosso * 100) : 0;
                   return (
                     <TableRow key={r.id}>
-                      <TableCell>{new Date(r.data).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{parseLocalDate(r.data).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell className="font-medium">{r.concorrente}</TableCell>
                       <TableCell>{r.produto}</TableCell>
                       <TableCell>R$ {r.preco.toFixed(2)}</TableCell>

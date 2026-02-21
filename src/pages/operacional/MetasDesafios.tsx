@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -230,7 +231,7 @@ export default function MetasDesafios() {
                       <span>
                         R$ {Number(meta.valor_atual).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / R$ {Number(meta.valor_objetivo).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </span>
-                      <span>Prazo: {new Date(meta.prazo).toLocaleDateString("pt-BR")}</span>
+                      <span>Prazo: {parseLocalDate(meta.prazo).toLocaleDateString("pt-BR")}</span>
                     </div>
                   </div>
                 );

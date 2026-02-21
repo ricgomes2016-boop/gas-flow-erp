@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export default function OnboardingOffboarding() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">{(checklist as any).funcionarios?.nome || "—"}</CardTitle>
-              <p className="text-xs text-muted-foreground">Iniciado em {format(new Date(checklist.data_inicio), "dd/MM/yyyy")}</p>
+              <p className="text-xs text-muted-foreground">Iniciado em {format(parseLocalDate(checklist.data_inicio), "dd/MM/yyyy")}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">{concluidos}/{total}</span>

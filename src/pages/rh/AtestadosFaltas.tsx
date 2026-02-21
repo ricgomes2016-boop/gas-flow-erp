@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { parseLocalDate } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -158,8 +159,8 @@ export default function AtestadosFaltas() {
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{(r as any).funcionarios?.nome || "—"}</TableCell>
                       <TableCell>{tipoBadge(r.tipo)}</TableCell>
-                      <TableCell>{format(new Date(r.data_inicio), "dd/MM/yyyy")}</TableCell>
-                      <TableCell>{format(new Date(r.data_fim), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(parseLocalDate(r.data_inicio), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(parseLocalDate(r.data_fim), "dd/MM/yyyy")}</TableCell>
                       <TableCell className="text-center">{r.dias}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{r.motivo || "—"}</TableCell>
                       <TableCell className="text-center">

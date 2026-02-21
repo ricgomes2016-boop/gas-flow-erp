@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -187,7 +188,7 @@ export default function Manutencao() {
     for (const v of veics) {
       const preventivas = mans
         .filter(m => m.veiculo_id === v.id && m.tipo === "Preventiva")
-        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        .sort((a, b) => parseLocalDate(b.data).getTime() - parseLocalDate(a.data).getTime());
 
       if (preventivas.length === 0) {
         novosAlertas.push({
@@ -324,7 +325,7 @@ export default function Manutencao() {
       const descricao = `Manutenção Veicular - ${selecionados.length} serviço(s) - Oficina(s): ${oficinas.join(", ")}`;
 
       const detalhes = selecionados.map((m) =>
-        `${new Date(m.data).toLocaleDateString("pt-BR")} | ${(m.veiculos as any)?.placa || "-"} | ${m.tipo} | ${m.descricao} | R$${Number(m.valor).toFixed(2)} | ${m.oficina}`
+        `${parseLocalDate(m.data).toLocaleDateString("pt-BR")} | ${(m.veiculos as any)?.placa || "-"} | ${m.tipo} | ${m.descricao} | R$${Number(m.valor).toFixed(2)} | ${m.oficina}`
       ).join("\n");
 
       const hoje = new Date().toISOString().split("T")[0];
@@ -523,7 +524,7 @@ export default function Manutencao() {
                     </TableCell>
                     <TableCell className="max-w-[250px] truncate">{m.descricao}</TableCell>
                     <TableCell>{m.oficina}</TableCell>
-                    <TableCell>{new Date(m.data).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{parseLocalDate(m.data).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="font-medium">R$ {Number(m.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -701,7 +702,7 @@ export default function Manutencao() {
                     <TableCell className="font-medium">{(m.veiculos as any)?.placa || "-"}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{m.descricao}</TableCell>
                     <TableCell>{m.oficina}</TableCell>
-                    <TableCell>{new Date(m.data).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{parseLocalDate(m.data).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="font-medium">R$ {Number(m.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                   </TableRow>
                 ))}

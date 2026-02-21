@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { parseLocalDate } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -313,7 +314,7 @@ export default function PromocoesCupons() {
                           {c.usos}/{c.limite_uso ?? "∞"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {c.validade ? new Date(c.validade).toLocaleDateString("pt-BR") : "Sem prazo"}
+                          {c.validade ? parseLocalDate(c.validade).toLocaleDateString("pt-BR") : "Sem prazo"}
                         </TableCell>
                         <TableCell>
                           <Switch checked={c.ativo} onCheckedChange={(v) => toggleCupom(c.id, v)} />
@@ -376,9 +377,9 @@ export default function PromocoesCupons() {
                             p.tipo === "desconto_fixo" ? `R$ ${p.valor.toFixed(2)}` : "—"}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
-                          {p.data_inicio ? new Date(p.data_inicio).toLocaleDateString("pt-BR") : "—"}
+                          {p.data_inicio ? parseLocalDate(p.data_inicio).toLocaleDateString("pt-BR") : "—"}
                           {" → "}
-                          {p.data_fim ? new Date(p.data_fim).toLocaleDateString("pt-BR") : "Sem prazo"}
+                          {p.data_fim ? parseLocalDate(p.data_fim).toLocaleDateString("pt-BR") : "Sem prazo"}
                         </TableCell>
                         <TableCell>
                           <Badge variant={p.status === "ativa" ? "default" : p.status === "pausada" ? "secondary" : "outline"}>
