@@ -93,16 +93,7 @@ export default function EntregadorFinanceiro() {
           .map(([forma, v]) => ({ forma, ...v }))
           .sort((a, b) => b.valor - a.valor);
 
-        // Acertos simulados (últimos 4 meses)
-        const acertosSimulados = [0, 1, 2, 3].map(i => {
-          const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-          return {
-            mes: format(d, "MMMM yyyy", { locale: ptBR }),
-            valor: Math.floor(Math.random() * 2000) + 1500,
-            status: i > 0 ? "pago" : "pendente",
-          };
-        });
-        setAcertos(acertosSimulados);
+        setAcertos([]);
 
         const totalHoje = pedidosHoje.reduce((s, p) => s + (p.valor_total || 0), 0);
         const totalSemana = todos.reduce((s, p) => s + (p.valor_total || 0), 0);
