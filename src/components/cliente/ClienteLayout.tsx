@@ -13,6 +13,7 @@ import {
   BookOpen,
   Calculator,
   CreditCard,
+  RefreshCw,
   ChevronRight,
   ArrowRight
 } from "lucide-react";
@@ -36,6 +37,7 @@ const menuItems = [
   { icon: Gift, label: "Indique e Ganhe", path: "/cliente/indicacao" },
   { icon: Wallet, label: "Minha Carteira", path: "/cliente/carteira" },
   { icon: CreditCard, label: "Meus Vales Gás", path: "/cliente/vale-gas" },
+  { icon: RefreshCw, label: "Assinaturas", path: "/cliente/assinaturas" },
   { icon: Calculator, label: "Consumo Médio", path: "/cliente/consumo" },
   { icon: BookOpen, label: "Dicas e Receitas", path: "/cliente/dicas" },
   { icon: User, label: "Meu Perfil", path: "/cliente/perfil" },
