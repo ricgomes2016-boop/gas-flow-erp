@@ -185,7 +185,6 @@ export default function NovaVenda() {
     { value: "telefone", label: "📞 Telefone" },
     { value: "whatsapp", label: "💬 WhatsApp" },
     { value: "portaria", label: "🏢 Portaria" },
-    { value: "balcao", label: "🏪 Balcão" },
   ];
 
   const dynamicChannels = canaisVenda

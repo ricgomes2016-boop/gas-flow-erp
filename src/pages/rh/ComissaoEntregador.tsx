@@ -137,7 +137,7 @@ export default function ComissaoEntregador() {
           ...item,
           entregador_id: pedido?.entregador_id,
           entregador_nome: pedido?.entregadores?.nome || "N/A",
-          canal_venda: pedido?.canal_venda || "balcao",
+          canal_venda: pedido?.canal_venda || "portaria",
         };
       });
     },
@@ -153,7 +153,7 @@ export default function ComissaoEntregador() {
     pedidosDetalhados.forEach((item: any) => {
       if (!item.entregador_id) return;
       const eId = item.entregador_id;
-      const canal = item.canal_venda || "balcao";
+      const canal = item.canal_venda || "portaria";
       const prodNome = item.produtos?.nome || "Produto";
       const comissaoUnit = comissaoMap.get(`${item.produto_id}|${normalizeCanal(canal)}`) ?? 0;
 

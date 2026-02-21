@@ -30,6 +30,7 @@ const formasPagamento = [
   { value: "pix", label: "PIX", icon: "📱" },
   { value: "cartao_debito", label: "Cartão Débito", icon: "💳" },
   { value: "cartao_credito", label: "Cartão Crédito", icon: "💳" },
+  { value: "boleto", label: "Boleto", icon: "📄" },
   { value: "vale_gas", label: "Vale Gás", icon: "🔥" },
   { value: "cheque", label: "Cheque", icon: "🧾" },
   { value: "fiado", label: "Fiado", icon: "📝" },

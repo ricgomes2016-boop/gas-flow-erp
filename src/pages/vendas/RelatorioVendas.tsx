@@ -45,7 +45,7 @@ const canalLabels: Record<string, string> = {
   telefone: "Telefone",
   whatsapp: "WhatsApp",
   portaria: "Portaria",
-  balcao: "Balcão",
+  balcao: "Portaria",
   Entregador: "Entregador",
 };
 
