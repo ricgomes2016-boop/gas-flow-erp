@@ -19,7 +19,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Receipt, Plus, Wallet, TrendingDown, CalendarIcon, Fuel, UtensilsCrossed, Wrench, MoreHorizontal, DollarSign, Camera, ImageIcon, Loader2 } from "lucide-react";
+import { Receipt, Plus, Wallet, TrendingDown, CalendarIcon, Fuel, UtensilsCrossed, Wrench, MoreHorizontal, DollarSign, Camera, ImageIcon, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -157,17 +157,43 @@ export default function Despesas() {
     }
   };
 
+  const LIMITE_SANGRIA = 500; // Limite de alerta
+
   const handleSubmit = async () => {
     if (!form.descricao || !form.valor) { toast.error("Preencha os campos"); return; }
+    const valor = parseFloat(form.valor);
+    
+    // Verificar se ultrapassa limite
+    const statusDespesa = valor > LIMITE_SANGRIA ? "pendente" : "pendente";
+    
     const { error } = await supabase.from("movimentacoes_caixa").insert({
       tipo: "saida", descricao: form.descricao,
-      valor: parseFloat(form.valor), categoria: form.categoria || null,
-      responsavel: form.responsavel || null, status: "pendente",
+      valor, categoria: form.categoria || null,
+      responsavel: form.responsavel || null, status: statusDespesa,
       observacoes: form.observacoes || null,
       unidade_id: unidadeAtual?.id || null,
     });
     if (error) { toast.error("Erro ao registrar"); console.error(error); }
-    else { toast.success("Despesa registrada!"); setDialogOpen(false); setForm({ descricao: "", categoria: "", valor: "", responsavel: "", observacoes: "" }); fetchDespesas(); }
+    else {
+      if (valor > LIMITE_SANGRIA) {
+        toast.warning(`Sangria de R$ ${valor.toFixed(2)} registrada como PENDENTE (acima de R$ ${LIMITE_SANGRIA}). Precisa aprovação.`);
+      } else {
+        toast.success("Despesa registrada!");
+      }
+      setDialogOpen(false); setForm({ descricao: "", categoria: "", valor: "", responsavel: "", observacoes: "" }); fetchDespesas();
+    }
+  };
+
+  const handleAprovar = async (id: string) => {
+    const { error } = await supabase.from("movimentacoes_caixa").update({ status: "aprovada" }).eq("id", id);
+    if (error) toast.error("Erro ao aprovar");
+    else { toast.success("Despesa aprovada!"); fetchDespesas(); }
+  };
+
+  const handleRejeitar = async (id: string) => {
+    const { error } = await supabase.from("movimentacoes_caixa").update({ status: "rejeitada" }).eq("id", id);
+    if (error) toast.error("Erro ao rejeitar");
+    else { toast.success("Despesa rejeitada!"); fetchDespesas(); }
   };
 
   const totalDespesas = despesas.reduce((a, d) => a + Number(d.valor), 0);
@@ -296,33 +322,56 @@ export default function Despesas() {
               <p className="text-center py-8 text-muted-foreground">Nenhuma despesa registrada</p>
             ) : (
               <div className="overflow-x-auto">
-                <Table className="min-w-[560px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-16">Hora</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="hidden sm:table-cell">Categoria</TableHead>
-                      <TableHead className="hidden md:table-cell">Responsável</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {despesas.map(d => (
-                      <TableRow key={d.id}>
-                        <TableCell className="text-muted-foreground text-xs">{new Date(d.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</TableCell>
-                        <TableCell className="font-medium">
-                          <div>{d.descricao}</div>
-                          <div className="sm:hidden text-xs text-muted-foreground mt-0.5">{d.categoria || "—"}{d.responsavel ? ` · ${d.responsavel}` : ""}</div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell"><Badge variant="outline">{d.categoria || "—"}</Badge></TableCell>
-                        <TableCell className="hidden md:table-cell text-sm">{d.responsavel || "—"}</TableCell>
-                        <TableCell className="text-right font-medium text-destructive whitespace-nowrap">- R$ {Number(d.valor).toFixed(2)}</TableCell>
-                        <TableCell><Badge variant={d.status === "aprovada" ? "default" : "secondary"} className="whitespace-nowrap">{d.status === "aprovada" ? "Aprovada" : "Pendente"}</Badge></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    <Table className="min-w-[560px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">Hora</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                          <TableHead className="hidden md:table-cell">Responsável</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="w-20">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {despesas.map(d => (
+                          <TableRow key={d.id} className={Number(d.valor) > LIMITE_SANGRIA && d.status === "pendente" ? "bg-amber-500/5" : ""}>
+                            <TableCell className="text-muted-foreground text-xs">{new Date(d.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-1.5">
+                                {Number(d.valor) > LIMITE_SANGRIA && d.status === "pendente" && <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                                {d.descricao}
+                              </div>
+                              <div className="sm:hidden text-xs text-muted-foreground mt-0.5">{d.categoria || "—"}{d.responsavel ? ` · ${d.responsavel}` : ""}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell"><Badge variant="outline">{d.categoria || "—"}</Badge></TableCell>
+                            <TableCell className="hidden md:table-cell text-sm">{d.responsavel || "—"}</TableCell>
+                            <TableCell className="text-right font-medium text-destructive whitespace-nowrap">- R$ {Number(d.valor).toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={d.status === "aprovada" ? "default" : d.status === "rejeitada" ? "destructive" : "secondary"} 
+                                className="whitespace-nowrap"
+                              >
+                                {d.status === "aprovada" ? "Aprovada" : d.status === "rejeitada" ? "Rejeitada" : "Pendente"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {d.status === "pendente" && (
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-success hover:text-success" onClick={() => handleAprovar(d.id)} title="Aprovar">
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleRejeitar(d.id)} title="Rejeitar">
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
               </div>
             )}
           </CardContent>
