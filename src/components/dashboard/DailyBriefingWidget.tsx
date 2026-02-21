@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, X, Volume2, VolumeX } from "lucide-react";
+import { Bot, X, Volume2, VolumeX, Square } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import ReactMarkdown from "react-markdown";
@@ -28,6 +28,55 @@ export function DailyBriefingWidget() {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [userName, setUserName] = useState("Gestor");
+  const [speaking, setSpeaking] = useState(false);
+  const synthRef = useRef(typeof window !== "undefined" ? window.speechSynthesis : null);
+
+  // Ensure voices are loaded
+  useEffect(() => {
+    const synth = synthRef.current;
+    if (!synth) return;
+    const loadVoices = () => synth.getVoices();
+    loadVoices();
+    synth.addEventListener("voiceschanged", loadVoices);
+    return () => {
+      synth.removeEventListener("voiceschanged", loadVoices);
+      synth.cancel();
+    };
+  }, []);
+
+  const speakBriefing = useCallback(() => {
+    const synth = synthRef.current;
+    if (!synth || !briefing) return;
+
+    if (speaking) {
+      synth.cancel();
+      setSpeaking(false);
+      return;
+    }
+
+    // Clean markdown for speech
+    const clean = briefing
+      .replace(/[#*_`~\[\]()>|]/g, "")
+      .replace(/\n+/g, ". ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!clean) return;
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = "pt-BR";
+    utterance.rate = 1.05;
+    utterance.pitch = 1;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+
+    const voices = synth.getVoices();
+    const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
+    if (ptVoice) utterance.voice = ptVoice;
+
+    synth.speak(utterance);
+  }, [briefing, speaking]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -91,8 +140,18 @@ export function DailyBriefingWidget() {
   return (
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+        {briefing && !loading && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", speaking && "text-primary")}
+            onClick={speakBriefing}
+            title={speaking ? "Parar" : "Ouvir briefing"}
+          >
+            {speaking ? <Square className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+          </Button>
+        )}
         <div className="flex items-center gap-1.5">
-          <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
           <Switch checked={enabled} onCheckedChange={toggleEnabled} className="scale-75" />
         </div>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={dismiss}>
