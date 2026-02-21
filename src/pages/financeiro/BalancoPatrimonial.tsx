@@ -39,7 +39,9 @@ export default function BalancoPatrimonial() {
   const { data: contasBancarias = [] } = useQuery({
     queryKey: ["balanco_contas", unidadeAtual?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("contas_bancarias").select("nome, saldo_atual, tipo").eq("ativo", true);
+      let q = supabase.from("contas_bancarias").select("nome, saldo_atual, tipo").eq("ativo", true);
+      if (unidadeAtual?.id) q = q.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      const { data } = await q;
       return data || [];
     },
   });
@@ -68,9 +70,11 @@ export default function BalancoPatrimonial() {
 
   // Veículos (Ativo Não Circulante — Imobilizado)
   const { data: veiculos = [] } = useQuery({
-    queryKey: ["balanco_veiculos"],
+    queryKey: ["balanco_veiculos", unidadeAtual?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("veiculos").select("modelo, placa, valor_fipe").eq("ativo", true);
+      let q = supabase.from("veiculos").select("modelo, placa, valor_fipe").eq("ativo", true);
+      if (unidadeAtual?.id) q = q.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+      const { data } = await q;
       return data || [];
     },
   });
