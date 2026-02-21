@@ -1988,8 +1988,12 @@ export type Database = {
           created_at: string
           descricao: string
           fornecedor: string
+          grupo_parcela_id: string | null
           id: string
           observacoes: string | null
+          origem: string | null
+          parcela_numero: number | null
+          parcela_total: number | null
           status: string
           unidade_id: string | null
           updated_at: string
@@ -2004,8 +2008,12 @@ export type Database = {
           created_at?: string
           descricao: string
           fornecedor: string
+          grupo_parcela_id?: string | null
           id?: string
           observacoes?: string | null
+          origem?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
           status?: string
           unidade_id?: string | null
           updated_at?: string
@@ -2020,8 +2028,12 @@ export type Database = {
           created_at?: string
           descricao?: string
           fornecedor?: string
+          grupo_parcela_id?: string | null
           id?: string
           observacoes?: string | null
+          origem?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
           status?: string
           unidade_id?: string | null
           updated_at?: string
@@ -2484,6 +2496,65 @@ export type Database = {
           },
         ]
       }
+      emprestimos: {
+        Row: {
+          created_at: string
+          data_inicio: string
+          descricao: string
+          id: string
+          instituicao: string
+          num_parcelas: number
+          observacoes: string | null
+          status: string
+          taxa_juros: number
+          tipo_amortizacao: string
+          unidade_id: string | null
+          updated_at: string
+          user_id: string | null
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          data_inicio?: string
+          descricao: string
+          id?: string
+          instituicao: string
+          num_parcelas?: number
+          observacoes?: string | null
+          status?: string
+          taxa_juros?: number
+          tipo_amortizacao?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_total: number
+        }
+        Update: {
+          created_at?: string
+          data_inicio?: string
+          descricao?: string
+          id?: string
+          instituicao?: string
+          num_parcelas?: number
+          observacoes?: string | null
+          status?: string
+          taxa_juros?: number
+          tipo_amortizacao?: string
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emprestimos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entregador_conquistas: {
         Row: {
           conquista_id: string
@@ -2703,6 +2774,106 @@ export type Database = {
           },
           {
             foreignKeyName: "extrato_bancario_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fatura_cartao_itens: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data_compra: string
+          descricao: string
+          fatura_id: string
+          id: string
+          parcela_atual: number | null
+          parcela_total: number | null
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data_compra?: string
+          descricao: string
+          fatura_id: string
+          id?: string
+          parcela_atual?: number | null
+          parcela_total?: number | null
+          valor: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data_compra?: string
+          descricao?: string
+          fatura_id?: string
+          id?: string
+          parcela_atual?: number | null
+          parcela_total?: number | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fatura_cartao_itens_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas_cartao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faturas_cartao: {
+        Row: {
+          bandeira: string | null
+          cartao_nome: string
+          created_at: string
+          id: string
+          mes_referencia: string
+          observacoes: string | null
+          status: string
+          ultimos_digitos: string | null
+          unidade_id: string | null
+          updated_at: string
+          user_id: string | null
+          valor_total: number
+          vencimento: string
+        }
+        Insert: {
+          bandeira?: string | null
+          cartao_nome: string
+          created_at?: string
+          id?: string
+          mes_referencia: string
+          observacoes?: string | null
+          status?: string
+          ultimos_digitos?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_total?: number
+          vencimento: string
+        }
+        Update: {
+          bandeira?: string | null
+          cartao_nome?: string
+          created_at?: string
+          id?: string
+          mes_referencia?: string
+          observacoes?: string | null
+          status?: string
+          ultimos_digitos?: string | null
+          unidade_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_total?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faturas_cartao_unidade_id_fkey"
             columns: ["unidade_id"]
             isOneToOne: false
             referencedRelation: "unidades"
