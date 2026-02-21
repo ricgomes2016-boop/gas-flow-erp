@@ -1,0 +1,98 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { unidade_id, user_name } = await req.json();
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, supabaseKey);
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Gather data in parallel
+    const [
+      { data: pedidosHoje },
+      { data: estoqueBaixo },
+      { data: manutencoesPendentes },
+      { data: contasPagar },
+      { data: alertasJornada },
+      { data: pedidosPendentes },
+    ] = await Promise.all([
+      sb.from("pedidos").select("id, valor_total, status").gte("created_at", `${today}T00:00:00`),
+      sb.from("produtos").select("id, nome, estoque_atual, estoque_minimo").filter("estoque_atual", "lte", "estoque_minimo"),
+      sb.from("manutencoes").select("id, veiculo_id, tipo, descricao, veiculos(placa)").eq("status", "pendente").limit(5),
+      sb.from("contas_pagar").select("id, descricao, valor, vencimento").eq("status", "pendente").lte("vencimento", today).limit(5),
+      sb.from("alertas_jornada").select("id, tipo, descricao, funcionarios(nome)").eq("resolvido", false).limit(5),
+      sb.from("pedidos").select("id").in("status", ["pendente", "em_preparo"]),
+    ]);
+
+    const totalVendasHoje = (pedidosHoje || [])
+      .filter((p: any) => p.status !== "cancelado")
+      .reduce((s: number, p: any) => s + (Number(p.valor_total) || 0), 0);
+
+    const context = {
+      nome_gestor: user_name || "Gestor",
+      hora: new Date().getHours(),
+      vendas_hoje: { total: pedidosHoje?.length || 0, valor: totalVendasHoje },
+      pedidos_pendentes: pedidosPendentes?.length || 0,
+      estoque_baixo: (estoqueBaixo || []).map((p: any) => ({ nome: p.nome, atual: p.estoque_atual, minimo: p.estoque_minimo })),
+      manutencoes: (manutencoesPendentes || []).map((m: any) => ({ placa: (m.veiculos as any)?.placa, tipo: m.tipo, descricao: m.descricao })),
+      contas_vencidas: (contasPagar || []).map((c: any) => ({ descricao: c.descricao, valor: c.valor, vencimento: c.vencimento })),
+      alertas_jornada: (alertasJornada || []).map((a: any) => ({ funcionario: (a.funcionarios as any)?.nome, tipo: a.tipo, descricao: a.descricao })),
+    };
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const saudacao = context.hora < 12 ? "Bom dia" : context.hora < 18 ? "Boa tarde" : "Boa noite";
+
+    const systemPrompt = `Você é o assistente de gestão de uma revenda de gás. Gere um briefing matinal curto e direto para o gestor.
+Use emojis para deixar visual. Seja conciso (máx 200 palavras). Use markdown com bullet points.
+Comece com: "${saudacao}, ${context.nome_gestor}! 👋"
+Depois resuma os pontos mais importantes do dia baseado nos dados.
+Se não houver alertas em alguma categoria, não mencione. Foque apenas no que existe.
+Termine com uma frase motivacional curta.`;
+
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Dados do dia:\n${JSON.stringify(context, null, 2)}` },
+        ],
+      }),
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error("AI error:", aiRes.status, errText);
+      if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Muitas requisições, tente novamente em instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Créditos insuficientes." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error("AI gateway error");
+    }
+
+    const aiData = await aiRes.json();
+    const briefing = aiData.choices?.[0]?.message?.content || "Não foi possível gerar o briefing.";
+
+    return new Response(JSON.stringify({ briefing, context }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("daily-briefing error:", e);
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

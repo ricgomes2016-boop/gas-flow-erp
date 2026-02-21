@@ -12,6 +12,7 @@ import { DeliveryDriverStatus } from "@/components/dashboard/DeliveryDriverStatu
 import { AiInsightsWidget } from "@/components/dashboard/AiInsightsWidget";
 import { DailySalesGoal } from "@/components/dashboard/DailySalesGoal";
 import { StockAlerts } from "@/components/dashboard/StockAlerts";
+import { DailyBriefingWidget } from "@/components/dashboard/DailyBriefingWidget";
 import { ShoppingCart, Truck, Users, DollarSign, TrendingUp, Flame } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -136,6 +137,9 @@ export default function Dashboard() {
             <p className="text-sm text-white/70 capitalize">{todayFormatted}</p>
           </div>
         </div>
+
+        {/* Briefing IA do dia */}
+        <DailyBriefingWidget />
 
         {/* Anotações & Lembretes em destaque */}
         <NotesWidget />
