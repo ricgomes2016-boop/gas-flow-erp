@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Sun, TrendingUp, AlertTriangle, Package, DollarSign, Users, Truck, CheckCircle, Clock } from "lucide-react";
 import { RemindersWidget } from "@/components/dashboard/RemindersWidget";
 import { AiInsightsWidget } from "@/components/dashboard/AiInsightsWidget";
+import { ProdutividadeWidget } from "@/components/operacional/ProdutividadeWidget";
+import { PrevisaoDemandaWidget } from "@/components/operacional/PrevisaoDemandaWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
@@ -201,6 +203,12 @@ export default function CockpitGestor() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Produtividade + Previsão IA */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ProdutividadeWidget />
+          <PrevisaoDemandaWidget />
+        </div>
 
         {/* Lembretes + IA Insights */}
         <div className="grid gap-6 lg:grid-cols-2">

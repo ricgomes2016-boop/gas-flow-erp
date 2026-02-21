@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.recompra-alerts]
 verify_jwt = false
+
+[functions.previsao-demanda]
+verify_jwt = false
+
+[functions.relatorio-gerencial-ia]
+verify_jwt = false
