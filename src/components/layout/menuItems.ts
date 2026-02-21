@@ -193,6 +193,7 @@ export const menuItems: MenuItem[] = [
       { icon: FileText, label: "Orçamentos", path: "/financeiro/orcamentos" },
       { icon: FileSpreadsheet, label: "Controle de Cheques", path: "/financeiro/cheques" },
       { icon: HandCoins, label: "Venda Antecipada", path: "/financeiro/venda-antecipada" },
+      { icon: BarChart, label: "Balanço Patrimonial", path: "/financeiro/balanco" },
       { icon: Ticket, label: "Vale Gás", path: "/financeiro/vale-gas" },
     ],
   },
