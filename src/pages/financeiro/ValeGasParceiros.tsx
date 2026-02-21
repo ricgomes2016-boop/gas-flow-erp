@@ -23,7 +23,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
-export default function ValeGasParceiros() {
+export default function ValeGasParceiros({ embedded }: { embedded?: boolean } = {}) {
   const { parceiros, addParceiro, getEstatisticasParceiro, refetch } = useValeGas();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,10 +92,8 @@ export default function ValeGasParceiros() {
     ativos: parceiros.filter(p => p.ativo).length,
   };
 
-  return (
-    <MainLayout>
-      <Header title="Parceiros Vale Gás" subtitle="Cadastro e gestão de parceiros" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
         <div className="flex items-center justify-end">
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setFormData(emptyForm); } }}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Novo Parceiro</Button></DialogTrigger>
@@ -204,7 +202,14 @@ export default function ValeGasParceiros() {
             </Table>
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Parceiros Vale Gás" subtitle="Cadastro e gestão de parceiros" />
+      {content}
     </MainLayout>
   );
 }

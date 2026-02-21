@@ -21,7 +21,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
-export default function ValeGasAcerto() {
+export default function ValeGasAcerto({ embedded }: { embedded?: boolean } = {}) {
   const { parceiros, vales, acertos, gerarAcerto, registrarPagamentoAcerto } = useValeGas();
   
   const [novoAcertoDialog, setNovoAcertoDialog] = useState(false);
@@ -78,10 +78,8 @@ export default function ValeGasAcerto() {
 
   const parceiroInfo = parceiroSelecionado ? parceiros.find(p => p.id === parceiroSelecionado) : null;
 
-  return (
-    <MainLayout>
-      <Header title="Acerto de Contas - Vale Gás" subtitle="Gerencie os acertos com parceiros consignados" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
         <div className="flex items-center justify-end">
           <Dialog open={novoAcertoDialog} onOpenChange={setNovoAcertoDialog}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Gerar Acerto</Button></DialogTrigger>
@@ -219,7 +217,14 @@ export default function ValeGasAcerto() {
             </Table>
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Acerto de Contas - Vale Gás" subtitle="Gerencie os acertos com parceiros consignados" />
+      {content}
     </MainLayout>
   );
 }

@@ -41,7 +41,7 @@ function gerarLinhaDigitavel(numero: number) {
   return `23793.38128 60000.${pad}03 00000.000409 1 9285000${pad}00`;
 }
 
-export default function EmissaoBoleto() {
+export default function EmissaoBoleto({ embedded }: { embedded?: boolean } = {}) {
   const queryClient = useQueryClient();
   const { unidadeAtual } = useUnidade();
   const [tab, setTab] = useState<"emitir" | "consultar">("consultar");
@@ -130,10 +130,8 @@ export default function EmissaoBoleto() {
   const totalVencido = boletos.filter((b: any) => b.status === "aberto" && b.vencimento < hoje).reduce((s: number, b: any) => s + Number(b.valor), 0);
   const totalPago = boletos.filter((b: any) => b.status === "pago").reduce((s: number, b: any) => s + Number(b.valor), 0);
 
-  return (
-    <MainLayout>
-      <Header title="Emissão de Boletos" subtitle="Gestão Financeira" />
-      <div className="space-y-6 p-4 md:p-6">
+  const content = (
+    <div className="space-y-6 p-4 md:p-6">
         {/* Resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card><CardContent className="pt-4 pb-4 px-4"><p className="text-xs text-muted-foreground">Total Emitidos</p><p className="text-2xl font-bold">{boletos.length}</p></CardContent></Card>
@@ -305,7 +303,14 @@ export default function EmissaoBoleto() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Emissão de Boletos" subtitle="Gestão Financeira" />
+      {content}
     </MainLayout>
   );
 }

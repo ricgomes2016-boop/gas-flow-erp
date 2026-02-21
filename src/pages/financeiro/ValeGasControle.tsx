@@ -28,7 +28,7 @@ import {
 
 const PIE_COLORS = ["hsl(217, 91%, 60%)", "hsl(38, 92%, 50%)", "hsl(142, 71%, 45%)", "hsl(0, 84%, 60%)"];
 
-export default function ValeGasControle() {
+export default function ValeGasControle({ embedded }: { embedded?: boolean } = {}) {
   const { vales, parceiros, registrarVendaConsumidor, utilizarVale, isLoading } = useValeGas();
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -153,10 +153,8 @@ export default function ValeGasControle() {
   const valeAtual = vales.find(v => v.id === selectedVale);
   const parceiroValeAtual = valeAtual ? parceiros.find(p => p.id === valeAtual.parceiro_id) : null;
 
-  return (
-    <MainLayout>
-      <Header title="Controle de Vales Gás" subtitle="Gerencie a numeração e status dos vales" />
-      <div className="p-6 space-y-6">
+  const content = (
+    <div className="p-6 space-y-6">
 
         {/* Alertas */}
         {alertas.length > 0 && (
@@ -452,7 +450,14 @@ export default function ValeGasControle() {
         {qrCodeVale && (
           <ValeGasQRCode open={qrCodeDialogOpen} onClose={() => { setQrCodeDialogOpen(false); setQrCodeVale(null); }} vale={qrCodeVale} />
         )}
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Controle de Vales Gás" subtitle="Gerencie a numeração e status dos vales" />
+      {content}
     </MainLayout>
   );
 }

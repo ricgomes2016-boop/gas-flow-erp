@@ -86,8 +86,7 @@ const Produtos = lazy(() => import("./pages/cadastros/Produtos"));
 // Financeiro
 const DashboardFinanceiro = lazy(() => import("./pages/financeiro/DashboardFinanceiro"));
 const AgingReport = lazy(() => import("./pages/financeiro/AgingReport"));
-const FluxoCaixa = lazy(() => import("./pages/financeiro/FluxoCaixa"));
-const PrevisaoCaixa = lazy(() => import("./pages/financeiro/PrevisaoCaixa"));
+const FluxoCaixaConsolidado = lazy(() => import("./pages/financeiro/FluxoCaixaConsolidado"));
 const ContasPagar = lazy(() => import("./pages/financeiro/ContasPagar"));
 const ContasReceber = lazy(() => import("./pages/financeiro/ContasReceber"));
 const AprovarDespesas = lazy(() => import("./pages/financeiro/AprovarDespesas"));
@@ -98,13 +97,9 @@ const ContadorCalendario = lazy(() => import("./pages/contador/ContadorCalendari
 const ContadorSolicitacoes = lazy(() => import("./pages/contador/ContadorSolicitacoes"));
 const ContadorComunicados = lazy(() => import("./pages/contador/ContadorComunicados"));
 const TerminaisCartao = lazy(() => import("./pages/financeiro/TerminaisCartao"));
-const EmissaoBoleto = lazy(() => import("./pages/financeiro/EmissaoBoleto"));
+const Cobrancas = lazy(() => import("./pages/financeiro/Cobrancas"));
 const CalendarioFinanceiro = lazy(() => import("./pages/financeiro/CalendarioFinanceiro"));
-const ValeGasParceiros = lazy(() => import("./pages/financeiro/ValeGasParceiros"));
-const ValeGasEmissao = lazy(() => import("./pages/financeiro/ValeGasEmissao"));
-const ValeGasControle = lazy(() => import("./pages/financeiro/ValeGasControle"));
-const ValeGasAcerto = lazy(() => import("./pages/financeiro/ValeGasAcerto"));
-const ValeGasRelatorio = lazy(() => import("./pages/financeiro/ValeGasRelatorio"));
+const ValeGas = lazy(() => import("./pages/financeiro/ValeGas"));
 const Orcamentos = lazy(() => import("./pages/financeiro/Orcamentos"));
 const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"));
 const ControleCheques = lazy(() => import("./pages/financeiro/ControleCheques"));
@@ -526,12 +521,7 @@ const App = () => (
                   } />
                   <Route path="/financeiro/fluxo" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <FluxoCaixa />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/financeiro/previsao" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <PrevisaoCaixa />
+                      <FluxoCaixaConsolidado />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/pagar" element={
@@ -589,9 +579,14 @@ const App = () => (
                       <TerminaisCartao />
                     </ProtectedRoute>
                   } />
+                  <Route path="/financeiro/cobrancas" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <Cobrancas />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/financeiro/boletos" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <EmissaoBoleto />
+                      <Cobrancas />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/calendario" element={
@@ -599,29 +594,14 @@ const App = () => (
                       <CalendarioFinanceiro />
                     </ProtectedRoute>
                   } />
-                  <Route path="/financeiro/vale-gas/parceiros" element={
+                  <Route path="/financeiro/vale-gas" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <ValeGasParceiros />
+                      <ValeGas />
                     </ProtectedRoute>
                   } />
-                  <Route path="/financeiro/vale-gas/emissao" element={
+                  <Route path="/financeiro/vale-gas/*" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <ValeGasEmissao />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/financeiro/vale-gas/controle" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <ValeGasControle />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/financeiro/vale-gas/acerto" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <ValeGasAcerto />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/financeiro/vale-gas/relatorio" element={
-                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
-                      <ValeGasRelatorio />
+                      <ValeGas />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/contas-bancarias" element={

@@ -35,7 +35,7 @@ function getFaixa(dias: number) {
   return FAIXAS.find(f => dias >= f.min && dias <= f.max) || FAIXAS[3];
 }
 
-export default function AgingReport() {
+export default function AgingReport({ embedded }: { embedded?: boolean } = {}) {
   const { unidadeAtual } = useUnidade();
   const hoje = new Date();
 
@@ -95,10 +95,8 @@ export default function AgingReport() {
     XLSX.writeFile(wb, `aging_report_${format(new Date(), "ddMMyyyy")}.xlsx`);
   };
 
-  return (
-    <MainLayout>
-      <Header title="Aging Report" subtitle="Análise de inadimplência por faixa de atraso" />
-      <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+  const content = (
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <Card>
@@ -224,7 +222,14 @@ export default function AgingReport() {
             )}
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <MainLayout>
+      <Header title="Aging Report" subtitle="Análise de inadimplência por faixa de atraso" />
+      {content}
     </MainLayout>
   );
 }
