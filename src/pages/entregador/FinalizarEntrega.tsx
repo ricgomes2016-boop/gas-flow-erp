@@ -206,7 +206,24 @@ export default function FinalizarEntrega() {
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(fileName);
       setChequeFotoUrl(urlData.publicUrl);
-      sonnerToast.success("Foto do cheque enviada!");
+      sonnerToast.success("Foto enviada! Extraindo dados...");
+
+      // OCR auto-fill
+      try {
+        const { data: ocrData, error: ocrError } = await supabase.functions.invoke("parse-cheque-photo", {
+          body: { image_url: urlData.publicUrl },
+        });
+        if (!ocrError && ocrData?.success && ocrData.data) {
+          const d = ocrData.data;
+          if (d.numero_cheque) setChequeNumero(d.numero_cheque);
+          if (d.banco_emitente) setChequeBanco(d.banco_emitente);
+          sonnerToast.success("Dados do cheque preenchidos automaticamente!");
+        } else {
+          sonnerToast.info("Não foi possível extrair dados. Preencha manualmente.");
+        }
+      } catch {
+        sonnerToast.info("OCR indisponível. Preencha manualmente.");
+      }
     } catch (err: any) {
       sonnerToast.error(err?.message || "Erro ao enviar foto");
     } finally {
