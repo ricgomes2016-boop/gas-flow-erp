@@ -126,9 +126,34 @@ export default function ControleCheques() {
     setIsUploading(true);
     try {
       const url = await compressAndUpload(file);
-      setForm({ ...form, foto_url: url });
+      setForm(prev => ({ ...prev, foto_url: url }));
       setFotoPreview(url);
-      toast.success("Foto do cheque enviada!");
+      toast.success("Foto enviada! Extraindo dados...");
+
+      // OCR auto-fill
+      try {
+        const { data: ocrData, error: ocrError } = await supabase.functions.invoke("parse-cheque-photo", {
+          body: { image_url: url },
+        });
+        if (!ocrError && ocrData?.success && ocrData.data) {
+          const d = ocrData.data;
+          setForm(prev => ({
+            ...prev,
+            numero_cheque: d.numero_cheque || prev.numero_cheque,
+            banco_emitente: d.banco_emitente || prev.banco_emitente,
+            agencia: d.agencia || prev.agencia,
+            conta: d.conta || prev.conta,
+            valor: d.valor ? String(d.valor).replace(".", ",") : prev.valor,
+            data_emissao: d.data_emissao || prev.data_emissao,
+            data_vencimento: d.data_vencimento || prev.data_vencimento,
+          }));
+          toast.success("Dados do cheque preenchidos automaticamente!");
+        } else {
+          toast.info("Não foi possível extrair dados automaticamente. Preencha manualmente.");
+        }
+      } catch {
+        toast.info("OCR indisponível. Preencha manualmente.");
+      }
     } catch (err: any) {
       toast.error(err?.message || "Erro ao enviar foto");
     } finally {
