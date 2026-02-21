@@ -59,7 +59,7 @@ export default function BalancoPatrimonial() {
   const { data: estoque = [] } = useQuery({
     queryKey: ["balanco_estoque", unidadeAtual?.id],
     queryFn: async () => {
-      let q = supabase.from("produtos").select("nome, preco_custo, estoque_atual").gt("estoque_atual", 0);
+      let q = supabase.from("produtos").select("nome, preco, estoque, tipo_botijao").eq("ativo", true).gt("estoque", 0);
       if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
       const { data } = await q;
       return data || [];
@@ -111,7 +111,7 @@ export default function BalancoPatrimonial() {
   // === CÁLCULOS ===
   const saldoBancos = contasBancarias.reduce((s: number, c: any) => s + Number(c.saldo_atual || 0), 0);
   const totalReceber = receber.reduce((s: number, c: any) => s + Number(c.valor), 0);
-  const totalEstoque = estoque.reduce((s: number, p: any) => s + (Number(p.preco_custo || 0) * Number(p.estoque_atual || 0)), 0);
+  const totalEstoque = estoque.reduce((s: number, p: any) => s + (Number(p.preco || 0) * Number(p.estoque || 0)), 0);
   const totalCheques = cheques.reduce((s: number, c: any) => s + Number(c.valor), 0);
   const ativoCirculante = saldoBancos + totalReceber + totalEstoque + totalCheques;
 
