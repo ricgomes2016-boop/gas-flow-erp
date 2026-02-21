@@ -16,7 +16,7 @@ export function AiFloatingButton() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
+          className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
           title="Assistente IA"
         >
           <Bot className="h-6 w-6" />
@@ -26,7 +26,7 @@ export function AiFloatingButton() {
       {/* Chat panel */}
       {open && (
         <Card className={cn(
-          "fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] shadow-2xl border flex flex-col",
+          "fixed bottom-6 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] shadow-2xl border flex flex-col",
           "h-[520px] max-h-[calc(100vh-6rem)]"
         )}>
           {/* Header */}
