@@ -190,7 +190,7 @@ export default function FolhaPagamento() {
     itensMes.forEach((item: any) => {
       const pedido = pedidoMap.get(item.pedido_id);
       if (!pedido) return;
-      const canal = pedido.canal_venda || "balcao";
+      const canal = pedido.canal_venda || "portaria";
       const comUnit = comissaoMap.get(`${item.produto_id}|${canal}`) ?? 0;
       const total = (item.quantidade || 1) * comUnit;
       totals.set(pedido.entregador_id, (totals.get(pedido.entregador_id) || 0) + total);

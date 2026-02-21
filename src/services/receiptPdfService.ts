@@ -58,7 +58,7 @@ const formatChannel = (channel: string): string => {
     telefone: "Telefone",
     whatsapp: "WhatsApp",
     portaria: "Portaria",
-    balcao: "Balcão",
+    balcao: "Portaria",
   };
   return channels[channel] || channel;
 };
