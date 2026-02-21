@@ -13,6 +13,7 @@ import { AiInsightsWidget } from "@/components/dashboard/AiInsightsWidget";
 import { DailySalesGoal } from "@/components/dashboard/DailySalesGoal";
 import { StockAlerts } from "@/components/dashboard/StockAlerts";
 import { DailyBriefingWidget } from "@/components/dashboard/DailyBriefingWidget";
+import { VoiceAssistant } from "@/components/ai/VoiceAssistant";
 import { ShoppingCart, Truck, Users, DollarSign, TrendingUp, Flame } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -126,15 +127,18 @@ export default function Dashboard() {
           <div className="absolute left-1/2 bottom-0 opacity-5">
             <Flame className="h-40 w-40 mb-[-2rem]" strokeWidth={0.6} />
           </div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-1">
-              <Flame className="h-5 w-5" />
-              <span className="text-sm font-medium text-white/80">Gás Fácil</span>
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Flame className="h-5 w-5" />
+                <span className="text-sm font-medium text-white/80">Gás Fácil</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-0.5">
+                {greeting.text}! {greeting.emoji}
+              </h1>
+              <p className="text-sm text-white/70 capitalize">{todayFormatted}</p>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-0.5">
-              {greeting.text}! {greeting.emoji}
-            </h1>
-            <p className="text-sm text-white/70 capitalize">{todayFormatted}</p>
+            <VoiceAssistant userName={greeting.text} />
           </div>
         </div>
 
