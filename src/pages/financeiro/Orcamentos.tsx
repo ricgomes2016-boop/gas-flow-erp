@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -262,7 +263,8 @@ export default function Orcamentos() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 pb-8">
+      <Header title="Orçamentos" subtitle="Gestão de propostas comerciais" />
+      <div className="space-y-6 pb-8 p-3 md:p-6">
         {/* ── Hero Gradient Card ── */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-6 md:p-8 text-white shadow-xl">
           {/* Background flame decoration */}
