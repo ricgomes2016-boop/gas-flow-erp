@@ -391,7 +391,7 @@ export function AiAssistantChat({ fullPage = false }: { fullPage?: boolean }) {
   }
 
   return (
-    <div className={cn("flex flex-col", fullPage ? "h-[calc(100vh-120px)]" : "h-full")}>
+    <div className={cn("flex flex-col border rounded-xl bg-card overflow-hidden", fullPage ? "h-[calc(100vh-120px)]" : "h-full")}>
       {/* Messages */}
       <div ref={scrollRef} className={cn("flex-1 overflow-y-auto p-4 space-y-4", !fullPage && "max-h-[400px]")}>
         {messages.length === 0 && (
