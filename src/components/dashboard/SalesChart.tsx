@@ -2,19 +2,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { startOfDay, endOfDay, format } from "date-fns";
+import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getBrasiliaDate, getBrasiliaStartOfDay, getBrasiliaEndOfDay } from "@/lib/utils";
 
 export function SalesChart() {
   const { unidadeAtual } = useUnidade();
-  const today = new Date();
+  const today = getBrasiliaDate();
 
   const { data: chartData = [], isLoading } = useQuery({
     queryKey: ["sales-by-hour", unidadeAtual?.id],
     queryFn: async () => {
-      const dayStart = startOfDay(today).toISOString();
-      const dayEnd = endOfDay(today).toISOString();
+      const dayStart = getBrasiliaStartOfDay(today);
+      const dayEnd = getBrasiliaEndOfDay(today);
 
       let query = supabase
         .from("pedidos")

@@ -17,7 +17,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { format, subDays, startOfDay } from "date-fns";
+import { format, subDays } from "date-fns";
+import { getBrasiliaDate, getBrasiliaStartOfDay } from "@/lib/utils";
 
 interface Movimentacao {
   id: string;
@@ -59,7 +60,7 @@ export default function FluxoCaixa() {
     else { toast.success("Movimentação registrada!"); setDialogOpen(false); setForm({ tipo: "entrada", descricao: "", valor: "", categoria: "" }); fetchMovs(); }
   };
 
-  const hoje = startOfDay(new Date());
+  const hoje = new Date(getBrasiliaStartOfDay());
   const entradaHoje = movs.filter(m => m.tipo === "entrada" && new Date(m.created_at) >= hoje).reduce((a, m) => a + Number(m.valor), 0);
   const saidaHoje = movs.filter(m => m.tipo === "saida" && new Date(m.created_at) >= hoje).reduce((a, m) => a + Number(m.valor), 0);
   const totalEntradas = movs.filter(m => m.tipo === "entrada").reduce((a, m) => a + Number(m.valor), 0);

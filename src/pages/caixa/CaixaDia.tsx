@@ -21,11 +21,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, getBrasiliaDate, getBrasiliaStartOfDay, getBrasiliaEndOfDay } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -82,7 +82,7 @@ export default function CaixaDia() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [aberturaOpen, setAberturaOpen] = useState(false);
   const [fechamentoOpen, setFechamentoOpen] = useState(false);
-  const [dataSelecionada, setDataSelecionada] = useState<Date>(new Date());
+  const [dataSelecionada, setDataSelecionada] = useState<Date>(getBrasiliaDate());
   const { unidadeAtual } = useUnidade();
   const { user } = useAuth();
   const [form, setForm] = useState({ tipo: "entrada", descricao: "", valor: "", categoria: "" });
@@ -91,8 +91,8 @@ export default function CaixaDia() {
 
   const fetchData = async () => {
     setLoading(true);
-    const inicio = startOfDay(dataSelecionada).toISOString();
-    const fim = endOfDay(dataSelecionada).toISOString();
+    const inicio = getBrasiliaStartOfDay(dataSelecionada);
+    const fim = getBrasiliaEndOfDay(dataSelecionada);
     const dataStr = format(dataSelecionada, "yyyy-MM-dd");
 
     // Fetch movimentações, pedidos and sessão in parallel

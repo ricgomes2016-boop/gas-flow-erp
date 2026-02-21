@@ -4,12 +4,12 @@ import { Target } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { startOfDay, endOfDay } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getBrasiliaDate, getBrasiliaStartOfDay, getBrasiliaEndOfDay } from "@/lib/utils";
 
 export function DailySalesGoal() {
   const { unidadeAtual } = useUnidade();
-  const today = new Date();
+  const today = getBrasiliaDate();
 
   const { data, isLoading } = useQuery({
     queryKey: ["daily-goal", unidadeAtual?.id],
@@ -30,8 +30,8 @@ export function DailySalesGoal() {
       const meta = metas?.[0];
 
       // Get today's sales
-      const dayStart = startOfDay(today).toISOString();
-      const dayEnd = endOfDay(today).toISOString();
+      const dayStart = getBrasiliaStartOfDay(today);
+      const dayEnd = getBrasiliaEndOfDay(today);
 
       let salesQuery = supabase
         .from("pedidos")
