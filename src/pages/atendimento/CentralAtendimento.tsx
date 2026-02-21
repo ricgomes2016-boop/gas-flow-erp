@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,12 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Phone, MessageSquare, PhoneIncoming, PhoneMissed, ShoppingCart, User, Search, Clock, PhoneCall, RotateCcw } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import {
+  Phone, MessageSquare, PhoneIncoming, PhoneMissed, ShoppingCart, User, Search,
+  Clock, PhoneCall, RotateCcw, Send, Zap, Timer, TrendingUp, Truck, XCircle,
+  AlertTriangle, CheckCircle2, Copy, BarChart3,
+} from "lucide-react";
+import { format, formatDistanceToNow, differenceInMinutes, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+
+// === Types ===
 
 interface Chamada {
   id: string;
@@ -26,6 +36,54 @@ interface Chamada {
   created_at: string;
 }
 
+interface PedidoFila {
+  id: string;
+  cliente_id: string | null;
+  clientes: { nome: string } | null;
+  status: string;
+  valor_total: number;
+  created_at: string;
+  endereco_entrega: string | null;
+  canal_venda: string | null;
+  entregador_id: string | null;
+  entregadores: { nome: string } | null;
+}
+
+// === Templates WhatsApp ===
+
+const whatsappTemplates = [
+  {
+    id: "confirmacao",
+    label: "✅ Confirmar Pedido",
+    template: "Olá {nome}! Seu pedido #{pedido_id} foi confirmado. Previsão de entrega: {previsao}. Obrigado pela preferência! 🔥",
+  },
+  {
+    id: "saiu_entrega",
+    label: "🚚 Saiu para Entrega",
+    template: "Olá {nome}! Seu pedido #{pedido_id} já saiu para entrega com o entregador {entregador}. Previsão: {previsao}. 📦",
+  },
+  {
+    id: "atraso",
+    label: "⏰ Aviso de Atraso",
+    template: "Olá {nome}, pedimos desculpas pelo atraso no pedido #{pedido_id}. Estamos trabalhando para entregar o mais rápido possível. Obrigado pela compreensão! 🙏",
+  },
+  {
+    id: "entregue",
+    label: "🎉 Pedido Entregue",
+    template: "Olá {nome}! Seu pedido #{pedido_id} foi entregue com sucesso! Agradecemos sua preferência. Avalie nosso atendimento! ⭐",
+  },
+  {
+    id: "retorno",
+    label: "📞 Retorno de Chamada",
+    template: "Olá {nome}! Tentamos ligar para você. Gostaria de fazer um pedido? Estamos à disposição! 😊",
+  },
+  {
+    id: "promocao",
+    label: "🔥 Promoção",
+    template: "Olá {nome}! Temos uma promoção especial para você hoje. Entre em contato para saber mais! 🎁",
+  },
+];
+
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   recebida: { label: "Recebida", variant: "default" },
   atendida: { label: "Atendida", variant: "secondary" },
@@ -33,65 +91,136 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   retornar: { label: "Retornar", variant: "outline" },
 };
 
+const pedidoStatusConfig: Record<string, { label: string; color: string }> = {
+  pendente: { label: "Pendente", color: "bg-yellow-500" },
+  em_preparo: { label: "Em Preparo", color: "bg-blue-500" },
+  saiu_entrega: { label: "Saiu Entrega", color: "bg-purple-500" },
+  em_rota: { label: "Em Rota", color: "bg-indigo-500" },
+  entregue: { label: "Entregue", color: "bg-green-500" },
+  cancelado: { label: "Cancelado", color: "bg-red-500" },
+};
+
+// === Component ===
+
 export default function CentralAtendimento() {
   const [chamadas, setChamadas] = useState<Chamada[]>([]);
+  const [pedidosFila, setPedidosFila] = useState<PedidoFila[]>([]);
+  const [entregadoresAtivos, setEntregadoresAtivos] = useState<{ id: string; nome: string; status: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [busca, setBusca] = useState("");
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [whatsappMsg, setWhatsappMsg] = useState("");
+  const [whatsappDestinatario, setWhatsappDestinatario] = useState("");
   const navigate = useNavigate();
+  const { unidadeAtual } = useUnidade();
 
+  const hoje = useMemo(() => new Date(), []);
+  const inicioHoje = startOfDay(hoje).toISOString();
+  const fimHoje = endOfDay(hoje).toISOString();
+
+  // Fetch chamadas
   const fetchChamadas = async () => {
     let query = supabase
       .from("chamadas_recebidas")
       .select("*")
+      .gte("created_at", inicioHoje)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (filtroStatus !== "todos") {
       query = query.eq("status", filtroStatus);
     }
 
     const { data, error } = await query;
-    if (error) {
-      toast.error("Erro ao carregar chamadas");
-    } else {
-      setChamadas(data || []);
-    }
+    if (error) toast.error("Erro ao carregar chamadas");
+    else setChamadas(data || []);
     setLoading(false);
+  };
+
+  // Fetch pedidos na fila (não entregues/cancelados)
+  const fetchPedidosFila = async () => {
+    let q = supabase
+      .from("pedidos")
+      .select("id, cliente_id, clientes(nome), status, valor_total, created_at, endereco_entrega, canal_venda, entregador_id, entregadores(nome)")
+      .in("status", ["pendente", "em_preparo", "saiu_entrega", "em_rota"])
+      .gte("created_at", inicioHoje)
+      .order("created_at", { ascending: true });
+
+    if (unidadeAtual?.id) {
+      q = q.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    }
+
+    const { data } = await q;
+    setPedidosFila((data as any) || []);
+  };
+
+  // Fetch entregadores
+  const fetchEntregadores = async () => {
+    let q = supabase
+      .from("entregadores")
+      .select("id, nome, status")
+      .eq("ativo", true);
+
+    if (unidadeAtual?.id) {
+      q = q.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    }
+
+    const { data } = await q;
+    setEntregadoresAtivos(data || []);
   };
 
   useEffect(() => {
     fetchChamadas();
+    fetchPedidosFila();
+    fetchEntregadores();
 
-    // Realtime updates
     const channel = supabase
-      .channel("central-atendimento")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "chamadas_recebidas" },
-        () => fetchChamadas()
-      )
+      .channel("central-atendimento-v2")
+      .on("postgres_changes", { event: "*", schema: "public", table: "chamadas_recebidas" }, () => fetchChamadas())
+      .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => fetchPedidosFila())
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [filtroStatus]);
+    const refreshInterval = setInterval(() => {
+      fetchPedidosFila();
+      fetchEntregadores();
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(refreshInterval);
+    };
+  }, [filtroStatus, unidadeAtual?.id]);
+
+  // === Computed Stats ===
 
   const chamadasFiltradas = chamadas.filter((c) => {
     if (!busca) return true;
     const term = busca.toLowerCase();
-    return (
-      c.telefone.includes(term) ||
-      c.cliente_nome?.toLowerCase().includes(term)
-    );
+    return c.telefone.includes(term) || c.cliente_nome?.toLowerCase().includes(term);
   });
 
   const stats = {
-    total: chamadas.length,
-    recebidas: chamadas.filter((c) => c.status === "recebida").length,
-    atendidas: chamadas.filter((c) => c.status === "atendida").length,
+    totalChamadas: chamadas.length,
     perdidas: chamadas.filter((c) => c.status === "perdida").length,
     retornar: chamadas.filter((c) => c.status === "retornar").length,
+    pedidosNaFila: pedidosFila.length,
+    pedidosPendentes: pedidosFila.filter((p) => p.status === "pendente").length,
+    pedidosAtrasados: pedidosFila.filter((p) => {
+      const mins = differenceInMinutes(new Date(), new Date(p.created_at));
+      return p.status === "pendente" && mins > 30;
+    }).length,
+    entregadoresOnline: entregadoresAtivos.filter((e) => e.status === "disponivel").length,
+    entregadoresTotal: entregadoresAtivos.length,
+    tempoMedio: (() => {
+      const atendidas = chamadas.filter((c) => c.status === "atendida" && c.duracao_segundos);
+      if (atendidas.length === 0) return 0;
+      return Math.round(atendidas.reduce((s, c) => s + (c.duracao_segundos || 0), 0) / atendidas.length);
+    })(),
   };
+
+  // === Handlers ===
 
   const handleMarcarRetornar = async (id: string) => {
     await supabase.from("chamadas_recebidas").update({ status: "retornar" }).eq("id", id);
@@ -107,180 +236,431 @@ export default function CentralAtendimento() {
     }
   };
 
+  const handleSelectTemplate = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    const tmpl = whatsappTemplates.find((t) => t.id === templateId);
+    if (tmpl) setWhatsappMsg(tmpl.template);
+  };
+
+  const handleCopyWhatsapp = () => {
+    navigator.clipboard.writeText(whatsappMsg);
+    toast.success("Mensagem copiada!");
+  };
+
+  const handleSendWhatsapp = () => {
+    const phone = whatsappDestinatario.replace(/\D/g, "");
+    if (!phone) {
+      toast.error("Informe o número de telefone");
+      return;
+    }
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(whatsappMsg)}`;
+    window.open(url, "_blank");
+    setWhatsappOpen(false);
+  };
+
+  const openWhatsappFor = (telefone: string, nome?: string | null) => {
+    setWhatsappDestinatario(telefone);
+    const tmpl = whatsappTemplates[0];
+    setSelectedTemplate(tmpl.id);
+    setWhatsappMsg(tmpl.template.replace("{nome}", nome || "Cliente"));
+    setWhatsappOpen(true);
+  };
+
   return (
     <MainLayout>
-      <Header title="Central de Atendimento" subtitle="Caller ID, histórico de chamadas e atendimento rápido" />
-      <div className="p-6 space-y-6">
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-5">
+      <Header title="Central de Atendimento" subtitle="Dashboard operacional em tempo real" />
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+
+        {/* === DASHBOARD KPIs === */}
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <PhoneCall className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.total}</p>
-                  <p className="text-xs text-muted-foreground">Total Hoje</p>
-                </div>
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Na Fila</p>
+                <p className="text-xl font-bold">{stats.pedidosNaFila}</p>
               </div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <PhoneIncoming className="h-5 w-5 text-blue-600" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.recebidas}</p>
-                  <p className="text-xs text-muted-foreground">Aguardando</p>
-                </div>
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className="rounded-lg bg-yellow-500/10 p-2">
+                <Timer className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pendentes</p>
+                <p className="text-xl font-bold">{stats.pedidosPendentes}</p>
               </div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.atendidas}</p>
-                  <p className="text-xs text-muted-foreground">Atendidas</p>
-                </div>
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className={`rounded-lg p-2 ${stats.pedidosAtrasados > 0 ? "bg-destructive/10" : "bg-muted"}`}>
+                <AlertTriangle className={`h-5 w-5 ${stats.pedidosAtrasados > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Atrasados</p>
+                <p className={`text-xl font-bold ${stats.pedidosAtrasados > 0 ? "text-destructive" : ""}`}>
+                  {stats.pedidosAtrasados}
+                </p>
               </div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className="rounded-lg bg-green-500/10 p-2">
+                <Truck className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Entregadores</p>
+                <p className="text-xl font-bold">{stats.entregadoresOnline}/{stats.entregadoresTotal}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className="rounded-lg bg-destructive/10 p-2">
                 <PhoneMissed className="h-5 w-5 text-destructive" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.perdidas}</p>
-                  <p className="text-xs text-muted-foreground">Perdidas</p>
-                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Perdidas</p>
+                <p className="text-xl font-bold">{stats.perdidas}</p>
               </div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <RotateCcw className="h-5 w-5 text-orange-600" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.retornar}</p>
-                  <p className="text-xs text-muted-foreground">Retornar</p>
-                </div>
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className="rounded-lg bg-accent p-2">
+                <BarChart3 className="h-5 w-5 text-accent-foreground" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Tempo Médio</p>
+                <p className="text-xl font-bold">{stats.tempoMedio}s</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por telefone ou nome..."
-                  className="pl-9"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
-              </div>
-              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="recebida">Recebidas</SelectItem>
-                  <SelectItem value="atendida">Atendidas</SelectItem>
-                  <SelectItem value="perdida">Perdidas</SelectItem>
-                  <SelectItem value="retornar">Retornar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        {/* === TABS === */}
+        <Tabs defaultValue="fila">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="fila" className="gap-1.5">
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Fila de Pedidos
+              {stats.pedidosNaFila > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{stats.pedidosNaFila}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="chamadas" className="gap-1.5">
+              <Phone className="h-3.5 w-3.5" />
+              Chamadas
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Respostas Rápidas
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Call List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Histórico de Chamadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
-            ) : chamadasFiltradas.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Nenhuma chamada encontrada</p>
-            ) : (
-              <div className="space-y-1">
-                {chamadasFiltradas.map((chamada, idx) => {
-                  const status = statusConfig[chamada.status] || statusConfig.recebida;
-                  return (
-                    <div key={chamada.id}>
-                      {idx > 0 && <Separator className="my-3" />}
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 rounded-full bg-muted">
-                          {chamada.tipo === "whatsapp" ? (
-                            <MessageSquare className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">
-                              {chamada.cliente_nome || chamada.telefone}
-                            </span>
-                            <Badge variant={status.variant} className="text-xs">
-                              {status.label}
-                            </Badge>
+          {/* === FILA DE PEDIDOS === */}
+          <TabsContent value="fila" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Pedidos Ativos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pedidosFila.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Nenhum pedido na fila! 🎉</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pedidosFila.map((pedido) => {
+                      const mins = differenceInMinutes(new Date(), new Date(pedido.created_at));
+                      const atrasado = pedido.status === "pendente" && mins > 30;
+                      const statusInfo = pedidoStatusConfig[pedido.status] || pedidoStatusConfig.pendente;
+                      return (
+                        <div
+                          key={pedido.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                            atrasado ? "border-destructive/50 bg-destructive/5" : "border-border"
+                          }`}
+                        >
+                          <div className={`h-2.5 w-2.5 rounded-full ${statusInfo.color} flex-shrink-0`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm truncate">
+                                {(pedido.clientes as any)?.nome || "Cliente"}
+                              </span>
+                              <Badge variant="outline" className="text-xs">{statusInfo.label}</Badge>
+                              {atrasado && (
+                                <Badge variant="destructive" className="text-xs gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {mins}min
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                              <span>{format(new Date(pedido.created_at), "HH:mm")}</span>
+                              <span>R$ {Number(pedido.valor_total).toFixed(2)}</span>
+                              {pedido.canal_venda && <span>{pedido.canal_venda}</span>}
+                              {(pedido.entregadores as any)?.nome && (
+                                <span className="flex items-center gap-1">
+                                  <Truck className="h-3 w-3" />
+                                  {(pedido.entregadores as any).nome}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {chamada.cliente_nome && <span>{chamada.telefone}</span>}
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              {formatDistanceToNow(new Date(chamada.created_at), { addSuffix: true, locale: ptBR })}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-1.5">
-                          {chamada.status !== "retornar" && chamada.status !== "atendida" && (
+                          <div className="flex gap-1">
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="gap-1 text-xs"
-                              onClick={() => handleMarcarRetornar(chamada.id)}
+                              className="text-xs h-7"
+                              onClick={() => navigate(`/vendas/pedidos?pedido=${pedido.id}`)}
                             >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                              Retornar
+                              Ver
                             </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1 text-xs"
-                            onClick={() => handleNovaVenda(chamada)}
-                          >
-                            <ShoppingCart className="h-3.5 w-3.5" />
-                            Venda
-                          </Button>
-                          {chamada.cliente_id && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="gap-1 text-xs"
-                              onClick={() => navigate(`/clientes/${chamada.cliente_id}`)}
-                            >
-                              <User className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* === CHAMADAS === */}
+          <TabsContent value="chamadas" className="mt-4 space-y-4">
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por telefone ou nome..."
+                      className="pl-9"
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                    />
+                  </div>
+                  <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="recebida">Recebidas</SelectItem>
+                      <SelectItem value="atendida">Atendidas</SelectItem>
+                      <SelectItem value="perdida">Perdidas</SelectItem>
+                      <SelectItem value="retornar">Retornar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4">
+                {loading ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                ) : chamadasFiltradas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhuma chamada hoje</p>
+                ) : (
+                  <div className="space-y-1">
+                    {chamadasFiltradas.map((chamada, idx) => {
+                      const status = statusConfig[chamada.status] || statusConfig.recebida;
+                      return (
+                        <div key={chamada.id}>
+                          {idx > 0 && <Separator className="my-3" />}
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 rounded-full bg-muted">
+                              {chamada.tipo === "whatsapp" ? (
+                                <MessageSquare className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium truncate">
+                                  {chamada.cliente_nome || chamada.telefone}
+                                </span>
+                                <Badge variant={status.variant} className="text-xs">
+                                  {status.label}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {chamada.cliente_nome && <span>{chamada.telefone}</span>}
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  {formatDistanceToNow(new Date(chamada.created_at), { addSuffix: true, locale: ptBR })}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="gap-1 text-xs h-7"
+                                onClick={() => openWhatsappFor(chamada.telefone, chamada.cliente_nome)}
+                              >
+                                <Zap className="h-3.5 w-3.5 text-green-600" />
+                              </Button>
+                              {chamada.status !== "retornar" && chamada.status !== "atendida" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="gap-1 text-xs h-7"
+                                  onClick={() => handleMarcarRetornar(chamada.id)}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-xs h-7"
+                                onClick={() => handleNovaVenda(chamada)}
+                              >
+                                <ShoppingCart className="h-3.5 w-3.5" />
+                                Venda
+                              </Button>
+                              {chamada.cliente_id && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="gap-1 text-xs h-7"
+                                  onClick={() => navigate(`/clientes/${chamada.cliente_id}`)}
+                                >
+                                  <User className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* === RESPOSTAS RÁPIDAS WHATSAPP === */}
+          <TabsContent value="whatsapp" className="mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-green-600" />
+                    Templates de Mensagem
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {whatsappTemplates.map((tmpl) => (
+                    <button
+                      key={tmpl.id}
+                      onClick={() => handleSelectTemplate(tmpl.id)}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors text-sm ${
+                        selectedTemplate === tmpl.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <span className="font-medium">{tmpl.label}</span>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{tmpl.template}</p>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Enviar Mensagem</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Telefone do Destinatário</label>
+                    <Input
+                      placeholder="(XX) XXXXX-XXXX"
+                      value={whatsappDestinatario}
+                      onChange={(e) => setWhatsappDestinatario(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Mensagem</label>
+                    <Textarea
+                      rows={5}
+                      value={whatsappMsg}
+                      onChange={(e) => setWhatsappMsg(e.target.value)}
+                      placeholder="Selecione um template ou escreva sua mensagem..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Variáveis: {"{nome}"}, {"{pedido_id}"}, {"{previsao}"}, {"{entregador}"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1 gap-2" onClick={handleSendWhatsapp}>
+                      <Send className="h-4 w-4" />
+                      Enviar via WhatsApp
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={handleCopyWhatsapp}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* WhatsApp Dialog (triggered from chamadas) */}
+        <Dialog open={whatsappOpen} onOpenChange={setWhatsappOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-green-600" />
+                Enviar WhatsApp
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Destinatário</label>
+                <Input value={whatsappDestinatario} onChange={(e) => setWhatsappDestinatario(e.target.value)} />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Template</label>
+                <Select value={selectedTemplate} onValueChange={handleSelectTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {whatsappTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Textarea rows={4} value={whatsappMsg} onChange={(e) => setWhatsappMsg(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setWhatsappOpen(false)}>Cancelar</Button>
+              <Button className="gap-2" onClick={handleSendWhatsapp}>
+                <Send className="h-4 w-4" />
+                Enviar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
