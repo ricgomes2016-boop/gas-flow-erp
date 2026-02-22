@@ -45,20 +45,21 @@ const paymentLabels: Record<string, string> = {
   fiado: "Fiado",
   vale_gas: "Vale Gás",
   cheque: "Cheque",
-  portaria: "Portaria",
-  pdv: "PDV",
   Dinheiro: "Dinheiro",
   PIX: "PIX",
   "Cartão Crédito": "Cartão Crédito",
   "Cartão Débito": "Cartão Débito",
   "Vale Gás": "Vale Gás",
   Cheque: "Cheque",
-  Portaria: "Portaria",
-  PDV: "PDV",
 };
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado", "Portaria", "PDV",
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado",
+];
+
+const CANAIS_VIRTUAIS = [
+  { id: "__portaria__", nome: "🏪 Portaria", canal: "Portaria" },
+  { id: "__pdv__", nome: "🖥️ PDV", canal: "PDV" },
 ];
 
 interface PagamentoMultiplo {
@@ -114,6 +115,8 @@ export default function AcertoEntregador() {
     },
   });
 
+  const canalVirtual = CANAIS_VIRTUAIS.find(c => c.id === selectedId);
+
   // Entregas do período
   const { data: entregas = [], isLoading: loadingEntregas } = useQuery({
     queryKey: ["acerto-entregas", selectedId, dataInicio, dataFim, unidadeAtual?.id],
@@ -126,11 +129,16 @@ export default function AcertoEntregador() {
           clientes (nome),
           pedido_itens (id, quantidade, preco_unitario, produtos (nome))
         `)
-        .eq("entregador_id", selectedId)
-        .eq("status", "entregue")
         .gte("created_at", `${dataInicio}T00:00:00`)
         .lte("created_at", `${dataFim}T23:59:59`)
         .order("created_at", { ascending: true });
+
+      if (canalVirtual) {
+        // Buscar por canal de venda (Portaria/PDV) com status entregue ou finalizado
+        query = query.eq("canal_venda", canalVirtual.canal).in("status", ["entregue", "finalizado", "pago"]);
+      } else {
+        query = query.eq("entregador_id", selectedId).eq("status", "entregue");
+      }
 
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
       const { data, error } = await query;
@@ -140,11 +148,11 @@ export default function AcertoEntregador() {
     enabled: buscar && !!selectedId,
   });
 
-  // Despesas do entregador no período
+  // Despesas do entregador no período (não se aplica a canais virtuais)
   const { data: despesas = [], isLoading: loadingDespesas } = useQuery({
     queryKey: ["acerto-despesas", selectedId, dataInicio, dataFim, unidadeAtual?.id],
     queryFn: async () => {
-      if (!selectedId) return [];
+      if (!selectedId || canalVirtual) return [];
       let query = supabase
         .from("movimentacoes_caixa")
         .select("id, descricao, valor, categoria, created_at")
@@ -164,7 +172,7 @@ export default function AcertoEntregador() {
 
   const handleBuscar = () => {
     if (!selectedId) {
-      toast.error("Selecione um entregador");
+      toast.error("Selecione um entregador ou canal");
       return;
     }
     setBuscar(true);
@@ -358,7 +366,7 @@ export default function AcertoEntregador() {
     return Array.from(map.values()).sort((a, b) => b.qtd - a.qtd);
   }, [entregas]);
 
-  const nomeEntregador = entregadores.find((e) => e.id === selectedId)?.nome || "";
+  const nomeEntregador = canalVirtual?.canal || entregadores.find((e) => e.id === selectedId)?.nome || "";
 
   // Exportar PDF do acerto
   const exportarPDF = () => {
@@ -369,9 +377,9 @@ export default function AcertoEntregador() {
 
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text("Acerto do Entregador", 14, 15);
+    doc.text(canalVirtual ? `Acerto ${canalVirtual.canal}` : "Acerto do Entregador", 14, 15);
     doc.setFontSize(10);
-    doc.text(`Entregador: ${nomeEntregador}`, 14, 22);
+    doc.text(canalVirtual ? `Canal: ${canalVirtual.canal}` : `Entregador: ${nomeEntregador}`, 14, 22);
     doc.text(`Período: ${format(parseISO(dataInicio), "dd/MM/yyyy")} a ${format(parseISO(dataFim), "dd/MM/yyyy")}`, 14, 28);
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
 
@@ -440,8 +448,10 @@ export default function AcertoEntregador() {
 
     y = (doc as any).lastAutoTable?.finalY || 220;
     doc.setFontSize(9);
-    doc.text("_____________________________", 14, y + 25);
-    doc.text(`Assinatura: ${nomeEntregador}`, 14, y + 30);
+    if (!canalVirtual) {
+      doc.text("_____________________________", 14, y + 25);
+      doc.text(`Assinatura: ${nomeEntregador}`, 14, y + 30);
+    }
     doc.text("_____________________________", 120, y + 25);
     doc.text("Conferido por:", 120, y + 30);
 
@@ -453,22 +463,28 @@ export default function AcertoEntregador() {
 
   return (
     <MainLayout>
-      <Header title="Acerto do Entregador" subtitle="Conferência de entregas e valores" />
+      <Header title="Acerto Financeiro" subtitle="Conferência de entregas, portaria e PDV" />
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Filtros */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <User className="h-5 w-5" />Selecionar Entregador
+              <User className="h-5 w-5" />Selecionar Entregador / Canal
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
               <div className="col-span-2 sm:col-span-3 md:col-span-1 space-y-1">
-                <Label className="text-xs">Entregador</Label>
+                <Label className="text-xs">Entregador / Canal</Label>
                 <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); setBuscar(false); }}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
+                    {CANAIS_VIRTUAIS.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))}
+                    {entregadores.length > 0 && CANAIS_VIRTUAIS.length > 0 && (
+                      <div className="my-1 h-px bg-border" />
+                    )}
                     {entregadores.map((e) => (
                       <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
                     ))}
