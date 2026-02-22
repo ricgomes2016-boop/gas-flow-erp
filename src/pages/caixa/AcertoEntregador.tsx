@@ -45,21 +45,15 @@ const paymentLabels: Record<string, string> = {
   fiado: "Fiado",
   vale_gas: "Vale Gás",
   cheque: "Cheque",
-  multiplos: "Múltiplos",
   Dinheiro: "Dinheiro",
   PIX: "PIX",
   "Cartão Crédito": "Cartão Crédito",
   "Cartão Débito": "Cartão Débito",
   "Vale Gás": "Vale Gás",
   Cheque: "Cheque",
-  Múltiplos: "Múltiplos",
 };
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado", "Múltiplos",
-];
-
-const formasPagamentoMultiplo = [
   "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado",
 ];
 
@@ -174,11 +168,37 @@ export default function AcertoEntregador() {
 
   // Open edit dialog
   const abrirEdicao = (entrega: any) => {
+    const totalEntrega = Number(entrega.valor_total || 0);
+    // Parse existing forma_pagamento into pagamentos_multiplos
+    let pagamentos: PagamentoMultiplo[] = [];
+    const fp = entrega.forma_pagamento || "";
+    if (fp.startsWith("Múltiplos: ")) {
+      // Legacy format: "Múltiplos: Dinheiro R$50.00 + PIX R$30.00"
+      const parts = fp.replace("Múltiplos: ", "").split(" + ");
+      pagamentos = parts.map((part: string) => {
+        const match = part.match(/^(.+?)\s+R\$(\d+[\.,]?\d*)$/);
+        if (match) return { forma: match[1], valor: parseFloat(match[2].replace(",", ".")) };
+        return { forma: part, valor: 0 };
+      });
+    } else if (fp.includes(", ")) {
+      // Comma-separated: "Dinheiro R$50.00, PIX R$30.00"
+      const parts = fp.split(", ");
+      pagamentos = parts.map((part: string) => {
+        const match = part.match(/^(.+?)\s+R\$(\d+[\.,]?\d*)$/);
+        if (match) return { forma: match[1], valor: parseFloat(match[2].replace(",", ".")) };
+        return { forma: part, valor: totalEntrega / parts.length };
+      });
+    } else if (fp) {
+      pagamentos = [{ forma: fp, valor: totalEntrega }];
+    } else {
+      pagamentos = [{ forma: "Dinheiro", valor: totalEntrega }];
+    }
+
     setEditingEntrega({
       id: entrega.id,
-      forma_pagamento: entrega.forma_pagamento || "",
+      forma_pagamento: fp,
       vale_gas_codigo: "",
-      pagamentos_multiplos: [],
+      pagamentos_multiplos: pagamentos,
       itens: (entrega.pedido_itens || []).map((i: any) => ({
         id: i.id,
         nome: i.produtos?.nome || "Produto",
@@ -245,20 +265,24 @@ export default function AcertoEntregador() {
       );
 
       // Determinar forma de pagamento a salvar
-      let formaPgtoSalvar = editingEntrega.forma_pagamento;
-      if (editingEntrega.forma_pagamento === "Múltiplos" && editingEntrega.pagamentos_multiplos.length > 0) {
-        // Validar soma
-        const totalPagamentos = editingEntrega.pagamentos_multiplos.reduce((a, p) => a + p.valor, 0);
-        if (Math.abs(novoTotal - totalPagamentos) > 0.01) {
-          toast.error("A soma dos pagamentos múltiplos não confere com o total da entrega");
-          setIsSavingEdit(false);
-          return;
-        }
-        // Salvar como string descritiva: "Múltiplos: Dinheiro R$50 + PIX R$30"
-        formaPgtoSalvar = "Múltiplos: " + editingEntrega.pagamentos_multiplos
-          .filter(p => p.valor > 0)
+      const pagamentos = editingEntrega.pagamentos_multiplos.filter(p => p.valor > 0);
+      
+      // Validar soma dos pagamentos
+      const totalPagamentos = pagamentos.reduce((a, p) => a + p.valor, 0);
+      if (Math.abs(novoTotal - totalPagamentos) > 0.01) {
+        toast.error("A soma dos pagamentos não confere com o total da entrega");
+        setIsSavingEdit(false);
+        return;
+      }
+
+      let formaPgtoSalvar: string;
+      if (pagamentos.length === 1) {
+        formaPgtoSalvar = pagamentos[0].forma;
+      } else {
+        // Salvar como: "Dinheiro R$50.00, PIX R$30.00"
+        formaPgtoSalvar = pagamentos
           .map(p => `${p.forma} R$${p.valor.toFixed(2)}`)
-          .join(" + ");
+          .join(", ");
       }
 
       // Update pedido
@@ -780,114 +804,91 @@ export default function AcertoEntregador() {
           </DialogHeader>
           {editingEntrega && (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-sm">Forma de Pagamento</Label>
-                <Select
-                  value={editingEntrega.forma_pagamento}
-                  onValueChange={(v) => {
-                    setEditingEntrega({
-                      ...editingEntrega,
-                      forma_pagamento: v,
-                      vale_gas_codigo: "",
-                      pagamentos_multiplos: v === "Múltiplos" ? [{ forma: "Dinheiro", valor: 0 }] : [],
-                    });
-                    setValeGasValidado(null);
-                    setValeGasCodigoInput("");
-                  }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {formasPagamento.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Múltiplos pagamentos */}
-              {editingEntrega.forma_pagamento === "Múltiplos" && (
-                <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-primary" /> Pagamentos Múltiplos
-                  </Label>
-                  {editingEntrega.pagamentos_multiplos.map((pg, idx) => (
-                    <div key={idx} className="grid grid-cols-[1fr_100px_32px] gap-2 items-end">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Forma</Label>
-                        <Select
-                          value={pg.forma}
-                          onValueChange={(v) => {
-                            const novos = [...editingEntrega.pagamentos_multiplos];
-                            novos[idx] = { ...novos[idx], forma: v };
-                            setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {formasPagamentoMultiplo.map((f) => (
-                              <SelectItem key={f} value={f}>{f}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Valor (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          value={pg.valor || ""}
-                          onChange={(e) => {
-                            const novos = [...editingEntrega.pagamentos_multiplos];
-                            novos[idx] = { ...novos[idx], valor: parseFloat(e.target.value) || 0 };
-                            setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
-                          }}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          const novos = editingEntrega.pagamentos_multiplos.filter((_, i) => i !== idx);
+              {/* Pagamentos - sempre como lista */}
+              <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" /> Formas de Pagamento
+                </Label>
+                {editingEntrega.pagamentos_multiplos.map((pg, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_100px_32px] gap-2 items-end">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Forma</Label>
+                      <Select
+                        value={pg.forma}
+                        onValueChange={(v) => {
+                          const novos = [...editingEntrega.pagamentos_multiplos];
+                          novos[idx] = { ...novos[idx], forma: v };
                           setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
                         }}
-                        disabled={editingEntrega.pagamentos_multiplos.length <= 1}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {formasPagamento.map((f) => (
+                            <SelectItem key={f} value={f}>{f}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1"
-                    onClick={() => {
-                      setEditingEntrega({
-                        ...editingEntrega,
-                        pagamentos_multiplos: [...editingEntrega.pagamentos_multiplos, { forma: "PIX", valor: 0 }],
-                      });
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />Adicionar Forma
-                  </Button>
-                  {(() => {
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Valor (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={pg.valor || ""}
+                        onChange={(e) => {
+                          const novos = [...editingEntrega.pagamentos_multiplos];
+                          novos[idx] = { ...novos[idx], valor: parseFloat(e.target.value) || 0 };
+                          setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => {
+                        const novos = editingEntrega.pagamentos_multiplos.filter((_, i) => i !== idx);
+                        setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
+                      }}
+                      disabled={editingEntrega.pagamentos_multiplos.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1"
+                  onClick={() => {
                     const totalEntrega = editingEntrega.itens.reduce((a, i) => a + i.quantidade * i.preco_unitario, 0);
                     const totalPagamentos = editingEntrega.pagamentos_multiplos.reduce((a, p) => a + p.valor, 0);
-                    const diferenca = totalEntrega - totalPagamentos;
-                    return (
-                      <div className={`text-xs flex justify-between p-2 rounded ${Math.abs(diferenca) < 0.01 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
-                        <span>Soma: {formatCurrency(totalPagamentos)}</span>
-                        <span>{Math.abs(diferenca) < 0.01 ? "✓ Valores conferem" : `Diferença: ${formatCurrency(diferenca)}`}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                    const restante = Math.max(0, totalEntrega - totalPagamentos);
+                    setEditingEntrega({
+                      ...editingEntrega,
+                      pagamentos_multiplos: [...editingEntrega.pagamentos_multiplos, { forma: "PIX", valor: restante }],
+                    });
+                  }}
+                >
+                  <Plus className="h-4 w-4" />Adicionar Forma
+                </Button>
+                {(() => {
+                  const totalEntrega = editingEntrega.itens.reduce((a, i) => a + i.quantidade * i.preco_unitario, 0);
+                  const totalPagamentos = editingEntrega.pagamentos_multiplos.reduce((a, p) => a + p.valor, 0);
+                  const diferenca = totalEntrega - totalPagamentos;
+                  return (
+                    <div className={`text-xs flex justify-between p-2 rounded ${Math.abs(diferenca) < 0.01 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                      <span>Soma: {formatCurrency(totalPagamentos)}</span>
+                      <span>{Math.abs(diferenca) < 0.01 ? "✓ Valores conferem" : `Diferença: ${formatCurrency(diferenca)}`}</span>
+                    </div>
+                  );
+                })()}
+              </div>
 
-              {/* Vale Gás - código/QR quando selecionado */}
-              {editingEntrega.forma_pagamento === "Vale Gás" && (
+              {/* Vale Gás - código/QR quando algum pagamento é Vale Gás */}
+              {editingEntrega.pagamentos_multiplos.some(p => p.forma === "Vale Gás") && (
                 <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <QrCode className="h-4 w-4 text-primary" /> Validar Vale Gás
