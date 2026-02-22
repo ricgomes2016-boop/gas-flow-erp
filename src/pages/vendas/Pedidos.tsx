@@ -43,6 +43,7 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 import { SmartImportButtons } from "@/components/import/SmartImportButtons";
 import { ImportReviewDialog } from "@/components/import/ImportReviewDialog";
 import { toast as sonnerToast } from "sonner";
+import { getBrasiliaDate } from "@/lib/utils";
 
 interface Entregador {
   id: string;
@@ -54,7 +55,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function Pedidos() {
   const navigate = useNavigate();
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = (() => { const d = getBrasiliaDate(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
   const { pedidos, isLoading, atualizarStatus, atribuirEntregador, excluirPedido, atualizarStatusLote, atribuirEntregadorLote, isUpdating, isDeleting } = usePedidos({ dataInicio, dataFim });

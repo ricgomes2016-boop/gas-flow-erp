@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, subDays, subWeeks, subMonths } from "date-fns";
+import { getBrasiliaDate } from "@/lib/utils";
 import { ptBR } from "date-fns/locale";
 import { VendasPorHoraChart } from "@/components/vendas/VendasPorHoraChart";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -42,7 +43,7 @@ export default function Vendas() {
   const navigate = useNavigate();
   const { unidadeAtual } = useUnidade();
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
-  const today = new Date();
+  const today = getBrasiliaDate();
 
   const { dataInicio, dataFim } = useMemo(() => {
     const fim = endOfDay(today);
