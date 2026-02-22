@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+
+import { AcertoPendenteDialog } from "@/components/caixa/AcertoPendenteDialog";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,9 +166,19 @@ export default function CaixaDia() {
           const forma = "Acerto Pendente";
           const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
           fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
+          // Identificar responsável: entregador ou canal virtual
+          const entregadorNome = p.entregadores?.nome || null;
+          const canalVenda = p.canal_venda || null;
+          let responsavel = "Não identificado";
+          if (entregadorNome) {
+            responsavel = `🚚 ${entregadorNome}`;
+          } else if (canalVenda) {
+            const canalMap: Record<string, string> = { "Portaria": "🏪 Portaria", "PDV": "🖥️ PDV", "Ponto de Venda": "🖥️ Ponto de Venda" };
+            responsavel = canalMap[canalVenda] || `📦 ${canalVenda}`;
+          }
           pendingDetails.push({
-            entregador: p.entregadores?.nome || "—",
-            canal: p.canal_venda || "—",
+            entregador: responsavel,
+            canal: canalVenda || "—",
             pedidoId: p.id,
             valor: Number(p.valor_total || 0),
             data: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
@@ -752,51 +764,11 @@ export default function CaixaDia() {
         </Tabs>
 
         {/* Dialog Acerto Pendente detalhes */}
-        <Dialog open={acertoPendenteDialogOpen} onOpenChange={setAcertoPendenteDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-amber-500" />
-                Acertos Pendentes — Detalhes
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {acertoPendenteDetalhes.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhum acerto pendente</p>
-              ) : (
-                <>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Pedidos sem forma de pagamento definida. Realize o acerto do entregador ou canal para resolver.
-                  </p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Hora</TableHead>
-                        <TableHead>Entregador</TableHead>
-                        <TableHead>Canal</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {acertoPendenteDetalhes.map((d) => (
-                        <TableRow key={d.pedidoId}>
-                          <TableCell className="text-xs">{d.data}</TableCell>
-                          <TableCell className="text-sm font-medium">{d.entregador}</TableCell>
-                          <TableCell className="text-sm">{d.canal}</TableCell>
-                          <TableCell className="text-right font-medium whitespace-nowrap">R$ {d.valor.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/50 font-bold">
-                        <TableCell colSpan={3}>Total</TableCell>
-                        <TableCell className="text-right whitespace-nowrap">R$ {acertoPendenteDetalhes.reduce((s, d) => s + d.valor, 0).toFixed(2)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AcertoPendenteDialog
+          open={acertoPendenteDialogOpen}
+          onOpenChange={setAcertoPendenteDialogOpen}
+          detalhes={acertoPendenteDetalhes}
+        />
       </div>
     </MainLayout>
   );
