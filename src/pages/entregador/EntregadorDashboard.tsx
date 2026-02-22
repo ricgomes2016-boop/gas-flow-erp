@@ -23,6 +23,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 
 export default function EntregadorDashboard() {
   const { pendingDeliveries } = useDeliveryNotifications();
@@ -52,8 +53,9 @@ export default function EntregadorDashboard() {
       
       if (!entregador) return;
 
-      const hoje = new Date().toISOString().split("T")[0];
-      const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const hoje = getBrasiliaDateString();
+      const bd = getBrasiliaDate();
+      const inicioMes = new Date(bd.getFullYear(), bd.getMonth(), 1).toISOString();
 
       const [hojRes, mesRes, pendRes, ganhosHojeRes, ganhosMesRes] = await Promise.all([
         supabase.from("pedidos").select("id", { count: "exact", head: true })

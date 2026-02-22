@@ -9,6 +9,7 @@ import {
   CheckCircle2, Clock, Loader2, ChevronRight, Shield, ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useNavigate } from "react-router-dom";
 
@@ -40,9 +41,9 @@ export default function DashboardFrota() {
 
   const fetchData = async () => {
     setLoading(true);
-    const hoje = new Date();
-    const mesInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split("T")[0];
-    const hojeStr = hoje.toISOString().split("T")[0];
+    const hoje = getBrasiliaDate();
+    const mesInicio = getBrasiliaDateString(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+    const hojeStr = getBrasiliaDateString();
 
     try {
       // Veículos

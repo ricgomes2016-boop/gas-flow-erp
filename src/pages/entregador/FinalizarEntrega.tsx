@@ -16,6 +16,7 @@ import {
   Keyboard, Loader2, Pencil, Camera, ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
@@ -605,7 +606,7 @@ export default function FinalizarEntrega() {
                            <p className="text-xs font-medium text-muted-foreground uppercase">Dados do Fiado</p>
                            <div>
                              <Label className="text-xs">Data de Vencimento</Label>
-                             <Input type="date" value={dataVencimentoFiado} onChange={e => setDataVencimentoFiado(e.target.value)} min={new Date().toISOString().split("T")[0]} className="h-8 text-sm" />
+                             <Input type="date" value={dataVencimentoFiado} onChange={e => setDataVencimentoFiado(e.target.value)} min={getBrasiliaDateString()} className="h-8 text-sm" />
                              <p className="text-xs text-muted-foreground mt-1">Padrão: 30 dias ({format(addDays(new Date(), 30), "dd/MM/yyyy")})</p>
                            </div>
                          </div>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Plus, Pause, Play, XCircle, Calendar, Package, Flame } from "lucide-react";
@@ -111,7 +112,7 @@ export default function ClienteAssinaturas() {
     }
 
     // Calculate next delivery date
-    const hoje = new Date();
+    const hoje = getBrasiliaDate();
     const dia = form.dia_preferencial ? parseInt(form.dia_preferencial) : hoje.getDate();
     let proximaEntrega = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
     if (proximaEntrega <= hoje) {

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Megaphone, Plus, Users, Send, Calendar, Eye, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 
@@ -48,7 +49,7 @@ export default function Campanhas() {
         unidade_id: unidadeAtual?.id || null,
         alcance: 0,
         enviados: 0,
-        data_criacao: new Date().toISOString().split("T")[0],
+        data_criacao: getBrasiliaDateString(),
       });
       if (error) throw error;
       toast.success("Campanha criada com sucesso!");

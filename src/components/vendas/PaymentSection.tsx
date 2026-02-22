@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { CreditCard, Plus, Trash2, AlertCircle, CheckCircle2, Camera, ImageIcon, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getBrasiliaDateString } from "@/lib/utils";
 import { formatCurrency, parseCurrency } from "@/hooks/useInputMasks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -312,7 +312,7 @@ export function PaymentSection({ pagamentos, onChange, totalVenda }: PaymentSect
                   type="date"
                   value={dataVencimentoFiado}
                   onChange={e => setDataVencimentoFiado(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={getBrasiliaDateString()}
                   className="h-8 text-sm"
                   placeholder={format(addDays(new Date(), 30), "yyyy-MM-dd")}
                 />

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowRightLeft, Plus, Trash2, Loader2, Check, X, Truck, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -217,7 +218,7 @@ export default function TransferenciaEstoque() {
     const transf = transferencias.find((t) => t.id === id);
     if (!transf) return;
 
-    const dataRef = transf.data_transferencia || new Date().toISOString().split("T")[0];
+    const dataRef = transf.data_transferencia || getBrasiliaDateString();
 
     const { data: tItens } = await supabase
       .from("transferencia_estoque_itens")
@@ -253,7 +254,7 @@ export default function TransferenciaEstoque() {
     const transf = transferencias.find((t) => t.id === id);
     if (!transf) return;
 
-    const dataRef = transf.data_transferencia || new Date().toISOString().split("T")[0];
+    const dataRef = transf.data_transferencia || getBrasiliaDateString();
 
     const { data: tItens } = await supabase
       .from("transferencia_estoque_itens")

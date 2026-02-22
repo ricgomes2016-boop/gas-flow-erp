@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { DollarSign, TrendingUp, ShoppingCart, Truck, Package, Users, Percent, AlertTriangle, Brain, Loader2, FileText, Download } from "lucide-react";
@@ -28,8 +29,8 @@ export default function RelatorioGerencial() {
 
   useState(() => {
     const fetchAll = async () => {
-      const inicio = format(startOfMonth(new Date()), "yyyy-MM-dd");
-      const fim = format(endOfMonth(new Date()), "yyyy-MM-dd");
+      const inicio = format(startOfMonth(getBrasiliaDate()), "yyyy-MM-dd");
+      const fim = format(endOfMonth(getBrasiliaDate()), "yyyy-MM-dd");
 
       const [vendasRes, despesasRes, produtosRes, clientesRes] = await Promise.all([
         supabase.from("pedidos").select("id, valor_total, status, created_at, forma_pagamento").gte("created_at", inicio).lte("created_at", fim + "T23:59:59"),

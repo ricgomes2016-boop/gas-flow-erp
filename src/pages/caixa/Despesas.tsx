@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Receipt, Plus, Wallet, TrendingDown, CalendarIcon, Fuel, UtensilsCrossed, Wrench, MoreHorizontal, DollarSign, Camera, ImageIcon, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { startOfDay, endOfDay, format } from "date-fns";
@@ -95,7 +96,7 @@ export default function Despesas() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [dataSelecionada, setDataSelecionada] = useState<Date>(new Date());
+  const [dataSelecionada, setDataSelecionada] = useState<Date>(getBrasiliaDate());
   const { unidadeAtual } = useUnidade();
   const [form, setForm] = useState({ descricao: "", categoria: "", valor: "", responsavel: "", observacoes: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -42,6 +42,19 @@ export function getBrasiliaEndOfDay(date?: Date): string {
 }
 
 /**
+ * Retorna a data atual em Brasília como string "YYYY-MM-DD".
+ * Substitui o padrão new Date().toISOString().split("T")[0]
+ * que após 21h no Brasil retorna o dia seguinte (UTC).
+ */
+export function getBrasiliaDateString(date?: Date): string {
+  const d = date || getBrasiliaDate();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Parseia uma string de data pura (YYYY-MM-DD) forçando interpretação
  * no fuso local (sem shift para UTC). Resolve o bug onde
  * new Date("2026-02-20") era interpretado como UTC meia-noite,

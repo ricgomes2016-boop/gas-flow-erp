@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -26,7 +27,7 @@ import { useState } from "react";
 export default function PontoEletronico() {
   const queryClient = useQueryClient();
   const { unidadeAtual } = useUnidade();
-  const [dataSelecionada, setDataSelecionada] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dataSelecionada, setDataSelecionada] = useState(getBrasiliaDateString());
   const [showNovo, setShowNovo] = useState(false);
   const [novoFuncId, setNovoFuncId] = useState("");
   const [showEditar, setShowEditar] = useState(false);

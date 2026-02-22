@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 
 interface ProdutoQtd {
   nome: string;
@@ -43,8 +44,8 @@ export default function EntregadorVendas() {
           .from("entregadores").select("id").eq("user_id", user.id).maybeSingle();
         if (!ent) { setLoading(false); return; }
 
-        const hoje = new Date();
-        const hojeStr = format(hoje, "yyyy-MM-dd");
+        const hoje = getBrasiliaDate();
+        const hojeStr = getBrasiliaDateString();
         const inicioSemana = startOfWeek(hoje, { locale: ptBR });
         const inicioMes = startOfMonth(hoje);
 

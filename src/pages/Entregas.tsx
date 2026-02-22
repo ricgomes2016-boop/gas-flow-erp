@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { getBrasiliaDate } from "@/lib/utils";
 
 const statusConfig = {
   pendente: { label: "Pendente", variant: "secondary" as const, icon: Clock, color: "text-muted-foreground" },
@@ -29,7 +30,7 @@ export default function Entregas() {
   const { unidadeAtual } = useUnidade();
   const queryClient = useQueryClient();
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
-  const today = new Date();
+  const today = getBrasiliaDate();
 
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ["entregas-hoje", unidadeAtual?.id],

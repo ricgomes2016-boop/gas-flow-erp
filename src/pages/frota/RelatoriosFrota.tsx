@@ -12,6 +12,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const COLORS = [
@@ -53,7 +54,7 @@ export default function RelatoriosFrota() {
     setLoading(true);
     try {
       const mesesAtras = parseInt(periodo);
-      const now = new Date();
+      const now = getBrasiliaDate();
       const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const dados: any[] = [];
 

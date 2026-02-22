@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 export default function DashboardFinanceiro() {
   const { unidadeAtual } = useUnidade();
   const navigate = useNavigate();
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = getBrasiliaDateString();
 
   // Contas a Pagar
   const { data: contasPagar = [] } = useQuery({

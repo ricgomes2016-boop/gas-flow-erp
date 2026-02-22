@@ -6,6 +6,7 @@ import { TrendingUp, Calendar, DollarSign, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format, addDays, addMonths, startOfDay, endOfDay, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -104,7 +105,7 @@ export default function PrevisaoCaixa({ embedded }: { embedded?: boolean } = {})
   })();
 
   // Compute projections
-  const hoje = new Date();
+  const hoje = getBrasiliaDate();
   const em7dias = format(addDays(hoje, 7), "yyyy-MM-dd");
   const em30dias = format(addDays(hoje, 30), "yyyy-MM-dd");
   const em90dias = format(addDays(hoje, 90), "yyyy-MM-dd");
