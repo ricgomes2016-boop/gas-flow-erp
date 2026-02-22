@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { getBrasiliaDateString } from "@/lib/utils";
 
 const emptyForm = {
   sacado: "", cpf_cnpj: "", endereco: "", valor: "", vencimento: "",
@@ -118,7 +119,7 @@ export default function EmissaoBoleto({ embedded }: { embedded?: boolean } = {})
     toast.success("Linha digitável copiada!");
   };
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = getBrasiliaDateString();
   const filtrados = boletos.filter((b: any) => {
     const matchBusca = b.sacado.toLowerCase().includes(busca.toLowerCase()) || String(b.numero).includes(busca);
     const realStatus = b.status === "aberto" && b.vencimento < hoje ? "vencido" : b.status;

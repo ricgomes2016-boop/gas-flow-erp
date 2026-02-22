@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, DollarSign, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface DRELine {
@@ -24,7 +25,7 @@ export default function DRE({ embedded = false }: { embedded?: boolean }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const now = new Date();
+      const now = getBrasiliaDate();
       const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
       const mesesCalc: string[] = [];
       const receitaBruta: number[] = [];

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -75,7 +76,7 @@ function formatBytes(bytes: number | null) {
 
 function periodoOptions() {
   const opts: { value: string; label: string }[] = [];
-  const now = new Date();
+  const now = getBrasiliaDate();
   for (let i = 0; i < 24; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -86,7 +87,7 @@ function periodoOptions() {
 }
 
 function getDaysUntil(day: number, mes?: number): number {
-  const now = new Date();
+  const now = getBrasiliaDate();
   const target = new Date(now.getFullYear(), mes !== undefined ? mes - 1 : now.getMonth(), day);
   if (target < now) {
     target.setMonth(target.getMonth() + 1);

@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, getBrasiliaDateString } from "@/lib/utils";
 
 const STORAGE_KEY = "daily-briefing-enabled";
 const DISMISSED_KEY = "daily-briefing-dismissed";
@@ -23,7 +23,7 @@ export function DailyBriefingWidget() {
     const stored = localStorage.getItem(DISMISSED_KEY);
     if (!stored) return false;
     // Dismiss only for today
-    return stored === new Date().toISOString().split("T")[0];
+    return stored === getBrasiliaDateString();
   });
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

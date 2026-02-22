@@ -20,6 +20,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getBrasiliaDate } from "@/lib/utils";
 
 interface EntregadorData {
   id: string;
@@ -75,7 +76,7 @@ export default function EntregadorPerfil() {
           .single();
         if (profileData?.avatar_url) setAvatarUrl(profileData.avatar_url);
 
-        const now = new Date();
+        const now = getBrasiliaDate();
         const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
         const [totalRes, mesRes] = await Promise.all([

@@ -4,6 +4,7 @@ import { DollarSign, Package, Users, Target, Calendar, Loader2 } from "lucide-re
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { getBrasiliaDate } from "@/lib/utils";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
 
@@ -66,7 +67,7 @@ export default function ExecutivoContent() {
         <div />
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
-          {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+          {getBrasiliaDate().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
         </div>
       </div>
 

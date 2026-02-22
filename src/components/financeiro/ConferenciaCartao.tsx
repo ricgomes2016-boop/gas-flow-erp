@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format, addDays } from "date-fns";
@@ -87,7 +88,7 @@ export function ConferenciaCartao() {
   const [confDialogOpen, setConfDialogOpen] = useState(false);
   const [confForm, setConfForm] = useState({
     tipo: "credito", bandeira: "", valor_bruto: "", operadora_id: "",
-    nsu: "", autorizacao: "", parcelas: "1", data_venda: format(new Date(), "yyyy-MM-dd"),
+    nsu: "", autorizacao: "", parcelas: "1", data_venda: getBrasiliaDateString(),
     observacoes: "",
   });
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
@@ -214,7 +215,7 @@ export function ConferenciaCartao() {
     setConfDialogOpen(false);
     setConfForm({
       tipo: "credito", bandeira: "", valor_bruto: "", operadora_id: "",
-      nsu: "", autorizacao: "", parcelas: "1", data_venda: format(new Date(), "yyyy-MM-dd"),
+      nsu: "", autorizacao: "", parcelas: "1", data_venda: getBrasiliaDateString(),
       observacoes: "",
     });
     fetchItens();
@@ -341,7 +342,7 @@ export function ConferenciaCartao() {
           taxa_percentual: taxaPct,
           valor_taxa: valorTaxa,
           valor_liquido_esperado: valorLiq,
-          data_venda: t.data_venda || format(new Date(), "yyyy-MM-dd"),
+          data_venda: t.data_venda || getBrasiliaDateString(),
           data_prevista_deposito: dataPrevista,
           nsu: t.nsu || null,
           autorizacao: t.autorizacao || null,
@@ -375,7 +376,7 @@ export function ConferenciaCartao() {
     return true;
   });
 
-  const hoje = format(new Date(), "yyyy-MM-dd");
+  const hoje = getBrasiliaDateString();
   const totalBruto = filtered.reduce((a, i) => a + Number(i.valor_bruto), 0);
   const totalTaxas = filtered.reduce((a, i) => a + Number(i.valor_taxa), 0);
   const totalLiqEsperado = filtered.reduce((a, i) => a + Number(i.valor_liquido_esperado), 0);

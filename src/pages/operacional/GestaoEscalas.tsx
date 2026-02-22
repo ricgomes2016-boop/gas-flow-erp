@@ -32,6 +32,7 @@ import { Calendar, Plus, Pencil, Trash2, Loader2, Clock, MapPin } from "lucide-r
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, addDays } from "date-fns";
+import { getBrasiliaDate } from "@/lib/utils";
 import { ptBR } from "date-fns/locale";
 
 interface Entregador {
@@ -73,7 +74,7 @@ export default function GestaoEscalas() {
   const [observacoes, setObservacoes] = useState("");
 
   const [filtroSemana, setFiltroSemana] = useState(() => {
-    const hoje = new Date();
+    const hoje = getBrasiliaDate();
     return format(startOfWeek(hoje, { weekStartsOn: 1 }), "yyyy-MM-dd");
   });
 

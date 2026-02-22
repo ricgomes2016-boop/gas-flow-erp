@@ -25,6 +25,7 @@ import {
   Camera, Loader2, TrendingUp, TrendingDown, BarChart3, CalendarDays,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { toast } from "sonner";
 import { formatCurrency, parseCurrency, formatCNPJ } from "@/hooks/useInputMasks";
@@ -82,7 +83,7 @@ export default function Compras() {
     fornecedor_novo: null as { razao_social: string; cnpj: string; nome_fantasia?: string; endereco?: string; cidade?: string; estado?: string; telefone?: string } | null,
     numero_nota_fiscal: "",
     chave_nfe: "",
-    data_compra: new Date().toISOString().split("T")[0],
+    data_compra: getBrasiliaDateString(),
     data_prevista: "",
     data_pagamento: "",
     valor_frete: "",
@@ -154,7 +155,7 @@ export default function Compras() {
   const resetForm = () => {
     setForm({
       fornecedor_id: "", fornecedor_novo: null, numero_nota_fiscal: "", chave_nfe: "",
-      data_compra: new Date().toISOString().split("T")[0],
+      data_compra: getBrasiliaDateString(),
       data_prevista: "", data_pagamento: "", valor_frete: "", observacoes: "",
     });
     setItens([]);
@@ -527,7 +528,7 @@ export default function Compras() {
   };
 
   // Dashboard calculations
-  const now = new Date();
+  const now = getBrasiliaDate();
   const mesAtual = now.getMonth();
   const anoAtual = now.getFullYear();
 

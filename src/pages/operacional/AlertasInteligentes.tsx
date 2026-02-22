@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, Package, DollarSign, Users, Truck, Clock, CheckCircle, Loader2, Bell, TrendingDown, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 
 interface Alerta {
   id: string;
@@ -29,9 +30,9 @@ export default function AlertasInteligentes() {
     setLoading(true);
     const novosAlertas: Alerta[] = [];
     try {
-      const now = new Date();
+      const now = getBrasiliaDate();
       const hojeInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const tresDias = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const tresDias = getBrasiliaDateString(new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000));
 
       // Estoque crítico
       let eq = supabase.from("produtos").select("nome, estoque").eq("ativo", true).lt("estoque", 5);

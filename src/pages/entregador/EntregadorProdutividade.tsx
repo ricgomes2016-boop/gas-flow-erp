@@ -8,6 +8,7 @@ import {
   BarChart3, CheckCircle, Timer, Star, ArrowUp, ArrowDown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -44,8 +45,8 @@ export default function EntregadorProdutividade() {
           .from("entregadores").select("id").eq("user_id", user.id).maybeSingle();
         if (!ent) { setLoading(false); return; }
 
-        const hoje = new Date();
-        const hojeStr = hoje.toISOString().split("T")[0];
+        const hoje = getBrasiliaDate();
+        const hojeStr = getBrasiliaDateString();
         const inicioSemana = new Date(hoje);
         inicioSemana.setDate(hoje.getDate() - 6);
         const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);

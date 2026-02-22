@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, ArrowUpCircle, ArrowDownCircle, TrendingUp, TrendingDown, Wallet, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
@@ -44,7 +45,7 @@ export default function ExtratoBancario({ contas }: Props) {
     descricao: "",
     valor: "",
     categoria: "manual",
-    data: format(new Date(), "yyyy-MM-dd"),
+    data: getBrasiliaDateString(),
     observacoes: "",
   });
 
@@ -103,7 +104,7 @@ export default function ExtratoBancario({ contas }: Props) {
 
     toast.success(`${form.tipo === "entrada" ? "Entrada" : "Saída"} registrada!`);
     setDialogOpen(false);
-    setForm({ tipo: "entrada", descricao: "", valor: "", categoria: "manual", data: format(new Date(), "yyyy-MM-dd"), observacoes: "" });
+    setForm({ tipo: "entrada", descricao: "", valor: "", categoria: "manual", data: getBrasiliaDateString(), observacoes: "" });
     queryClient.invalidateQueries({ queryKey: ["movimentacoes-bancarias"] });
     queryClient.invalidateQueries({ queryKey: ["contas-bancarias"] });
   };

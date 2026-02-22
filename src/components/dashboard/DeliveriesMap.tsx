@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { getBrasiliaDate } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const statusIcons: Record<string, any> = {
@@ -22,7 +23,7 @@ const statusColors: Record<string, string> = {
 
 export function DeliveriesMap() {
   const { unidadeAtual } = useUnidade();
-  const today = new Date();
+  const today = getBrasiliaDate();
 
   const { data: deliveries = [], isLoading } = useQuery({
     queryKey: ["deliveries-today", unidadeAtual?.id],

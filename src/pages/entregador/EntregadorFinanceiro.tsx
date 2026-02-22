@@ -15,6 +15,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
+import { getBrasiliaDate } from "@/lib/utils";
 import { ptBR } from "date-fns/locale";
 
 interface SemanaGanhos {
@@ -134,7 +135,7 @@ export default function EntregadorFinanceiro() {
           <div className="flex items-center justify-between mb-1">
             <p className="text-white/80 text-sm">Ganhos do Mês</p>
             <Badge className="bg-white/20 text-white border-none text-xs">
-              {format(new Date(), "MMMM yyyy", { locale: ptBR })}
+              {format(getBrasiliaDate(), "MMMM yyyy", { locale: ptBR })}
             </Badge>
           </div>
           <p className="text-3xl font-bold mb-3">R$ {stats.ganhosMes.toFixed(2)}</p>

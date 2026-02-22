@@ -11,6 +11,7 @@ import { ProdutividadeWidget } from "@/components/operacional/ProdutividadeWidge
 import { PrevisaoDemandaWidget } from "@/components/operacional/PrevisaoDemandaWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { getBrasiliaDate } from "@/lib/utils";
 
 export default function CockpitGestor() {
   const { unidadeAtual } = useUnidade();
@@ -28,7 +29,7 @@ export default function CockpitGestor() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const now = new Date();
+      const now = getBrasiliaDate();
       const hojeInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const ontemInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
       const mesInicio = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -111,7 +112,7 @@ export default function CockpitGestor() {
           <Sun className="h-8 w-8 text-chart-4" />
           <div>
             <h1 className="text-2xl font-bold text-foreground">{saudacao}, Gestor!</h1>
-            <p className="text-muted-foreground">{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <p className="text-muted-foreground">{getBrasiliaDate().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
         </div>
 

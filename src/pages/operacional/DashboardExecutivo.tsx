@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { getBrasiliaDate } from "@/lib/utils";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
 
@@ -136,7 +137,7 @@ export default function DashboardExecutivo() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            {getBrasiliaDate().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
           </div>
         </div>
 

@@ -32,6 +32,7 @@ import { ConferenciaCartao } from "@/components/financeiro/ConferenciaCartao";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format } from "date-fns";
+import { getBrasiliaDateString } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -261,7 +262,7 @@ export default function ContasReceber() {
     }));
   };
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = getBrasiliaDateString();
 
   const filtered = contas.filter(c => {
     const matchNome = !filtroNome || c.cliente.toLowerCase().includes(filtroNome.toLowerCase());

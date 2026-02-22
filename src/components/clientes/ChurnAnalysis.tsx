@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrasiliaDate } from "@/lib/utils";
 import { Loader2, TrendingDown, TrendingUp, UserMinus, UserPlus, AlertTriangle } from "lucide-react";
 
 interface ChurnData {
@@ -24,7 +25,7 @@ export function ChurnAnalysis() {
   const fetchChurnData = async () => {
     setLoading(true);
     try {
-      const now = new Date();
+      const now = getBrasiliaDate();
       const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
       // Fetch all clients counts
