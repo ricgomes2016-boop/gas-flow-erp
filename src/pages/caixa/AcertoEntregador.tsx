@@ -45,16 +45,20 @@ const paymentLabels: Record<string, string> = {
   fiado: "Fiado",
   vale_gas: "Vale Gás",
   cheque: "Cheque",
+  portaria: "Portaria",
+  pdv: "PDV",
   Dinheiro: "Dinheiro",
   PIX: "PIX",
   "Cartão Crédito": "Cartão Crédito",
   "Cartão Débito": "Cartão Débito",
   "Vale Gás": "Vale Gás",
   Cheque: "Cheque",
+  Portaria: "Portaria",
+  PDV: "PDV",
 };
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado",
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado", "Portaria", "PDV",
 ];
 
 interface PagamentoMultiplo {
