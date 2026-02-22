@@ -122,10 +122,47 @@ export default function CaixaDia() {
       setPedidos(pedidosData);
 
       const fpMap = new Map<string, { quantidade: number; total: number }>();
+      
+      // Normaliza nome da forma de pagamento para evitar duplicatas (ex: "Dinheiro" vs "dinheiro")
+      const normalizarForma = (f: string): string => {
+        const lower = f.trim().toLowerCase();
+        const map: Record<string, string> = {
+          dinheiro: "Dinheiro", pix: "PIX", "cartão crédito": "Cartão Crédito",
+          "cartao credito": "Cartão Crédito", "cartão débito": "Cartão Débito",
+          "cartao debito": "Cartão Débito", fiado: "Fiado", cheque: "Cheque",
+          "vale gás": "Vale Gás", "vale gas": "Vale Gás",
+        };
+        return map[lower] || f.trim();
+      };
+
       pedidosData.forEach(p => {
-        const fp = p.forma_pagamento || "Não informado";
-        const existing = fpMap.get(fp) || { quantidade: 0, total: 0 };
-        fpMap.set(fp, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
+        const raw = p.forma_pagamento || "";
+        
+        // Detecta formato composto: "Dinheiro R$100.00, PIX R$50.00"
+        const partes = raw.match(/([A-Za-zÀ-ú\s]+)\s+R\$\s*([\d.,]+)/g);
+        
+        if (partes && partes.length > 0) {
+          // Formato composto com valores individuais
+          partes.forEach(parte => {
+            const match = parte.match(/([A-Za-zÀ-ú\s]+)\s+R\$\s*([\d.,]+)/);
+            if (match) {
+              const forma = normalizarForma(match[1]);
+              const valor = parseFloat(match[2].replace(",", "."));
+              const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
+              fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + valor });
+            }
+          });
+        } else if (raw) {
+          // Formato simples: "Dinheiro" ou "PIX"
+          const forma = normalizarForma(raw);
+          const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
+          fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
+        } else {
+          // Sem forma de pagamento - indicar acerto pendente
+          const forma = "Acerto Pendente";
+          const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
+          fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
+        }
       });
       setFormasPagamento(Array.from(fpMap.entries()).map(([forma, v]) => ({ forma, ...v })).sort((a, b) => b.total - a.total));
 
@@ -424,7 +461,7 @@ export default function CaixaDia() {
                         {/* Dinheiro em espécie esperado (excluindo pix/cartão que não fica no caixa) */}
                         {(() => {
                           const dinheiroVendas = formasPagamento.filter(fp => 
-                            fp.forma === "dinheiro" || fp.forma === "Dinheiro"
+                            fp.forma === "Dinheiro"
                           ).reduce((s, fp) => s + fp.total, 0);
                           const dinheiroEsperado = sessao.valor_abertura + dinheiroVendas - totalSaidas;
                           return (
