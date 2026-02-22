@@ -19,7 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   User, Package, Wallet, Download, CreditCard, Banknote, Receipt, Minus, Pencil, Loader2, Save,
-  QrCode, Keyboard, CheckCircle, AlertCircle,
+  QrCode, Keyboard, CheckCircle, AlertCircle, Plus, Trash2, FileText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrasiliaDateString } from "@/lib/utils";
@@ -44,22 +44,36 @@ const paymentLabels: Record<string, string> = {
   cartao_debito: "Cartão Débito",
   fiado: "Fiado",
   vale_gas: "Vale Gás",
+  cheque: "Cheque",
+  multiplos: "Múltiplos",
   Dinheiro: "Dinheiro",
   PIX: "PIX",
   "Cartão Crédito": "Cartão Crédito",
   "Cartão Débito": "Cartão Débito",
   "Vale Gás": "Vale Gás",
+  Cheque: "Cheque",
+  Múltiplos: "Múltiplos",
 };
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás", "Fiado",
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado", "Múltiplos",
 ];
+
+const formasPagamentoMultiplo = [
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado",
+];
+
+interface PagamentoMultiplo {
+  forma: string;
+  valor: number;
+}
 
 interface EditingEntrega {
   id: string;
   forma_pagamento: string;
   vale_gas_codigo: string;
   itens: { id: string; nome: string; quantidade: number; preco_unitario: number }[];
+  pagamentos_multiplos: PagamentoMultiplo[];
 }
 
 export default function AcertoEntregador() {
@@ -164,6 +178,7 @@ export default function AcertoEntregador() {
       id: entrega.id,
       forma_pagamento: entrega.forma_pagamento || "",
       vale_gas_codigo: "",
+      pagamentos_multiplos: [],
       itens: (entrega.pedido_itens || []).map((i: any) => ({
         id: i.id,
         nome: i.produtos?.nome || "Produto",
@@ -229,10 +244,27 @@ export default function AcertoEntregador() {
         (acc, item) => acc + item.quantidade * item.preco_unitario, 0
       );
 
+      // Determinar forma de pagamento a salvar
+      let formaPgtoSalvar = editingEntrega.forma_pagamento;
+      if (editingEntrega.forma_pagamento === "Múltiplos" && editingEntrega.pagamentos_multiplos.length > 0) {
+        // Validar soma
+        const totalPagamentos = editingEntrega.pagamentos_multiplos.reduce((a, p) => a + p.valor, 0);
+        if (Math.abs(novoTotal - totalPagamentos) > 0.01) {
+          toast.error("A soma dos pagamentos múltiplos não confere com o total da entrega");
+          setIsSavingEdit(false);
+          return;
+        }
+        // Salvar como string descritiva: "Múltiplos: Dinheiro R$50 + PIX R$30"
+        formaPgtoSalvar = "Múltiplos: " + editingEntrega.pagamentos_multiplos
+          .filter(p => p.valor > 0)
+          .map(p => `${p.forma} R$${p.valor.toFixed(2)}`)
+          .join(" + ");
+      }
+
       // Update pedido
       const { error } = await supabase
         .from("pedidos")
-        .update({ forma_pagamento: editingEntrega.forma_pagamento, valor_total: novoTotal })
+        .update({ forma_pagamento: formaPgtoSalvar, valor_total: novoTotal })
         .eq("id", editingEntrega.id);
       if (error) throw error;
 
@@ -753,7 +785,12 @@ export default function AcertoEntregador() {
                 <Select
                   value={editingEntrega.forma_pagamento}
                   onValueChange={(v) => {
-                    setEditingEntrega({ ...editingEntrega, forma_pagamento: v, vale_gas_codigo: "" });
+                    setEditingEntrega({
+                      ...editingEntrega,
+                      forma_pagamento: v,
+                      vale_gas_codigo: "",
+                      pagamentos_multiplos: v === "Múltiplos" ? [{ forma: "Dinheiro", valor: 0 }] : [],
+                    });
                     setValeGasValidado(null);
                     setValeGasCodigoInput("");
                   }}
@@ -766,6 +803,88 @@ export default function AcertoEntregador() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Múltiplos pagamentos */}
+              {editingEntrega.forma_pagamento === "Múltiplos" && (
+                <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-primary" /> Pagamentos Múltiplos
+                  </Label>
+                  {editingEntrega.pagamentos_multiplos.map((pg, idx) => (
+                    <div key={idx} className="grid grid-cols-[1fr_100px_32px] gap-2 items-end">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Forma</Label>
+                        <Select
+                          value={pg.forma}
+                          onValueChange={(v) => {
+                            const novos = [...editingEntrega.pagamentos_multiplos];
+                            novos[idx] = { ...novos[idx], forma: v };
+                            setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {formasPagamentoMultiplo.map((f) => (
+                              <SelectItem key={f} value={f}>{f}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Valor (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={pg.valor || ""}
+                          onChange={(e) => {
+                            const novos = [...editingEntrega.pagamentos_multiplos];
+                            novos[idx] = { ...novos[idx], valor: parseFloat(e.target.value) || 0 };
+                            setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
+                          }}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => {
+                          const novos = editingEntrega.pagamentos_multiplos.filter((_, i) => i !== idx);
+                          setEditingEntrega({ ...editingEntrega, pagamentos_multiplos: novos });
+                        }}
+                        disabled={editingEntrega.pagamentos_multiplos.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1"
+                    onClick={() => {
+                      setEditingEntrega({
+                        ...editingEntrega,
+                        pagamentos_multiplos: [...editingEntrega.pagamentos_multiplos, { forma: "PIX", valor: 0 }],
+                      });
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />Adicionar Forma
+                  </Button>
+                  {(() => {
+                    const totalEntrega = editingEntrega.itens.reduce((a, i) => a + i.quantidade * i.preco_unitario, 0);
+                    const totalPagamentos = editingEntrega.pagamentos_multiplos.reduce((a, p) => a + p.valor, 0);
+                    const diferenca = totalEntrega - totalPagamentos;
+                    return (
+                      <div className={`text-xs flex justify-between p-2 rounded ${Math.abs(diferenca) < 0.01 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                        <span>Soma: {formatCurrency(totalPagamentos)}</span>
+                        <span>{Math.abs(diferenca) < 0.01 ? "✓ Valores conferem" : `Diferença: ${formatCurrency(diferenca)}`}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
               {/* Vale Gás - código/QR quando selecionado */}
               {editingEntrega.forma_pagamento === "Vale Gás" && (
