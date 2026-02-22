@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { cn } from "@/lib/utils";
+import { cn, getBrasiliaDate } from "@/lib/utils";
 
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
@@ -120,7 +120,7 @@ export default function NovaVenda() {
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
 
-  const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split("T")[0]);
+  const [dataEntrega, setDataEntrega] = useState(() => { const d = getBrasiliaDate(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; });
   const [canalVenda, setCanalVenda] = useState("telefone");
   const [customer, setCustomer] = useState<CustomerData>(initialCustomerData);
   const [itens, setItens] = useState<ItemVenda[]>([]);
