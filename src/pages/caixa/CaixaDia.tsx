@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -91,6 +91,8 @@ export default function CaixaDia() {
 
   const [entregadoresPendentes, setEntregadoresPendentes] = useState<{ nome: string; entregas: number; total: number }[]>([]);
   const [sangriasPendentes, setSangriasPendentes] = useState(0);
+  const [acertoPendenteDetalhes, setAcertoPendenteDetalhes] = useState<{ entregador: string; canal: string; pedidoId: string; valor: number; data: string }[]>([]);
+  const [acertoPendenteDialogOpen, setAcertoPendenteDialogOpen] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -102,7 +104,7 @@ export default function CaixaDia() {
     let qMov = supabase.from("movimentacoes_caixa").select("*").gte("created_at", inicio).lte("created_at", fim).order("created_at", { ascending: false });
     if (unidadeAtual?.id) qMov = qMov.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
 
-    let qPed = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, created_at").gte("created_at", inicio).lte("created_at", fim);
+    let qPed = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, created_at, entregador_id, canal_venda, entregadores(nome)").gte("created_at", inicio).lte("created_at", fim);
     if (unidadeAtual?.id) qPed = qPed.eq("unidade_id", unidadeAtual.id);
 
     let qSes = supabase.from("caixa_sessoes").select("*").eq("data", dataStr).order("created_at", { ascending: false }).limit(1);
@@ -135,14 +137,15 @@ export default function CaixaDia() {
         return map[lower] || f.trim();
       };
 
-      pedidosData.forEach(p => {
+      const pendingDetails: typeof acertoPendenteDetalhes = [];
+      
+      pedidosData.forEach((p: any) => {
         const raw = p.forma_pagamento || "";
         
         // Detecta formato composto: "Dinheiro R$100.00, PIX R$50.00"
         const partes = raw.match(/([A-Za-zÀ-ú\s]+)\s+R\$\s*([\d.,]+)/g);
         
         if (partes && partes.length > 0) {
-          // Formato composto com valores individuais
           partes.forEach(parte => {
             const match = parte.match(/([A-Za-zÀ-ú\s]+)\s+R\$\s*([\d.,]+)/);
             if (match) {
@@ -153,7 +156,6 @@ export default function CaixaDia() {
             }
           });
         } else if (raw) {
-          // Formato simples: "Dinheiro" ou "PIX"
           const forma = normalizarForma(raw);
           const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
           fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
@@ -162,8 +164,16 @@ export default function CaixaDia() {
           const forma = "Acerto Pendente";
           const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
           fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
+          pendingDetails.push({
+            entregador: p.entregadores?.nome || "—",
+            canal: p.canal_venda || "—",
+            pedidoId: p.id,
+            valor: Number(p.valor_total || 0),
+            data: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          });
         }
       });
+      setAcertoPendenteDetalhes(pendingDetails);
       setFormasPagamento(Array.from(fpMap.entries()).map(([forma, v]) => ({ forma, ...v })).sort((a, b) => b.total - a.total));
 
       if (pedidosData.length > 0) {
@@ -713,8 +723,16 @@ export default function CaixaDia() {
                       </TableHeader>
                       <TableBody>
                         {formasPagamento.map(fp => (
-                          <TableRow key={fp.forma}>
-                            <TableCell className="font-medium capitalize">{fp.forma}</TableCell>
+                          <TableRow key={fp.forma} className={fp.forma === "Acerto Pendente" ? "cursor-pointer hover:bg-amber-500/10" : ""} onClick={() => fp.forma === "Acerto Pendente" && setAcertoPendenteDialogOpen(true)}>
+                            <TableCell className="font-medium capitalize">
+                              {fp.forma === "Acerto Pendente" ? (
+                                <span className="flex items-center gap-1.5 text-amber-600">
+                                  <Clock className="h-4 w-4" />
+                                  {fp.forma}
+                                  <Eye className="h-3.5 w-3.5 ml-1 opacity-60" />
+                                </span>
+                              ) : fp.forma}
+                            </TableCell>
                             <TableCell className="text-center"><Badge variant="secondary">{fp.quantidade}</Badge></TableCell>
                             <TableCell className="text-right font-medium whitespace-nowrap">R$ {fp.total.toFixed(2)}</TableCell>
                           </TableRow>
@@ -732,6 +750,53 @@ export default function CaixaDia() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Dialog Acerto Pendente detalhes */}
+        <Dialog open={acertoPendenteDialogOpen} onOpenChange={setAcertoPendenteDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-amber-500" />
+                Acertos Pendentes — Detalhes
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {acertoPendenteDetalhes.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum acerto pendente</p>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Pedidos sem forma de pagamento definida. Realize o acerto do entregador ou canal para resolver.
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Hora</TableHead>
+                        <TableHead>Entregador</TableHead>
+                        <TableHead>Canal</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {acertoPendenteDetalhes.map((d) => (
+                        <TableRow key={d.pedidoId}>
+                          <TableCell className="text-xs">{d.data}</TableCell>
+                          <TableCell className="text-sm font-medium">{d.entregador}</TableCell>
+                          <TableCell className="text-sm">{d.canal}</TableCell>
+                          <TableCell className="text-right font-medium whitespace-nowrap">R$ {d.valor.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/50 font-bold">
+                        <TableCell colSpan={3}>Total</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">R$ {acertoPendenteDetalhes.reduce((s, d) => s + d.valor, 0).toFixed(2)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
