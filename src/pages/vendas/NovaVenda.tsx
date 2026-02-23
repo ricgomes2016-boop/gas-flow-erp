@@ -602,6 +602,29 @@ export default function NovaVenda() {
     setIsLoading(true);
 
     try {
+      // Auto-cadastrar cliente se não estiver cadastrado
+      let clienteId = customer.id;
+      if (!clienteId && customer.nome.trim()) {
+        const { data: novoCliente, error: clienteError } = await supabase
+          .from("clientes")
+          .insert({
+            nome: customer.nome,
+            telefone: customer.telefone || null,
+            endereco: customer.endereco || null,
+            numero: customer.numero || null,
+            bairro: customer.bairro || null,
+            cep: customer.cep || null,
+            ativo: true,
+          })
+          .select("id")
+          .single();
+        
+        if (!clienteError && novoCliente) {
+          clienteId = novoCliente.id;
+          toast({ title: "Cliente cadastrado automaticamente!", description: `${customer.nome} foi adicionado ao sistema.` });
+        }
+      }
+
       const enderecoCompleto = [
         customer.endereco,
         customer.numero && `Nº ${customer.numero}`,
@@ -614,7 +637,7 @@ export default function NovaVenda() {
       const fiadoPag = pagamentos.find(p => p.forma === "fiado");
 
       const pedidoInsert: any = {
-        cliente_id: customer.id,
+        cliente_id: clienteId,
         entregador_id: entregador.id,
         endereco_entrega: enderecoCompleto,
         valor_total: totalVenda,

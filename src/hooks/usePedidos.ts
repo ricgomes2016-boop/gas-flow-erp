@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { reverterEstoqueVenda } from "@/services/estoqueService";
 
 export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) {
   const queryClient = useQueryClient();
@@ -100,6 +101,27 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
 
   const atualizarStatusMutation = useMutation({
     mutationFn: async ({ pedidoId, novoStatus }: { pedidoId: string; novoStatus: PedidoStatus }) => {
+      // Se cancelando, reverter estoque
+      if (novoStatus === "cancelado") {
+        const { data: itensData } = await supabase
+          .from("pedido_itens")
+          .select("produto_id, quantidade")
+          .eq("pedido_id", pedidoId);
+
+        const { data: pedidoData } = await supabase
+          .from("pedidos")
+          .select("unidade_id, status")
+          .eq("id", pedidoId)
+          .single();
+
+        if (pedidoData?.status !== "cancelado" && itensData && itensData.length > 0) {
+          await reverterEstoqueVenda(
+            itensData.filter(i => i.produto_id).map(i => ({ produto_id: i.produto_id!, quantidade: i.quantidade })),
+            pedidoData?.unidade_id
+          );
+        }
+      }
+
       const { error } = await supabase
         .from("pedidos")
         .update({ status: novoStatus })
@@ -126,6 +148,27 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
 
   const excluirPedidoMutation = useMutation({
     mutationFn: async ({ pedidoId }: { pedidoId: string }) => {
+      // Buscar itens do pedido para reverter estoque
+      const { data: itensData } = await supabase
+        .from("pedido_itens")
+        .select("produto_id, quantidade")
+        .eq("pedido_id", pedidoId);
+
+      // Buscar unidade do pedido
+      const { data: pedidoData } = await supabase
+        .from("pedidos")
+        .select("unidade_id")
+        .eq("id", pedidoId)
+        .single();
+
+      // Reverter estoque
+      if (itensData && itensData.length > 0) {
+        await reverterEstoqueVenda(
+          itensData.filter(i => i.produto_id).map(i => ({ produto_id: i.produto_id!, quantidade: i.quantidade })),
+          pedidoData?.unidade_id
+        );
+      }
+
       const { error: itensError } = await supabase
         .from("pedido_itens")
         .delete()

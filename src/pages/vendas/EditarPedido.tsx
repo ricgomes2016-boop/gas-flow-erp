@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Save, Loader2, MapPin, Map, CreditCard } from "lucide-react";
+import { ArrowLeft, Save, Loader2, MapPin, Map, CreditCard, User, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
@@ -72,6 +72,51 @@ export default function EditarPedido() {
   const [entregador, setEntregador] = useState<{ id: string | null; nome: string | null }>({ id: null, nome: null });
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+
+  // Client search
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [clienteResults, setClienteResults] = useState<Array<{ id: string; nome: string; telefone: string | null; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; cep: string | null }>>([]);
+  const [showClienteResults, setShowClienteResults] = useState(false);
+  const clienteSearchRef = useRef<HTMLDivElement>(null);
+  const debounceClienteRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (clienteSearchRef.current && !clienteSearchRef.current.contains(event.target as Node)) {
+        setShowClienteResults(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const searchCliente = useCallback((term: string) => {
+    if (debounceClienteRef.current) clearTimeout(debounceClienteRef.current);
+    if (term.length < 2) { setClienteResults([]); setShowClienteResults(false); return; }
+    debounceClienteRef.current = setTimeout(async () => {
+      const { data } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone, endereco, numero, bairro, cidade, cep")
+        .eq("ativo", true)
+        .or(`nome.ilike.%${term}%,telefone.ilike.%${term}%`)
+        .limit(8);
+      if (data) { setClienteResults(data); setShowClienteResults(data.length > 0); }
+    }, 300);
+  }, []);
+
+  const selectCliente = (cliente: typeof clienteResults[0]) => {
+    setPedido(prev => prev ? { ...prev, cliente_id: cliente.id, cliente_nome: cliente.nome } : prev);
+    setEnderecoFields({
+      endereco: cliente.endereco || "",
+      numero: cliente.numero || "",
+      bairro: cliente.bairro || "",
+      complemento: "",
+      cidade: cliente.cidade || "",
+      cep: cliente.cep || "",
+    });
+    setClienteSearch("");
+    setShowClienteResults(false);
+  };
 
   useEffect(() => {
     if (id) fetchPedido(id);
@@ -226,6 +271,7 @@ export default function EditarPedido() {
       const { error: pedidoError } = await supabase
         .from("pedidos")
         .update({
+          cliente_id: pedido.cliente_id,
           endereco_entrega: enderecoCompleto,
           numero_entrega: enderecoFields.numero || null,
           bairro_entrega: enderecoFields.bairro || null,
@@ -331,6 +377,47 @@ export default function EditarPedido() {
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
+              {/* Cliente */}
+              <Card ref={clienteSearchRef}>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <User className="h-5 w-5" />
+                    Cliente: {pedido.cliente_nome}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar outro cliente por nome ou telefone..."
+                      value={clienteSearch}
+                      onChange={(e) => {
+                        setClienteSearch(e.target.value);
+                        searchCliente(e.target.value);
+                      }}
+                      className="pl-10"
+                      disabled={isDisabled}
+                    />
+                    {showClienteResults && clienteResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                        {clienteResults.map((c) => (
+                          <button
+                            key={c.id}
+                            className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b border-border last:border-0"
+                            onClick={() => selectCliente(c)}
+                          >
+                            <p className="font-medium text-sm">{c.nome}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {c.telefone} • {c.endereco}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Endereço de Entrega */}
               <Card>
                 <CardHeader className="pb-4">

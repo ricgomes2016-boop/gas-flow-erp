@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -16,9 +17,10 @@ interface PDVProductListProps {
   itens: PDVItem[];
   onUpdateQuantity: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
+  onUpdatePrice?: (index: number, newPrice: number) => void;
 }
 
-export function PDVProductList({ itens, onUpdateQuantity, onRemoveItem }: PDVProductListProps) {
+export function PDVProductList({ itens, onUpdateQuantity, onRemoveItem, onUpdatePrice }: PDVProductListProps) {
   if (itens.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -40,9 +42,18 @@ export function PDVProductList({ itens, onUpdateQuantity, onRemoveItem }: PDVPro
           >
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{item.nome}</p>
-              <p className="text-sm text-muted-foreground">
-                R$ {item.preco_unitario.toFixed(2)} / un
-              </p>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">R$</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={item.preco_unitario}
+                  onChange={(e) => onUpdatePrice?.(index, Number(e.target.value))}
+                  className="w-20 h-6 text-xs px-1"
+                />
+                <span className="text-xs text-muted-foreground">/ un</span>
+              </div>
             </div>
 
             <div className="flex items-center gap-1">
@@ -54,9 +65,19 @@ export function PDVProductList({ itens, onUpdateQuantity, onRemoveItem }: PDVPro
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <Badge variant="secondary" className="min-w-[2.5rem] justify-center text-base">
-                {item.quantidade}
-              </Badge>
+              <Input
+                type="number"
+                min="1"
+                value={item.quantidade}
+                onChange={(e) => {
+                  const newQtd = parseInt(e.target.value) || 1;
+                  if (newQtd >= 1) {
+                    // Set quantity directly via delta
+                    onUpdateQuantity(index, newQtd - item.quantidade);
+                  }
+                }}
+                className="w-14 h-8 text-center text-base font-medium"
+              />
               <Button
                 variant="outline"
                 size="icon"

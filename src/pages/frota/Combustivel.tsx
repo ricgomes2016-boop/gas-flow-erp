@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Fuel, Plus, Search, TrendingUp, Truck, DollarSign, Loader2, FileCheck, Receipt, Camera, Trash2 } from "lucide-react";
+import { Fuel, Plus, Search, TrendingUp, Truck, DollarSign, Loader2, FileCheck, Receipt, Camera, Trash2, FileText, Filter } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -28,6 +28,8 @@ export default function Combustivel() {
   const [loading, setLoading] = useState(true);
   const [abastecimentos, setAbastecimentos] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [gastoMensal, setGastoMensal] = useState(0);
   const [litrosMensal, setLitrosMensal] = useState(0);
   const [veiculosAtivos, setVeiculosAtivos] = useState(0);
@@ -148,8 +150,21 @@ export default function Combustivel() {
       a.motorista?.toLowerCase().includes(busca.toLowerCase()) ||
       a.posto?.toLowerCase().includes(busca.toLowerCase());
     const matchStatus = filtroStatus === "todos" || a.status === filtroStatus;
-    return matchBusca && matchStatus;
+    const matchDataInicio = !dataInicio || a.data >= dataInicio;
+    const matchDataFim = !dataFim || a.data <= dataFim;
+    return matchBusca && matchStatus && matchDataInicio && matchDataFim;
   });
+
+  const gerarPDF = () => {
+    const rows = filtered.map((a) =>
+      `${parseLocalDate(a.data).toLocaleDateString("pt-BR")} | ${(a.veiculos as any)?.placa || "-"} | ${a.motorista} | ${Number(a.litros)}L ${a.tipo} | R$ ${Number(a.valor).toFixed(2)} | ${a.posto || "-"} | ${a.nota_fiscal || "-"} | ${a.status === "acertado" ? "Acertado" : "Pendente"}`
+    );
+    const totalVal = filtered.reduce((s, a) => s + Number(a.valor), 0);
+    const totalLit = filtered.reduce((s, a) => s + Number(a.litros), 0);
+    const printContent = `<html><head><title>Relatório Combustível</title><style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px}h2{text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f5f5f5;font-weight:bold}.total{font-weight:bold;font-size:14px;margin-top:15px}</style></head><body><h2>Relatório de Combustível</h2><p>Período: ${dataInicio ? parseLocalDate(dataInicio).toLocaleDateString("pt-BR") : "Início"} a ${dataFim ? parseLocalDate(dataFim).toLocaleDateString("pt-BR") : "Hoje"} | Total: ${filtered.length} registros</p><table><thead><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Litros</th><th>Tipo</th><th>Valor</th><th>Posto</th><th>NF</th><th>Status</th></tr></thead><tbody>${filtered.map(a => `<tr><td>${parseLocalDate(a.data).toLocaleDateString("pt-BR")}</td><td>${(a.veiculos as any)?.placa || "-"}</td><td>${a.motorista}</td><td>${Number(a.litros)}L</td><td>${a.tipo}</td><td>R$ ${Number(a.valor).toFixed(2)}</td><td>${a.posto || "-"}</td><td>${a.nota_fiscal || "-"}</td><td>${a.status === "acertado" ? "Acertado" : "Pendente"}</td></tr>`).join("")}</tbody></table><p class="total">Total: R$ ${totalVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | ${totalLit.toFixed(1)}L</p></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(printContent); w.document.close(); w.print(); }
+  };
 
   const pendentes = abastecimentos.filter((a) => a.status === "pendente");
 
@@ -319,7 +334,13 @@ export default function Combustivel() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle>Histórico de Abastecimentos</CardTitle>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">De:</Label>
+                  <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-[140px] h-9" />
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Até:</Label>
+                  <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-[140px] h-9" />
+                </div>
                 <Select value={filtroStatus} onValueChange={(v: any) => setFiltroStatus(v)}>
                   <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -332,6 +353,9 @@ export default function Combustivel() {
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input placeholder="Buscar..." className="pl-10 w-[200px]" value={busca} onChange={(e) => setBusca(e.target.value)} />
                 </div>
+                <Button variant="outline" size="sm" className="gap-2" onClick={gerarPDF}>
+                  <FileText className="h-4 w-4" /> PDF
+                </Button>
               </div>
             </div>
           </CardHeader>

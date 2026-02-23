@@ -207,6 +207,16 @@ export default function PDV() {
     });
   };
 
+  // Update price
+  const updatePrice = (index: number, newPrice: number) => {
+    setItens((prev) => {
+      const newItens = [...prev];
+      newItens[index].preco_unitario = newPrice;
+      newItens[index].total = newItens[index].quantidade * newPrice;
+      return newItens;
+    });
+  };
+
   // Remove item
   const removeItem = (index: number) => {
     setItens((prev) => prev.filter((_, i) => i !== index));
@@ -433,6 +443,7 @@ export default function PDV() {
                 itens={itens}
                 onUpdateQuantity={updateQuantity}
                 onRemoveItem={removeItem}
+                onUpdatePrice={updatePrice}
               />
             </CardContent>
           </Card>
