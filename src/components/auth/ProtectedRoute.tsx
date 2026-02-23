@@ -39,8 +39,8 @@ export function ProtectedRoute({
   if (requireAuth && !user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
-  // Redirect to onboarding if admin has no empresa
-  if (user && needsOnboarding && roles.includes("admin") && location.pathname !== "/onboarding") {
+  // Redirect to onboarding if admin has no empresa (skip for super_admin)
+  if (user && needsOnboarding && roles.includes("admin") && !roles.includes("super_admin") && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
 
