@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getPlanByProductId, getPlanKey, PlanConfig } from "@/config/stripePlans";
 
 export interface Empresa {
   id: string;
@@ -18,22 +19,92 @@ export interface Empresa {
   updated_at: string;
 }
 
+export interface SubscriptionInfo {
+  subscribed: boolean;
+  productId: string | null;
+  planKey: string | null;
+  plan: PlanConfig | null;
+  subscriptionEnd: string | null;
+}
+
 interface EmpresaContextType {
   empresa: Empresa | null;
   loading: boolean;
   needsOnboarding: boolean;
+  subscription: SubscriptionInfo;
+  subscriptionLoading: boolean;
   refetch: () => Promise<void>;
+  checkSubscription: () => Promise<void>;
 }
 
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
+
+const defaultSubscription: SubscriptionInfo = {
+  subscribed: false,
+  productId: null,
+  planKey: null,
+  plan: null,
+  subscriptionEnd: null,
+};
 
 export function EmpresaProvider({ children }: { children: ReactNode }) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionInfo>(defaultSubscription);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const { user, roles, loading: authLoading } = useAuth();
 
   const isStaff = roles.some(r => ["admin", "gestor", "financeiro", "operacional"].includes(r));
+
+  const checkSubscription = useCallback(async () => {
+    if (!user) {
+      setSubscription(defaultSubscription);
+      return;
+    }
+
+    setSubscriptionLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription");
+      if (error) {
+        console.error("Error checking subscription:", error);
+        return;
+      }
+
+      if (data) {
+        const productId = data.product_id || null;
+        const plan = productId ? getPlanByProductId(productId) : null;
+        const planKey = productId ? getPlanKey(productId) : null;
+
+        setSubscription({
+          subscribed: data.subscribed,
+          productId,
+          planKey,
+          plan,
+          subscriptionEnd: data.subscription_end || null,
+        });
+
+        // Sync plan to empresa if changed
+        if (empresa && planKey && planKey !== empresa.plano) {
+          const planConfig = plan;
+          if (planConfig) {
+            await supabase
+              .from("empresas")
+              .update({
+                plano: planKey,
+                plano_max_usuarios: planConfig.maxUsuarios,
+                plano_max_unidades: planConfig.maxUnidades,
+              })
+              .eq("id", empresa.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking subscription:", error);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [user, empresa]);
 
   const fetchEmpresa = async () => {
     if (!user) {
@@ -52,7 +123,6 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Error fetching empresa:", error);
-        // If no empresa found and user is admin, needs onboarding
         if (isStaff && roles.includes("admin")) {
           setNeedsOnboarding(true);
         }
@@ -79,13 +149,30 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     }
   }, [user, roles, authLoading]);
 
+  // Check subscription when user and empresa are ready
+  useEffect(() => {
+    if (user && !authLoading) {
+      checkSubscription();
+    }
+  }, [user, authLoading]);
+
+  // Auto-refresh subscription every 60 seconds
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(checkSubscription, 60000);
+    return () => clearInterval(interval);
+  }, [user, checkSubscription]);
+
   return (
     <EmpresaContext.Provider
       value={{
         empresa,
         loading,
         needsOnboarding,
+        subscription,
+        subscriptionLoading,
         refetch: fetchEmpresa,
+        checkSubscription,
       }}
     >
       {children}

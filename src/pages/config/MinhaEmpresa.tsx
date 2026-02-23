@@ -7,14 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Save, Loader2, Users, MapPin, Crown } from "lucide-react";
+import { Building2, Save, Loader2, Users, MapPin, Crown, Check, ExternalLink, RefreshCw } from "lucide-react";
 import { useEmpresa } from "@/contexts/EmpresaContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PLANS, formatPrice } from "@/config/stripePlans";
+import { useSearchParams } from "react-router-dom";
 
 export default function MinhaEmpresa() {
-  const { empresa, refetch } = useEmpresa();
+  const { empresa, refetch, subscription, subscriptionLoading, checkSubscription } = useEmpresa();
   const [isLoading, setIsLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const [nome, setNome] = useState("");
   const [cnpj, setCnpj] = useState("");
@@ -23,6 +28,17 @@ export default function MinhaEmpresa() {
 
   const [totalUsuarios, setTotalUsuarios] = useState(0);
   const [totalUnidades, setTotalUnidades] = useState(0);
+
+  // Handle checkout return
+  useEffect(() => {
+    const checkoutStatus = searchParams.get("checkout");
+    if (checkoutStatus === "success") {
+      toast.success("Assinatura realizada com sucesso! Atualizando...");
+      checkSubscription();
+    } else if (checkoutStatus === "cancel") {
+      toast.info("Checkout cancelado.");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (empresa) {
@@ -61,16 +77,36 @@ export default function MinhaEmpresa() {
     setIsLoading(false);
   };
 
-  const planoLabel: Record<string, string> = {
-    starter: "Starter",
-    pro: "Pro",
-    enterprise: "Enterprise",
+  const handleCheckout = async (priceId: string) => {
+    setCheckoutLoading(priceId);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error: any) {
+      toast.error("Erro ao iniciar checkout: " + error.message);
+    } finally {
+      setCheckoutLoading(null);
+    }
   };
 
-  const planoColor: Record<string, string> = {
-    starter: "secondary",
-    pro: "default",
-    enterprise: "destructive",
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error: any) {
+      toast.error("Erro ao abrir portal: " + error.message);
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   if (!empresa) {
@@ -87,7 +123,7 @@ export default function MinhaEmpresa() {
   return (
     <MainLayout>
       <Header title="Minha Empresa" subtitle="Gerencie os dados da sua distribuidora" />
-      <div className="p-6 space-y-6 max-w-4xl">
+      <div className="p-6 space-y-6 max-w-5xl">
         {/* Plan & Usage */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -96,9 +132,14 @@ export default function MinhaEmpresa() {
               <Crown className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <Badge variant={planoColor[empresa.plano] as any || "secondary"} className="text-lg px-3 py-1">
-                {planoLabel[empresa.plano] || empresa.plano}
+              <Badge variant="default" className="text-lg px-3 py-1">
+                {subscription.plan?.name || empresa.plano}
               </Badge>
+              {subscription.subscribed && subscription.subscriptionEnd && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Renova em {new Date(subscription.subscriptionEnd).toLocaleDateString("pt-BR")}
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -124,6 +165,87 @@ export default function MinhaEmpresa() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Plans */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5" />
+                  Planos e Assinatura
+                </CardTitle>
+                <CardDescription>Escolha o plano ideal para sua distribuidora</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                {subscription.subscribed && (
+                  <Button variant="outline" size="sm" onClick={handleManageSubscription} disabled={portalLoading}>
+                    {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+                    Gerenciar Assinatura
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={checkSubscription} disabled={subscriptionLoading}>
+                  <RefreshCw className={`h-4 w-4 ${subscriptionLoading ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(PLANS).map(([key, plan]) => {
+                const isCurrentPlan = subscription.planKey === key || (!subscription.subscribed && empresa.plano === key);
+                const isActive = subscription.subscribed && subscription.planKey === key;
+
+                return (
+                  <Card
+                    key={key}
+                    className={`relative ${isActive ? "border-primary ring-2 ring-primary/20" : ""}`}
+                  >
+                    {isActive && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-primary text-primary-foreground">Seu Plano</Badge>
+                      </div>
+                    )}
+                    <CardHeader className="text-center pb-2">
+                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+                      <div className="text-3xl font-bold text-primary">
+                        {formatPrice(plan.price)}
+                        <span className="text-sm font-normal text-muted-foreground">/mês</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <ul className="space-y-2">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-center gap-2 text-sm">
+                            <Check className="h-4 w-4 text-primary shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      {isActive ? (
+                        <Button variant="outline" className="w-full" disabled>
+                          Plano Atual
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full"
+                          variant={key === "pro" ? "default" : "outline"}
+                          onClick={() => handleCheckout(plan.priceId)}
+                          disabled={checkoutLoading === plan.priceId}
+                        >
+                          {checkoutLoading === plan.priceId ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          {subscription.subscribed ? "Trocar Plano" : "Assinar"}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Company Info */}
         <Card>
