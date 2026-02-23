@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock, Eye } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock, Eye, Lock, Unlock, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -86,7 +86,8 @@ export default function CaixaDia() {
   const [fechamentoOpen, setFechamentoOpen] = useState(false);
   const [dataSelecionada, setDataSelecionada] = useState<Date>(getBrasiliaDate());
   const { unidadeAtual } = useUnidade();
-  const { user } = useAuth();
+  const { user, hasAnyRole } = useAuth();
+  const isGestor = hasAnyRole(["admin", "gestor"]);
   const [form, setForm] = useState({ tipo: "entrada", descricao: "", valor: "", categoria: "" });
   const [aberturaForm, setAberturaForm] = useState({ valor: "", obs: "" });
   const [fechamentoForm, setFechamentoForm] = useState({ valor: "", obs: "" });
@@ -289,10 +290,23 @@ export default function CaixaDia() {
       status: "fechado",
       fechado_em: new Date().toISOString(),
       usuario_fechamento_id: user?.id,
+      bloqueado: true,
     }).eq("id", sessao.id);
 
     if (error) { toast.error("Erro ao fechar caixa"); console.error(error); }
-    else { toast.success("Caixa fechado!"); setFechamentoOpen(false); setFechamentoForm({ valor: "", obs: "" }); fetchData(); }
+    else { toast.success("Caixa fechado e bloqueado! Estoque, vendas e movimentações do dia estão travados."); setFechamentoOpen(false); setFechamentoForm({ valor: "", obs: "" }); fetchData(); }
+  };
+
+  const handleReabrirCaixa = async () => {
+    if (!sessao) return;
+    const { error } = await supabase.from("caixa_sessoes").update({
+      bloqueado: false,
+      desbloqueado_por: user?.id,
+      desbloqueado_em: new Date().toISOString(),
+    }).eq("id", sessao.id);
+
+    if (error) { toast.error("Erro ao reabrir caixa"); console.error(error); }
+    else { toast.success("Caixa reaberto! Operações desbloqueadas para edição."); fetchData(); }
   };
 
   const totalEntradas = movs.filter(m => m.tipo === "entrada").reduce((a, m) => a + Number(m.valor), 0);
@@ -514,6 +528,11 @@ export default function CaixaDia() {
                 </DialogContent>
               </Dialog>
             )}
+            {sessao?.status === "fechado" && (sessao as any).bloqueado && isGestor && (
+              <Button variant="outline" className="border-amber-500 text-amber-600 hover:bg-amber-500/10" onClick={handleReabrirCaixa}>
+                <Unlock className="h-4 w-4 mr-2" />Reabrir Caixa
+              </Button>
+            )}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Movimentação</Button></DialogTrigger>
               <DialogContent>
@@ -568,7 +587,25 @@ export default function CaixaDia() {
                       <div><span className="text-muted-foreground">Fechamento:</span> <strong>R$ {Number(sessao.valor_fechamento).toFixed(2)}</strong></div>
                       <div><span className="text-muted-foreground">Diferença:</span> <strong className={Number(sessao.diferenca || 0) === 0 ? "text-success" : "text-destructive"}>R$ {Number(sessao.diferenca || 0).toFixed(2)}</strong></div>
                     </>
-                  )}
+        )}
+
+        {/* Banner caixa bloqueado */}
+        {sessao && (sessao as any).bloqueado && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-destructive/10 p-3 shrink-0">
+                <Lock className="h-5 w-5 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-destructive">🔒 Caixa Fechado e Bloqueado</p>
+                <p className="text-xs text-muted-foreground">
+                  Vendas, estoque e movimentações do dia estão travados.
+                  {isGestor ? " Você pode reabrir usando o botão acima." : " Solicite ao gestor para reabrir."}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
                 </div>
               </div>
             </CardContent>

@@ -28,6 +28,7 @@ import { PDVProductList, PDVItem } from "@/components/pdv/PDVProductList";
 import { PDVPayment } from "@/components/pdv/PDVPayment";
 import { PDVQuickProducts } from "@/components/pdv/PDVQuickProducts";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { CaixaBloqueadoBanner } from "@/components/caixa/CaixaBloqueadoBanner";
 
 interface Produto {
   id: string;
@@ -320,6 +321,7 @@ export default function PDV() {
     <MainLayout>
       <Header title="PDV" subtitle="Venda rápida para retirada no local" />
       <div className="h-[calc(100vh-4rem)] flex flex-col p-4 gap-4">
+        <CaixaBloqueadoBanner />
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

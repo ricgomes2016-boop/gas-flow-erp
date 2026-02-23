@@ -25,6 +25,7 @@ import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService"
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { cn, getBrasiliaDate } from "@/lib/utils";
+import { CaixaBloqueadoBanner } from "@/components/caixa/CaixaBloqueadoBanner";
 
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
 import { ProductSearch, ItemVenda } from "@/components/vendas/ProductSearch";
@@ -770,6 +771,7 @@ export default function NovaVenda() {
       {/* #1 - Single header, no duplicate */}
       <Header title="Nova Venda" subtitle={unidadeAtual?.nome || "Carregando..."} />
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+        <CaixaBloqueadoBanner />
 
         {/* #8 - Progress stepper */}
         <VendaStepper customer={customer} itens={itens} pagamentos={pagamentos} totalVenda={totalVenda} />
