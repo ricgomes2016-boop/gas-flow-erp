@@ -46,6 +46,7 @@ interface UnidadeOption {
 }
 
 const roleLabels: Record<AppRole, string> = {
+  super_admin: "Super Admin",
   admin: "Administrador",
   gestor: "Gestor",
   financeiro: "Financeiro",

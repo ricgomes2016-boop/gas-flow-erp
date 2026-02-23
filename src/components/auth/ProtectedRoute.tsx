@@ -47,6 +47,10 @@ export function ProtectedRoute({
   // Redirect non-staff users to their proper app
   // Only check on routes without specific allowedRoles (i.e., the root admin area)
   if (user && !allowedRoles) {
+    // Redirect super_admin to their panel
+    if (roles.includes("super_admin")) {
+      return <Navigate to="/admin" replace />;
+    }
     const isStaff = STAFF_ROLES.some(r => roles.includes(r));
     if (!isStaff) {
       // Redirect to their specific app
