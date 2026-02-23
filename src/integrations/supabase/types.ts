@@ -626,8 +626,11 @@ export type Database = {
       caixa_sessoes: {
         Row: {
           aberto_em: string
+          bloqueado: boolean
           created_at: string
           data: string
+          desbloqueado_em: string | null
+          desbloqueado_por: string | null
           diferenca: number | null
           fechado_em: string | null
           id: string
@@ -643,8 +646,11 @@ export type Database = {
         }
         Insert: {
           aberto_em?: string
+          bloqueado?: boolean
           created_at?: string
           data?: string
+          desbloqueado_em?: string | null
+          desbloqueado_por?: string | null
           diferenca?: number | null
           fechado_em?: string | null
           id?: string
@@ -660,8 +666,11 @@ export type Database = {
         }
         Update: {
           aberto_em?: string
+          bloqueado?: boolean
           created_at?: string
           data?: string
+          desbloqueado_em?: string | null
+          desbloqueado_por?: string | null
           diferenca?: number | null
           fechado_em?: string | null
           id?: string
@@ -6032,6 +6041,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      caixa_dia_bloqueado: {
+        Args: { _data: string; _unidade_id: string }
+        Returns: boolean
+      }
       execute_readonly_query: { Args: { query_text: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
