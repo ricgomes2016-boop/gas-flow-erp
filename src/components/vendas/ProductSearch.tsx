@@ -231,9 +231,20 @@ export function ProductSearch({ itens, onChange, unidadeId, clienteId }: Product
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <span className="w-8 text-center font-medium">
-                          {item.quantidade}
-                        </span>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantidade}
+                          onChange={(e) => {
+                            const newQtd = parseInt(e.target.value) || 1;
+                            if (newQtd < 1) return;
+                            const newItens = [...itens];
+                            newItens[index].quantidade = newQtd;
+                            newItens[index].total = newQtd * newItens[index].preco_unitario;
+                            onChange(newItens);
+                          }}
+                          className="w-16 text-center h-7 text-sm"
+                        />
                         <Button
                           variant="outline"
                           size="icon"

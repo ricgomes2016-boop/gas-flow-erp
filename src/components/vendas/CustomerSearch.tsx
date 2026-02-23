@@ -16,6 +16,7 @@ interface Cliente {
   nome: string;
   telefone: string | null;
   endereco: string | null;
+  numero: string | null;
   bairro: string | null;
   cep: string | null;
   cidade: string | null;
@@ -85,7 +86,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     try {
       let query = supabase
         .from("clientes")
-        .select("id, nome, telefone, endereco, bairro, cep, cidade")
+        .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
         .eq("ativo", true)
         .limit(8);
 
@@ -104,7 +105,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
 
         const { data, error } = await supabase
           .from("clientes")
-          .select("id, nome, telefone, endereco, bairro, cep, cidade")
+          .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
           .eq("ativo", true)
           .limit(50);
 
@@ -166,6 +167,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
       nome: cliente.nome,
       telefone: cliente.telefone || "",
       endereco: cliente.endereco || "",
+      numero: cliente.numero || "",
       bairro: cliente.bairro || "",
       cep: cliente.cep || "",
     });
