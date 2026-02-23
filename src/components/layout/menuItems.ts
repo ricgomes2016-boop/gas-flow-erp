@@ -1,4 +1,5 @@
 import {
+  Building2,
   LayoutDashboard,
   ShoppingCart,
   Gavel,
@@ -253,6 +254,7 @@ export const menuItems: MenuItem[] = [
     icon: Settings,
     label: "Configurações",
     submenu: [
+      { icon: Building2, label: "Minha Empresa", path: "/config/empresa" },
       { icon: Cog, label: "Geral / Regras", path: "/configuracoes" },
       { icon: Users2, label: "Usuários", path: "/config/usuarios" },
       { icon: Lock, label: "Permissões", path: "/config/permissoes" },

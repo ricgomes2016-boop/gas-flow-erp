@@ -10,6 +10,7 @@ import { ClienteProvider } from "@/contexts/ClienteContext";
 import { ValeGasProvider } from "@/contexts/ValeGasContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UnidadeProvider } from "@/contexts/UnidadeContext";
+import { EmpresaProvider } from "@/contexts/EmpresaContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/ui/page-loader";
@@ -153,6 +154,8 @@ const DocumentosEmpresa = lazy(() => import("./pages/config/DocumentosEmpresa"))
 const Notificacoes = lazy(() => import("./pages/config/Notificacoes"));
 const Integracoes = lazy(() => import("./pages/config/Integracoes"));
 const PersonalizacaoVisual = lazy(() => import("./pages/config/PersonalizacaoVisual"));
+const MinhaEmpresa = lazy(() => import("./pages/config/MinhaEmpresa"));
+const OnboardingEmpresa = lazy(() => import("./pages/onboarding/OnboardingEmpresa"));
 
 // Assistente IA
 const AssistenteIA = lazy(() => import("./pages/AssistenteIA"));
@@ -235,6 +238,7 @@ const App = () => (
     <TooltipProvider>
       <BrowserRouter>
         <AuthProvider>
+          <EmpresaProvider>
           <UnidadeProvider>
             <DeliveryNotificationProvider>
               <ClienteProvider>
@@ -247,6 +251,11 @@ const App = () => (
                 <Routes>
                   {/* Auth - Pública */}
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/onboarding" element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <OnboardingEmpresa />
+                    </ProtectedRoute>
+                  } />
                   
                   {/* Dashboard - Protegida */}
                   <Route path="/" element={
@@ -788,6 +797,11 @@ const App = () => (
                   } />
 
                   {/* Configurações - Admin */}
+                  <Route path="/config/empresa" element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <MinhaEmpresa />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/config/auditoria" element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <Auditoria />
@@ -1061,6 +1075,7 @@ const App = () => (
             </ClienteProvider>
           </DeliveryNotificationProvider>
         </UnidadeProvider>
+          </EmpresaProvider>
       </AuthProvider>
     </BrowserRouter>
     </TooltipProvider>
