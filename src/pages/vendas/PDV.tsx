@@ -232,10 +232,11 @@ export default function PDV() {
           valor_total: total,
           forma_pagamento: formaPagamento,
           canal_venda: "portaria",
+          responsavel_acerto: "portaria",
           status: "entregue", // PDV is immediate
           endereco_entrega: "Retirada no local",
           unidade_id: unidadeAtual?.id || null,
-        })
+        } as any)
         .select("id")
         .single();
 

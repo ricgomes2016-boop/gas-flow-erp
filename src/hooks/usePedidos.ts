@@ -170,16 +170,59 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
     },
   });
 
+  // Marcar pedido como portaria (responsavel_acerto)
+  const marcarPortariaMutation = useMutation({
+    mutationFn: async ({ pedidoId }: { pedidoId: string }) => {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ status: "entregue", responsavel_acerto: "portaria", entregador_id: null } as any)
+        .eq("id", pedidoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    },
+  });
+
+  const marcarPortariaLoteMutation = useMutation({
+    mutationFn: async ({ pedidoIds }: { pedidoIds: string[] }) => {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ status: "entregue", responsavel_acerto: "portaria", entregador_id: null } as any)
+        .in("id", pedidoIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    },
+  });
+
+  // Ao atribuir entregador, limpar responsavel_acerto
+  const atribuirEntregadorComAcertoMutation = useMutation({
+    mutationFn: async ({ pedidoId, entregadorId }: { pedidoId: string; entregadorId: string }) => {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ entregador_id: entregadorId, responsavel_acerto: null } as any)
+        .eq("id", pedidoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+    },
+  });
+
   return {
     pedidos,
     isLoading,
     error,
     atualizarStatus: atualizarStatusMutation.mutate,
-    atribuirEntregador: atribuirEntregadorMutation.mutate,
+    atribuirEntregador: atribuirEntregadorComAcertoMutation.mutate,
     excluirPedido: excluirPedidoMutation.mutate,
     atualizarStatusLote: atualizarStatusLoteMutation.mutate,
     atribuirEntregadorLote: atribuirEntregadorLoteMutation.mutate,
-    isUpdating: atualizarStatusMutation.isPending || atribuirEntregadorMutation.isPending || atualizarStatusLoteMutation.isPending || atribuirEntregadorLoteMutation.isPending,
+    marcarPortaria: marcarPortariaMutation.mutate,
+    marcarPortariaLote: marcarPortariaLoteMutation.mutate,
+    isUpdating: atualizarStatusMutation.isPending || atribuirEntregadorMutation.isPending || atualizarStatusLoteMutation.isPending || atribuirEntregadorLoteMutation.isPending || marcarPortariaMutation.isPending || marcarPortariaLoteMutation.isPending,
     isDeleting: excluirPedidoMutation.isPending,
   };
 }

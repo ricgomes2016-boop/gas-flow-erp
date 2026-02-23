@@ -58,7 +58,7 @@ export default function Pedidos() {
   const hoje = (() => { const d = getBrasiliaDate(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
-  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, excluirPedido, atualizarStatusLote, atribuirEntregadorLote, isUpdating, isDeleting } = usePedidos({ dataInicio, dataFim });
+  const { pedidos, isLoading, atualizarStatus, atribuirEntregador, excluirPedido, atualizarStatusLote, atribuirEntregadorLote, marcarPortaria, marcarPortariaLote, isUpdating, isDeleting } = usePedidos({ dataInicio, dataFim });
   const [pedidoSelecionado, setPedidoSelecionado] = useState<PedidoFormatado | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [viewDialogAberto, setViewDialogAberto] = useState(false);
@@ -234,27 +234,26 @@ export default function Pedidos() {
 
   const cancelarPedido = (pedidoId: string) => alterarStatusPedido(pedidoId, "cancelado");
 
-  const marcarPortaria = (pedidoId: string) => {
-    const statusLabels = { pendente: "Pendente", em_rota: "Em Rota", entregue: "Entregue", cancelado: "Cancelado" };
-    atualizarStatus(
-      { pedidoId, novoStatus: "entregue" as PedidoStatus },
+  const marcarPortariaHandler = (pedidoId: string) => {
+    marcarPortaria(
+      { pedidoId },
       {
         onSuccess: () => { toast({ title: "Portaria", description: "Pedido marcado como retirado na portaria." }); },
-        onError: (error) => { toast({ title: "Erro", description: error.message, variant: "destructive" }); },
+        onError: (error: any) => { toast({ title: "Erro", description: error.message, variant: "destructive" }); },
       }
     );
   };
 
-  const marcarPortariaLote = () => {
+  const marcarPortariaLoteHandler = () => {
     const ids = Array.from(selecionados);
-    atualizarStatusLote(
-      { pedidoIds: ids, novoStatus: "entregue" as PedidoStatus },
+    marcarPortariaLote(
+      { pedidoIds: ids },
       {
         onSuccess: () => {
           toast({ title: "Portaria em lote", description: `${ids.length} pedido(s) marcados como portaria.` });
           setSelecionados(new Set());
         },
-        onError: (error) => { toast({ title: "Erro", description: error.message, variant: "destructive" }); },
+        onError: (error: any) => { toast({ title: "Erro", description: error.message, variant: "destructive" }); },
       }
     );
   };
@@ -622,7 +621,7 @@ export default function Pedidos() {
                 <Button size="sm" variant="outline" onClick={() => { setBatchAction("entregador"); setBatchDialogAberto(true); }}>
                   Atribuir Entregador
                 </Button>
-                <Button size="sm" variant="outline" className="gap-1" onClick={marcarPortariaLote}>
+                <Button size="sm" variant="outline" className="gap-1" onClick={marcarPortariaLoteHandler}>
                   <Building2 className="h-3.5 w-3.5" /> Portaria
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setSelecionados(new Set())}>Limpar</Button>
@@ -701,7 +700,7 @@ export default function Pedidos() {
                               <Button size="sm" variant="ghost" className="text-primary h-6 px-2 text-xs" onClick={() => abrirTransferencia(pedido)}>
                                 <Sparkles className="h-3 w-3 mr-1" /> Atribuir
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => marcarPortaria(pedido.id)} title="Retirada na portaria">
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => marcarPortariaHandler(pedido.id)} title="Retirada na portaria">
                                 <Building2 className="h-3 w-3" />
                               </Button>
                             </div>
@@ -750,7 +749,7 @@ export default function Pedidos() {
                                 <DropdownMenuItem onClick={() => abrirTransferencia(pedido)}><ArrowRightLeft className="h-4 w-4 mr-2" />{pedido.entregador ? "Transferir" : "Atribuir"} Entregador</DropdownMenuItem>
                               )}
               {pedido.status !== "cancelado" && pedido.status !== "entregue" && (
-                                <DropdownMenuItem onClick={() => marcarPortaria(pedido.id)}><Building2 className="h-4 w-4 mr-2" />Portaria (Retirada)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => marcarPortariaHandler(pedido.id)}><Building2 className="h-4 w-4 mr-2" />Portaria (Retirada)</DropdownMenuItem>
                               )}
                               {unidades.length > 1 && (
                                 <DropdownMenuItem onClick={() => abrirTransferenciaFilial(pedido)}>

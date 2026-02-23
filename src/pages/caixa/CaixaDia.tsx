@@ -106,7 +106,7 @@ export default function CaixaDia() {
     let qMov = supabase.from("movimentacoes_caixa").select("*").gte("created_at", inicio).lte("created_at", fim).order("created_at", { ascending: false });
     if (unidadeAtual?.id) qMov = qMov.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
 
-    let qPed = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, created_at, entregador_id, canal_venda, entregadores(nome)").gte("created_at", inicio).lte("created_at", fim);
+    let qPed = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, created_at, entregador_id, canal_venda, responsavel_acerto, entregadores(nome)").gte("created_at", inicio).lte("created_at", fim);
     if (unidadeAtual?.id) qPed = qPed.eq("unidade_id", unidadeAtual.id);
 
     let qSes = supabase.from("caixa_sessoes").select("*").eq("data", dataStr).order("created_at", { ascending: false }).limit(1);
@@ -166,19 +166,20 @@ export default function CaixaDia() {
           const forma = "Acerto Pendente";
           const existing = fpMap.get(forma) || { quantidade: 0, total: 0 };
           fpMap.set(forma, { quantidade: existing.quantidade + 1, total: existing.total + Number(p.valor_total || 0) });
-          // Identificar responsável: entregador ou canal virtual
+          // Identificar responsável pelo acerto
           const entregadorNome = p.entregadores?.nome || null;
-          const canalVenda = p.canal_venda || null;
+          const responsavelAcerto = (p as any).responsavel_acerto || null;
           let responsavel = "Não identificado";
-          if (entregadorNome) {
+          if (responsavelAcerto === "portaria") {
+            responsavel = "🏪 Portaria";
+          } else if (responsavelAcerto === "pdv") {
+            responsavel = "🖥️ PDV";
+          } else if (entregadorNome) {
             responsavel = `🚚 ${entregadorNome}`;
-          } else if (canalVenda) {
-            const canalMap: Record<string, string> = { "Portaria": "🏪 Portaria", "PDV": "🖥️ PDV", "Ponto de Venda": "🖥️ Ponto de Venda" };
-            responsavel = canalMap[canalVenda] || `📦 ${canalVenda}`;
           }
           pendingDetails.push({
             entregador: responsavel,
-            canal: canalVenda || "—",
+            canal: p.canal_venda || "—",
             pedidoId: p.id,
             valor: Number(p.valor_total || 0),
             data: new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),

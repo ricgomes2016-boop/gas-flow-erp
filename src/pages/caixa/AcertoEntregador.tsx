@@ -134,8 +134,8 @@ export default function AcertoEntregador() {
         .order("created_at", { ascending: true });
 
       if (canalVirtual) {
-        // Buscar por canal de venda (Portaria/PDV) com status entregue ou finalizado
-        query = query.eq("canal_venda", canalVirtual.canal).in("status", ["entregue", "finalizado", "pago"]);
+        // Buscar por responsavel_acerto (portaria/pdv) em vez de canal_venda
+        query = query.eq("responsavel_acerto", canalVirtual.canal.toLowerCase()).in("status", ["entregue", "finalizado", "pago"]);
       } else {
         query = query.eq("entregador_id", selectedId).eq("status", "entregue");
       }

@@ -4539,6 +4539,7 @@ export type Database = {
           longitude: number | null
           numero_entrega: string | null
           observacoes: string | null
+          responsavel_acerto: string | null
           status: string | null
           troco_para: number | null
           unidade_id: string | null
@@ -4567,6 +4568,7 @@ export type Database = {
           longitude?: number | null
           numero_entrega?: string | null
           observacoes?: string | null
+          responsavel_acerto?: string | null
           status?: string | null
           troco_para?: number | null
           unidade_id?: string | null
@@ -4595,6 +4597,7 @@ export type Database = {
           longitude?: number | null
           numero_entrega?: string | null
           observacoes?: string | null
+          responsavel_acerto?: string | null
           status?: string | null
           troco_para?: number | null
           unidade_id?: string | null
