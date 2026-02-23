@@ -26,6 +26,7 @@ import { UserPlus, Loader2, Trash2, Shield, Pencil, Building2 } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AppRole } from "@/contexts/AuthContext";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
 
 interface UserWithRoles {
   id: string;
@@ -56,6 +57,7 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 export default function Usuarios() {
+  const { checkUserLimit } = usePlanLimits();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [unidades, setUnidades] = useState<UnidadeOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +125,10 @@ export default function Usuarios() {
       toast.error("A senha deve ter no mínimo 6 caracteres.");
       return;
     }
+
+    // Check plan limits before creating
+    const withinLimit = await checkUserLimit();
+    if (!withinLimit) return;
 
     setSaving(true);
     try {
