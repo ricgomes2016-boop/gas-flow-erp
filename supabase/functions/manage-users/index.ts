@@ -88,6 +88,37 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Check plan user limit
+      const { data: callerProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("empresa_id")
+        .eq("user_id", caller.id)
+        .single();
+
+      if (callerProfile?.empresa_id) {
+        const { data: empresa } = await supabaseAdmin
+          .from("empresas")
+          .select("plano_max_usuarios, plano")
+          .eq("id", callerProfile.empresa_id)
+          .single();
+
+        if (empresa) {
+          const { count } = await supabaseAdmin
+            .from("profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("empresa_id", callerProfile.empresa_id);
+
+          if ((count || 0) >= empresa.plano_max_usuarios) {
+            return new Response(JSON.stringify({
+              error: `Limite de ${empresa.plano_max_usuarios} usuários atingido no plano ${empresa.plano}. Faça upgrade para adicionar mais.`
+            }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      }
+
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
