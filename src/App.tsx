@@ -157,6 +157,12 @@ const PersonalizacaoVisual = lazy(() => import("./pages/config/PersonalizacaoVis
 const MinhaEmpresa = lazy(() => import("./pages/config/MinhaEmpresa"));
 const OnboardingEmpresa = lazy(() => import("./pages/onboarding/OnboardingEmpresa"));
 
+// Super Admin
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminEmpresas = lazy(() => import("./pages/admin/AdminEmpresas"));
+const AdminUnidades = lazy(() => import("./pages/admin/AdminUnidades"));
+const AdminAdmins = lazy(() => import("./pages/admin/AdminAdmins"));
+
 // Assistente IA
 const AssistenteIA = lazy(() => import("./pages/AssistenteIA"));
 
@@ -254,6 +260,28 @@ const App = () => (
                   <Route path="/onboarding" element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <OnboardingEmpresa />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Super Admin */}
+                  <Route path="/admin" element={
+                    <ProtectedRoute allowedRoles={["super_admin"]}>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/empresas" element={
+                    <ProtectedRoute allowedRoles={["super_admin"]}>
+                      <AdminEmpresas />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/unidades" element={
+                    <ProtectedRoute allowedRoles={["super_admin"]}>
+                      <AdminUnidades />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/admins" element={
+                    <ProtectedRoute allowedRoles={["super_admin"]}>
+                      <AdminAdmins />
                     </ProtectedRoute>
                   } />
                   
