@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { MobileNav } from "./MobileNav";
@@ -25,6 +26,7 @@ interface HeaderProps {
 export function Header({ title, subtitle }: HeaderProps) {
   const { user, profile, roles, signOut } = useAuth();
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -53,12 +55,11 @@ export function Header({ title, subtitle }: HeaderProps) {
         
         <div className="min-w-0">
           <h1 className="text-lg md:text-xl font-bold text-foreground truncate">{title}</h1>
-          {subtitle && (
-            <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
-              {subtitle}
-              {unidadeAtual && <span className="ml-2 text-primary font-medium">• {unidadeAtual.nome}</span>}
-            </p>
-          )}
+          <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
+            {empresa && <span className="font-medium">{empresa.nome}</span>}
+            {subtitle && <span>{empresa ? " — " : ""}{subtitle}</span>}
+            {unidadeAtual && <span className="ml-2 text-primary font-medium">• {unidadeAtual.nome}</span>}
+          </p>
         </div>
       </div>
 

@@ -2508,6 +2508,54 @@ export type Database = {
           },
         ]
       }
+      empresas: {
+        Row: {
+          ativo: boolean
+          cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          nome: string
+          plano: string
+          plano_max_unidades: number
+          plano_max_usuarios: number
+          slug: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          nome: string
+          plano?: string
+          plano_max_unidades?: number
+          plano_max_usuarios?: number
+          slug: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          plano?: string
+          plano_max_unidades?: number
+          plano_max_usuarios?: number
+          slug?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       emprestimos: {
         Row: {
           created_at: string
@@ -4831,6 +4879,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string
+          empresa_id: string | null
           full_name: string
           id: string
           phone: string | null
@@ -4841,6 +4890,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email: string
+          empresa_id?: string | null
           full_name: string
           id?: string
           phone?: string | null
@@ -4851,13 +4901,22 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string
+          empresa_id?: string | null
           full_name?: string
           id?: string
           phone?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promocoes: {
         Row: {
@@ -5341,6 +5400,7 @@ export type Database = {
           cnpj: string | null
           created_at: string
           email: string | null
+          empresa_id: string | null
           endereco: string | null
           estado: string | null
           id: string
@@ -5360,6 +5420,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           email?: string | null
+          empresa_id?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
@@ -5379,6 +5440,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           email?: string | null
+          empresa_id?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
@@ -5389,7 +5451,15 @@ export type Database = {
           tipo?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "unidades_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -6046,6 +6116,7 @@ export type Database = {
         Returns: boolean
       }
       execute_readonly_query: { Args: { query_text: string }; Returns: Json }
+      get_user_empresa_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -6056,6 +6127,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      user_belongs_to_empresa: {
+        Args: { _empresa_id: string; _user_id: string }
         Returns: boolean
       }
       user_has_unidade: {

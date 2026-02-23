@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,10 @@ export function ProtectedRoute({
   requireAuth = true 
 }: ProtectedRouteProps) {
   const { user, roles, loading } = useAuth();
+  const { needsOnboarding, loading: empresaLoading } = useEmpresa();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || empresaLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -36,6 +38,10 @@ export function ProtectedRoute({
   // If auth is required and user is not logged in
   if (requireAuth && !user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+  // Redirect to onboarding if admin has no empresa
+  if (user && needsOnboarding && roles.includes("admin") && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
   }
 
   // Redirect non-staff users to their proper app
