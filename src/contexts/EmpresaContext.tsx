@@ -25,6 +25,7 @@ export interface SubscriptionInfo {
   planKey: string | null;
   plan: PlanConfig | null;
   subscriptionEnd: string | null;
+  unitQuantity: number;
 }
 
 interface EmpresaContextType {
@@ -45,6 +46,7 @@ const defaultSubscription: SubscriptionInfo = {
   planKey: null,
   plan: null,
   subscriptionEnd: null,
+  unitQuantity: 0,
 };
 
 export function EmpresaProvider({ children }: { children: ReactNode }) {
@@ -75,6 +77,7 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
         const productId = data.product_id || null;
         const plan = productId ? getPlanByProductId(productId) : null;
         const planKey = productId ? getPlanKey(productId) : null;
+        const unitQuantity = data.unit_quantity || 0;
 
         setSubscription({
           subscribed: data.subscribed,
@@ -82,18 +85,20 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
           planKey,
           plan,
           subscriptionEnd: data.subscription_end || null,
+          unitQuantity,
         });
 
         // Sync plan to empresa if changed
-        if (empresa && planKey && planKey !== empresa.plano) {
-          const planConfig = plan;
-          if (planConfig) {
+        if (empresa && planKey && plan) {
+          const maxUnidades = unitQuantity;
+          const maxUsuarios = plan.usersPerUnit * unitQuantity;
+          if (planKey !== empresa.plano || maxUsuarios !== empresa.plano_max_usuarios || maxUnidades !== empresa.plano_max_unidades) {
             await supabase
               .from("empresas")
               .update({
                 plano: planKey,
-                plano_max_usuarios: planConfig.maxUsuarios,
-                plano_max_unidades: planConfig.maxUnidades,
+                plano_max_usuarios: maxUsuarios,
+                plano_max_unidades: maxUnidades,
               })
               .eq("id", empresa.id);
           }

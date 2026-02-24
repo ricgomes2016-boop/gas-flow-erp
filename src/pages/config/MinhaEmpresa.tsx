@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Save, Loader2, Users, MapPin, Crown, Check, ExternalLink, RefreshCw } from "lucide-react";
+import { Building2, Save, Loader2, Users, MapPin, Crown, Check, ExternalLink, RefreshCw, Plus, Minus } from "lucide-react";
 import { useEmpresa } from "@/contexts/EmpresaContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,6 +20,11 @@ export default function MinhaEmpresa() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [searchParams] = useSearchParams();
+  const [selectedQuantity, setSelectedQuantity] = useState<Record<string, number>>({
+    basico: 1,
+    standard: 1,
+    enterprise: 1,
+  });
 
   const [nome, setNome] = useState("");
   const [cnpj, setCnpj] = useState("");
@@ -29,7 +34,6 @@ export default function MinhaEmpresa() {
   const [totalUsuarios, setTotalUsuarios] = useState(0);
   const [totalUnidades, setTotalUnidades] = useState(0);
 
-  // Handle checkout return
   useEffect(() => {
     const checkoutStatus = searchParams.get("checkout");
     if (checkoutStatus === "success") {
@@ -77,11 +81,12 @@ export default function MinhaEmpresa() {
     setIsLoading(false);
   };
 
-  const handleCheckout = async (priceId: string) => {
+  const handleCheckout = async (priceId: string, planKey: string) => {
     setCheckoutLoading(priceId);
     try {
+      const qty = selectedQuantity[planKey] || 1;
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId },
+        body: { priceId, quantity: qty },
       });
       if (error) throw error;
       if (data?.url) {
@@ -107,6 +112,13 @@ export default function MinhaEmpresa() {
     } finally {
       setPortalLoading(false);
     }
+  };
+
+  const updateQuantity = (planKey: string, delta: number) => {
+    setSelectedQuantity((prev) => ({
+      ...prev,
+      [planKey]: Math.max(1, (prev[planKey] || 1) + delta),
+    }));
   };
 
   if (!empresa) {
@@ -135,8 +147,13 @@ export default function MinhaEmpresa() {
               <Badge variant="default" className="text-lg px-3 py-1">
                 {subscription.plan?.name || empresa.plano}
               </Badge>
-              {subscription.subscribed && subscription.subscriptionEnd && (
+              {subscription.subscribed && (
                 <p className="text-xs text-muted-foreground mt-2">
+                  {subscription.unitQuantity} unidade{subscription.unitQuantity !== 1 ? "s" : ""} contratada{subscription.unitQuantity !== 1 ? "s" : ""}
+                </p>
+              )}
+              {subscription.subscribed && subscription.subscriptionEnd && (
+                <p className="text-xs text-muted-foreground mt-1">
                   Renova em {new Date(subscription.subscriptionEnd).toLocaleDateString("pt-BR")}
                 </p>
               )}
@@ -175,7 +192,7 @@ export default function MinhaEmpresa() {
                   <Crown className="h-5 w-5" />
                   Planos e Assinatura
                 </CardTitle>
-                <CardDescription>Escolha o plano ideal para sua distribuidora</CardDescription>
+                <CardDescription>Preço por unidade/mês — escolha quantas unidades precisar</CardDescription>
               </div>
               <div className="flex gap-2">
                 {subscription.subscribed && (
@@ -193,8 +210,9 @@ export default function MinhaEmpresa() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.entries(PLANS).map(([key, plan]) => {
-                const isCurrentPlan = subscription.planKey === key || (!subscription.subscribed && empresa.plano === key);
                 const isActive = subscription.subscribed && subscription.planKey === key;
+                const qty = selectedQuantity[key] || 1;
+                const totalPrice = plan.price * qty;
 
                 return (
                   <Card
@@ -210,7 +228,7 @@ export default function MinhaEmpresa() {
                       <CardTitle className="text-lg">{plan.name}</CardTitle>
                       <div className="text-3xl font-bold text-primary">
                         {formatPrice(plan.price)}
-                        <span className="text-sm font-normal text-muted-foreground">/mês</span>
+                        <span className="text-sm font-normal text-muted-foreground">/unidade/mês</span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -222,15 +240,40 @@ export default function MinhaEmpresa() {
                           </li>
                         ))}
                       </ul>
+
+                      {!isActive && (
+                        <>
+                          <Separator />
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Quantas unidades?</Label>
+                            <div className="flex items-center justify-center gap-3">
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(key, -1)} disabled={qty <= 1}>
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="text-xl font-bold w-8 text-center">{qty}</span>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(key, 1)}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-center text-sm text-muted-foreground">
+                              Total: <span className="font-semibold text-foreground">{formatPrice(totalPrice)}/mês</span>
+                            </p>
+                            <p className="text-center text-xs text-muted-foreground">
+                              {plan.usersPerUnit * qty} usuários inclusos
+                            </p>
+                          </div>
+                        </>
+                      )}
+
                       {isActive ? (
                         <Button variant="outline" className="w-full" disabled>
-                          Plano Atual
+                          Plano Atual ({subscription.unitQuantity} unidade{subscription.unitQuantity !== 1 ? "s" : ""})
                         </Button>
                       ) : (
                         <Button
                           className="w-full"
-                          variant={key === "pro" ? "default" : "outline"}
-                          onClick={() => handleCheckout(plan.priceId)}
+                          variant={key === "standard" ? "default" : "outline"}
+                          onClick={() => handleCheckout(plan.priceId, key)}
                           disabled={checkoutLoading === plan.priceId}
                         >
                           {checkoutLoading === plan.priceId ? (

@@ -62,12 +62,18 @@ serve(async (req) => {
     const hasActiveSub = subscriptions.data.length > 0;
     let productId = null;
     let subscriptionEnd = null;
+    let unitQuantity = 0;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      productId = subscription.items.data[0].price.product;
-      logStep("Active subscription found", { productId, subscriptionEnd });
+      
+      // Get the main plan item (first item is the plan price)
+      const mainItem = subscription.items.data[0];
+      productId = mainItem.price.product;
+      unitQuantity = mainItem.quantity || 1;
+      
+      logStep("Active subscription found", { productId, unitQuantity, subscriptionEnd });
     } else {
       logStep("No active subscription");
     }
@@ -76,6 +82,7 @@ serve(async (req) => {
       subscribed: hasActiveSub,
       product_id: productId,
       subscription_end: subscriptionEnd,
+      unit_quantity: unitQuantity,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

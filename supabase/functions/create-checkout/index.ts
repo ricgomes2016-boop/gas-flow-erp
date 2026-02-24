@@ -35,9 +35,10 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId } = await req.json();
+    const { priceId, quantity } = await req.json();
     if (!priceId) throw new Error("priceId is required");
-    logStep("Price requested", { priceId });
+    const qty = quantity || 1;
+    logStep("Checkout request", { priceId, quantity: qty });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
@@ -54,7 +55,7 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: qty }],
       mode: "subscription",
       success_url: `${origin}/config/minha-empresa?checkout=success`,
       cancel_url: `${origin}/config/minha-empresa?checkout=cancel`,
