@@ -1,61 +1,68 @@
 export interface PlanConfig {
   name: string;
+  key: string;
   priceId: string;
   productId: string;
-  price: number; // BRL cents
-  maxUsuarios: number;
-  maxUnidades: number;
+  price: number; // BRL cents per unit/month
+  usersPerUnit: number;
+  extraUserPriceId: string | null;
+  extraUserPrice: number | null; // BRL cents
   features: string[];
 }
 
 export const PLANS: Record<string, PlanConfig> = {
-  starter: {
-    name: "Starter",
-    priceId: "price_1T4889KFbi1wlhwo1T6C87MW",
-    productId: "prod_U2CX9CLMCiDpub",
+  basico: {
+    name: "Básico",
+    key: "basico",
+    priceId: "price_1T4AxoKFbi1wlhwogq8f5MwU",
+    productId: "prod_U2FSsEI6wsrEt4",
     price: 9900,
-    maxUsuarios: 5,
-    maxUnidades: 1,
+    usersPerUnit: 5,
+    extraUserPriceId: null,
+    extraUserPrice: null,
     features: [
-      "1 unidade",
-      "5 usuários",
+      "5 usuários por unidade",
       "Vendas e Estoque",
-      "Entregas básicas",
+      "Entregas e Caixa",
       "Relatórios essenciais",
     ],
   },
-  pro: {
-    name: "Pro",
-    priceId: "price_1T488TKFbi1wlhwoCnnQEgUk",
-    productId: "prod_U2CXsJiGAM15xk",
+  standard: {
+    name: "Standard",
+    key: "standard",
+    priceId: "price_1T4Ay3KFbi1wlhwoiwjL8EIw",
+    productId: "prod_U2FSEvwNN4s9rb",
     price: 24900,
-    maxUsuarios: 15,
-    maxUnidades: 3,
+    usersPerUnit: 10,
+    extraUserPriceId: "price_1T4AyWKFbi1wlhwoX0CBW1um",
+    extraUserPrice: 2990,
     features: [
-      "3 unidades",
-      "15 usuários",
-      "Tudo do Starter",
+      "10 usuários por unidade",
+      "Tudo do Básico",
       "Financeiro completo",
       "RH e Comissões",
       "Assistente IA",
       "Dashboards avançados",
+      "Usuário extra: R$29,90/mês",
     ],
   },
   enterprise: {
     name: "Enterprise",
-    priceId: "price_1T488iKFbi1wlhwoDPrN38cn",
-    productId: "prod_U2CXWIn1WU9ct0",
+    key: "enterprise",
+    priceId: "price_1T4AyJKFbi1wlhwonPd0E32i",
+    productId: "prod_U2FTkMy6YfFPmF",
     price: 49900,
-    maxUsuarios: 50,
-    maxUnidades: 10,
+    usersPerUnit: 20,
+    extraUserPriceId: "price_1T4AyiKFbi1wlhwop8fE0vut",
+    extraUserPrice: 4990,
     features: [
-      "10 unidades",
-      "50 usuários",
-      "Tudo do Pro",
+      "20 usuários por unidade",
+      "Tudo do Standard",
       "Fiscal (NF-e, CT-e)",
       "Frota completa",
       "API e Integrações",
       "Suporte prioritário",
+      "Usuário extra: R$49,90/mês",
     ],
   },
 };
