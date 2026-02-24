@@ -85,16 +85,14 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
       const inicio = startOfMonth(new Date(ano, mes, 1)).toISOString();
       const fim = endOfMonth(new Date(ano, mes, 1)).toISOString();
 
+      const inicioDate = format(new Date(ano, mes, 1), "yyyy-MM-dd");
+      const fimDate = format(endOfMonth(new Date(ano, mes, 1)), "yyyy-MM-dd");
+
       const [
         { data: categorias },
         pedidosRes,
-        despesasRes,
-        funcionariosRes,
-        abastecimentosRes,
-        manutencoesRes,
+        contasPagarRes,
         { data: produtos },
-        comissoesRes,
-        conferenciasRes,
       ] = await Promise.all([
         supabase.from("categorias_despesa").select("*").eq("ativo", true).order("ordem"),
         (() => {
@@ -105,86 +103,45 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
           return q;
         })(),
         (() => {
-          let q = supabase.from("movimentacoes_caixa")
-            .select("valor, categoria, descricao, tipo")
-            .eq("tipo", "saida")
-            .gte("created_at", inicio).lte("created_at", fim);
-          if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
-          return q;
-        })(),
-        (() => {
-          let q = supabase.from("funcionarios").select("salario").eq("ativo", true);
-          if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
-          return q;
-        })(),
-        (() => {
-          let q = supabase.from("abastecimentos").select("valor").gte("created_at", inicio).lte("created_at", fim);
-          if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
-          return q;
-        })(),
-        (() => {
-          let q = supabase.from("manutencoes").select("valor").gte("created_at", inicio).lte("created_at", fim);
+          let q = supabase.from("contas_pagar")
+            .select("valor, categoria, descricao, status")
+            .eq("status", "pago")
+            .gte("vencimento", inicioDate).lte("vencimento", fimDate);
           if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
           return q;
         })(),
         supabase.from("produtos").select("id, nome, preco, preco_custo"),
-        (() => {
-          let q = supabase.from("bonus").select("valor").gte("created_at", inicio).lte("created_at", fim);
-          if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
-          return q;
-        })(),
-        (() => {
-          let q = supabase.from("conferencia_cartao").select("valor_taxa").gte("created_at", inicio).lte("created_at", fim);
-          if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
-          return q;
-        })(),
       ]);
 
       const pedidos = pedidosRes.data || [];
-      const despesas = despesasRes.data || [];
-      const funcionarios = funcionariosRes.data || [];
-      const abastecimentos = abastecimentosRes.data || [];
-      const manutencoes = manutencoesRes.data || [];
-      const bonus = comissoesRes.data || [];
-      const conferencias = conferenciasRes.data || [];
+      const contasPagar = contasPagarRes.data || [];
 
-      const totalSalarios = funcionarios.reduce((s, f) => s + (Number(f.salario) || 0), 0);
-      const totalCombustivel = abastecimentos.reduce((s, a) => s + (Number(a.valor) || 0), 0);
-      const totalManutencao = manutencoes.reduce((s, m) => s + (Number(m.valor) || 0), 0);
-      const totalBonus = bonus.reduce((s, b) => s + (Number(b.valor) || 0), 0);
-      const totalTaxasCartao = conferencias.reduce((s, c) => s + (Number(c.valor_taxa) || 0), 0);
-      // Encargos sobre salários (~20% INSS patronal + ~8% FGTS = ~28%)
-      const totalImpostosSalario = totalSalarios * 0.28;
-
-      const despesasPorCategoria: Record<string, number> = {};
-      despesas.forEach(d => {
-        const cat = (d.categoria || d.descricao || "Diversos").toLowerCase();
-        despesasPorCategoria[cat] = (despesasPorCategoria[cat] || 0) + (Number(d.valor) || 0);
+      // Agrupa todas as contas pagas por categoria
+      const cpPorCategoria: Record<string, number> = {};
+      contasPagar.forEach(cp => {
+        const cat = (cp.categoria || cp.descricao || "Diversos").toString().toLowerCase().trim();
+        cpPorCategoria[cat] = (cpPorCategoria[cat] || 0) + (Number(cp.valor) || 0);
       });
 
+      // Mapeia cada categoria de despesa cadastrada ao valor real vindo de contas_pagar
       const custosCalculados: CustoItem[] = ((categorias || []) as any[]).map(cat => {
         let valorReal = 0;
-        const nomeLC = cat.nome.toLowerCase();
-        // Impostos/encargos sobre salários (INSS patronal + FGTS) — deve vir ANTES do check de "salário"
-        if (nomeLC.includes("imposto") && nomeLC.includes("salário") || nomeLC.includes("encargo") && nomeLC.includes("salário") || nomeLC.includes("inss") || nomeLC.includes("fgts")) {
-          valorReal = totalImpostosSalario;
-        }
-        // Salários puros (sem a palavra "imposto" ou "encargo")
-        else if ((nomeLC.includes("salário") || nomeLC === "salários") && !nomeLC.includes("imposto") && !nomeLC.includes("encargo")) {
-          valorReal = totalSalarios;
-        }
-        else if (nomeLC.includes("combustível") || nomeLC.includes("combustivel")) valorReal = totalCombustivel;
-        else if (nomeLC.includes("manutenção") || nomeLC.includes("manutencao") || nomeLC.includes("manut")) valorReal = totalManutencao;
-        else if (nomeLC.includes("premiação") || nomeLC.includes("bônus") || nomeLC.includes("bonus")) valorReal = totalBonus;
-        else if ((nomeLC.includes("taxa") && nomeLC.includes("cartão")) || nomeLC.includes("maquininha")) valorReal = totalTaxasCartao;
-        else {
-          for (const [despCat, val] of Object.entries(despesasPorCategoria)) {
-            if (despCat.includes(nomeLC.split("/")[0].trim().substring(0, 5)) || nomeLC.includes(despCat.substring(0, 5))) {
-              valorReal = val;
-              break;
-            }
+        const nomeLC = cat.nome.toLowerCase().trim();
+
+        // Busca correspondência na tabela contas_pagar pela categoria
+        for (const [cpCat, val] of Object.entries(cpPorCategoria)) {
+          // Match exato ou parcial (primeiros 5 chars ou contém)
+          if (
+            cpCat === nomeLC ||
+            cpCat.includes(nomeLC) ||
+            nomeLC.includes(cpCat) ||
+            (nomeLC.length >= 5 && cpCat.includes(nomeLC.substring(0, 5))) ||
+            (cpCat.length >= 5 && nomeLC.includes(cpCat.substring(0, 5)))
+          ) {
+            valorReal += val;
           }
         }
+
         return { id: cat.id, nome: cat.nome, valor: valorReal || cat.valor_padrao || 0, valorReal, grupo: cat.grupo, tipo: cat.tipo };
       });
 
