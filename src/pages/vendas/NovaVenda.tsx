@@ -631,7 +631,9 @@ export default function NovaVenda() {
             endereco: customer.endereco || null,
             numero: customer.numero || null,
             bairro: customer.bairro || null,
+            cidade: customer.bairro ? null : null,
             cep: customer.cep || null,
+            tipo: "residencial",
             ativo: true,
             empresa_id: empresa?.id || null,
           })
