@@ -216,7 +216,7 @@ export default function ContasBancarias() {
       <Header title="Contas Bancárias" subtitle="Gestão de contas e transferências" />
       <div className="p-4 md:p-6 space-y-6">
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total de Contas</CardTitle></CardHeader>
             <CardContent><p className="text-2xl font-bold">{contas.length}</p></CardContent>
@@ -232,7 +232,7 @@ export default function ContasBancarias() {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />Nova Conta</Button>
@@ -286,11 +286,11 @@ export default function ContasBancarias() {
         </div>
 
         <Tabs defaultValue="contas">
-          <TabsList>
-            <TabsTrigger value="contas"><Landmark className="h-4 w-4 mr-1" />Contas</TabsTrigger>
-            <TabsTrigger value="transferencias"><ArrowRightLeft className="h-4 w-4 mr-1" />Transferências</TabsTrigger>
-            <TabsTrigger value="extrato"><Receipt className="h-4 w-4 mr-1" />Extrato</TabsTrigger>
-            <TabsTrigger value="conciliacao"><FileSpreadsheet className="h-4 w-4 mr-1" />Importar OFX / Conciliação</TabsTrigger>
+          <TabsList className="w-full flex-wrap h-auto gap-1">
+            <TabsTrigger value="contas" className="text-xs sm:text-sm"><Landmark className="h-4 w-4 mr-1" />Contas</TabsTrigger>
+            <TabsTrigger value="transferencias" className="text-xs sm:text-sm"><ArrowRightLeft className="h-4 w-4 mr-1" />Transf.</TabsTrigger>
+            <TabsTrigger value="extrato" className="text-xs sm:text-sm"><Receipt className="h-4 w-4 mr-1" />Extrato</TabsTrigger>
+            <TabsTrigger value="conciliacao" className="text-xs sm:text-sm"><FileSpreadsheet className="h-4 w-4 mr-1" />OFX</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contas" className="mt-4">
