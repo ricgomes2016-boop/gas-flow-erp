@@ -42,6 +42,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { geocodeAddress, type GeocodingResult } from "@/lib/geocoding";
 import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
 import { useRegrasCadastro } from "@/hooks/useRegrasCadastro";
@@ -97,6 +98,7 @@ export default function CadastroClientesCad() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const { regras } = useRegrasCadastro();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -728,6 +730,7 @@ export default function CadastroClientesCad() {
           cep: c.cep || null,
           tipo: c.tipo,
           ativo: true,
+          empresa_id: empresa?.id || null,
         });
       }
 

@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { cn, getBrasiliaDate } from "@/lib/utils";
 import { CaixaBloqueadoBanner } from "@/components/caixa/CaixaBloqueadoBanner";
 
@@ -120,6 +121,7 @@ export default function NovaVenda() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
 
   const [dataEntrega, setDataEntrega] = useState(() => { const d = getBrasiliaDate(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; });
   const [canalVenda, setCanalVenda] = useState("telefone");
@@ -290,6 +292,7 @@ export default function NovaVenda() {
           cidade: data.cidade || null,
           telefone: data.cliente_telefone || null,
           ativo: true,
+          empresa_id: empresa?.id || null,
         };
 
         const { data: clienteCriado, error: createError } = await supabase
@@ -630,6 +633,7 @@ export default function NovaVenda() {
             bairro: customer.bairro || null,
             cep: customer.cep || null,
             ativo: true,
+            empresa_id: empresa?.id || null,
           })
           .select("id")
           .single();
