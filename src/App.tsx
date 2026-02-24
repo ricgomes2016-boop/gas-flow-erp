@@ -67,6 +67,7 @@ const PromocoesCupons = lazy(() => import("./pages/clientes/PromocoesCupons"));
 const Fidelidade = lazy(() => import("./pages/clientes/Fidelidade"));
 const CRM = lazy(() => import("./pages/clientes/CRM"));
 const RankingClientes = lazy(() => import("./pages/clientes/RankingClientes"));
+const MarketingIA = lazy(() => import("./pages/clientes/MarketingIA"));
 
 // Estoque
 const Estoque = lazy(() => import("./pages/Estoque"));
@@ -456,6 +457,11 @@ const App = () => (
                   <Route path="/clientes/promocoes" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor"]}>
                       <PromocoesCupons />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/clientes/marketing" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor"]}>
+                      <MarketingIA />
                     </ProtectedRoute>
                   } />
                   <Route path="/clientes/campanhas" element={
