@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, TrendingDown, DollarSign, Target, Plus, Trash2, Settings2 } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, DollarSign, Target, Plus, Trash2, Settings2, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format, startOfMonth, endOfMonth } from "date-fns";
@@ -18,7 +19,7 @@ interface CustoItem {
   id: string;
   nome: string;
   valor: number;
-  valorReal: number; // valor buscado do sistema
+  valorReal: number;
   grupo: string;
   tipo: string;
 }
@@ -49,6 +50,17 @@ const grupoLabels: Record<string, string> = {
   diversos: "Diversos",
 };
 
+const COLORS = [
+  "hsl(187, 65%, 38%)",
+  "hsl(215, 90%, 52%)",
+  "hsl(152, 69%, 40%)",
+  "hsl(45, 93%, 47%)",
+  "hsl(0, 72%, 51%)",
+  "hsl(270, 60%, 55%)",
+  "hsl(30, 80%, 50%)",
+  "hsl(190, 80%, 45%)",
+];
+
 export default function ResultadoOperacional({ embedded = false }: { embedded?: boolean }) {
   const { unidadeAtual } = useUnidade();
   const navigate = useNavigate();
@@ -59,7 +71,6 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
   const [custos, setCustos] = useState<CustoItem[]>([]);
   const [canais, setCanais] = useState<CanalVenda[]>([]);
   const [novoCusto, setNovoCusto] = useState({ nome: "", valor: "" });
-
   const [precoCompraP13, setPrecoCompraP13] = useState(0);
   const [precoVendaP13, setPrecoVendaP13] = useState(0);
 
@@ -73,7 +84,6 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
       const inicio = startOfMonth(new Date(ano, mes, 1)).toISOString();
       const fim = endOfMonth(new Date(ano, mes, 1)).toISOString();
 
-      // Fetch all in parallel
       const [
         { data: categorias },
         pedidosRes,
@@ -137,77 +147,51 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
       const bonus = comissoesRes.data || [];
       const conferencias = conferenciasRes.data || [];
 
-      // Calculate real values from system
       const totalSalarios = funcionarios.reduce((s, f) => s + (Number(f.salario) || 0), 0);
       const totalCombustivel = abastecimentos.reduce((s, a) => s + (Number(a.valor) || 0), 0);
       const totalManutencao = manutencoes.reduce((s, m) => s + (Number(m.valor) || 0), 0);
       const totalBonus = bonus.reduce((s, b) => s + (Number(b.valor) || 0), 0);
       const totalTaxasCartao = conferencias.reduce((s, c) => s + (Number(c.valor_taxa) || 0), 0);
 
-      // Map despesas by categoria name (lowercase matching)
       const despesasPorCategoria: Record<string, number> = {};
       despesas.forEach(d => {
         const cat = (d.categoria || d.descricao || "Diversos").toLowerCase();
         despesasPorCategoria[cat] = (despesasPorCategoria[cat] || 0) + (Number(d.valor) || 0);
       });
 
-      // Build custos from categorias_despesa table with real system values
       const custosCalculados: CustoItem[] = ((categorias || []) as any[]).map(cat => {
         let valorReal = 0;
         const nomeLC = cat.nome.toLowerCase();
-
-        // Auto-fill from system data
-        if (nomeLC.includes("salário") || nomeLC === "salários") {
-          valorReal = totalSalarios;
-        } else if (nomeLC.includes("combustível") || nomeLC.includes("combustivel")) {
-          valorReal = totalCombustivel;
-        } else if (nomeLC.includes("manutenção") || nomeLC.includes("manutencao") || nomeLC.includes("manut")) {
-          valorReal = totalManutencao;
-        } else if (nomeLC.includes("premiação") || nomeLC.includes("bônus") || nomeLC.includes("bonus")) {
-          valorReal = totalBonus;
-        } else if (nomeLC.includes("taxa") && nomeLC.includes("cartão") || nomeLC.includes("maquininha")) {
-          valorReal = totalTaxasCartao;
-        } else {
-          // Try to match from movimentacoes_caixa categories
+        if (nomeLC.includes("salário") || nomeLC === "salários") valorReal = totalSalarios;
+        else if (nomeLC.includes("combustível") || nomeLC.includes("combustivel")) valorReal = totalCombustivel;
+        else if (nomeLC.includes("manutenção") || nomeLC.includes("manutencao") || nomeLC.includes("manut")) valorReal = totalManutencao;
+        else if (nomeLC.includes("premiação") || nomeLC.includes("bônus") || nomeLC.includes("bonus")) valorReal = totalBonus;
+        else if ((nomeLC.includes("taxa") && nomeLC.includes("cartão")) || nomeLC.includes("maquininha")) valorReal = totalTaxasCartao;
+        else {
           for (const [despCat, val] of Object.entries(despesasPorCategoria)) {
-            if (despCat.includes(nomeLC.split("/")[0].trim().substring(0, 5)) ||
-                nomeLC.includes(despCat.substring(0, 5))) {
+            if (despCat.includes(nomeLC.split("/")[0].trim().substring(0, 5)) || nomeLC.includes(despCat.substring(0, 5))) {
               valorReal = val;
               break;
             }
           }
         }
-
-        return {
-          id: cat.id,
-          nome: cat.nome,
-          valor: valorReal || cat.valor_padrao || 0,
-          valorReal,
-          grupo: cat.grupo,
-          tipo: cat.tipo,
-        };
+        return { id: cat.id, nome: cat.nome, valor: valorReal || cat.valor_padrao || 0, valorReal, grupo: cat.grupo, tipo: cat.tipo };
       });
 
       setCustos(custosCalculados);
 
-      // Product map
-      const produtoMap = new Map(
-        (produtos || []).map(p => [p.id, { nome: p.nome, preco: Number(p.preco) || 0 }])
-      );
-
+      const produtoMap = new Map((produtos || []).map(p => [p.id, { nome: p.nome, preco: Number(p.preco) || 0 }]));
       const p13 = (produtos || []).find(p => p.nome?.toLowerCase().includes("p13") || p.nome?.toLowerCase().includes("13kg"));
       if (p13) {
         setPrecoCompraP13(Number(p13.preco) * 0.7);
         setPrecoVendaP13(Number(p13.preco) || 0);
       }
 
-      // Group sales by channel
       const canalMap: Record<string, { qtde: number; totalRS: number; custoTotal: number; tonelagem: number }> = {};
       pedidos.forEach(pedido => {
         const canal = pedido.canal_venda || "Venda Direta";
         if (!canalMap[canal]) canalMap[canal] = { qtde: 0, totalRS: 0, custoTotal: 0, tonelagem: 0 };
         canalMap[canal].totalRS += Number(pedido.valor_total) || 0;
-
         (pedido.pedido_itens || []).forEach((item: any) => {
           const prod = produtoMap.get(item.produto_id);
           const qty = item.quantidade || 0;
@@ -222,8 +206,7 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
       });
 
       setCanais(Object.entries(canalMap).map(([canal, d]) => ({
-        canal,
-        qtde: d.qtde,
+        canal, qtde: d.qtde,
         precoVenda: d.qtde > 0 ? d.totalRS / d.qtde : 0,
         totalRS: d.totalRS,
         precoCompra: d.qtde > 0 ? d.custoTotal / d.qtde : 0,
@@ -242,11 +225,9 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
     setCustos(prev => [...prev, { id: String(Date.now()), nome: novoCusto.nome, valor: Number(novoCusto.valor) || 0, valorReal: 0, grupo: "diversos", tipo: "variavel" }]);
     setNovoCusto({ nome: "", valor: "" });
   };
-
   const handleRemoverCusto = (id: string) => setCustos(prev => prev.filter(c => c.id !== id));
   const handleCustoChange = (id: string, valor: number) => setCustos(prev => prev.map(c => c.id === id ? { ...c, valor } : c));
 
-  // Calculations
   const totalCustos = custos.reduce((s, c) => s + c.valor, 0);
   const totalQtde = canais.reduce((s, c) => s + c.qtde, 0);
   const receitaBruta = canais.reduce((s, c) => s + c.totalRS, 0);
@@ -256,15 +237,28 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
   const totalTonelagem = canais.reduce((s, c) => s + c.tonelagem, 0);
   const margemContribuicaoUnit = totalQtde > 0 ? (receitaBruta - custoMatPrima) / totalQtde : 0;
   const pontoEquilibrio = margemContribuicaoUnit > 0 ? Math.ceil(totalCustos / margemContribuicaoUnit) : 0;
-  const totalCanaisQtde = canais.reduce((s, c) => s + c.qtde, 0);
   const mesLabel = format(new Date(Number(anoSelecionado), Number(mesSelecionado), 1), "MMMM yyyy", { locale: ptBR }).replace(/^\w/, c => c.toUpperCase());
 
-  // Group custos by grupo
   const custosAgrupados = Object.entries(grupoLabels).reduce((acc, [key, label]) => {
     const items = custos.filter(c => c.grupo === key);
     if (items.length > 0) acc.push({ key, label, items, total: items.reduce((s, c) => s + c.valor, 0) });
     return acc;
   }, [] as { key: string; label: string; items: CustoItem[]; total: number }[]);
+
+  // Chart data for DRE waterfall
+  const dreBarData = [
+    { name: "Receita", value: receitaBruta },
+    { name: "Mat. Prima", value: -custoMatPrima },
+    ...custosAgrupados.map(g => ({ name: g.label.substring(0, 10), value: -g.total })),
+    { name: "Resultado", value: lucroLiquido },
+  ];
+
+  // Pie data for channel share
+  const pieData = canais.map((c, i) => ({
+    name: c.canal,
+    value: c.totalRS,
+    fill: COLORS[i % COLORS.length],
+  }));
 
   if (loading) {
     const loader = <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -279,309 +273,334 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
 
   const content = (
     <div className="space-y-6">
-        {/* Filtros */}
-        <div className="flex flex-wrap gap-3 items-center">
-          <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Mês" /></SelectTrigger>
-            <SelectContent>
-              {mesesOptions.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
-            <SelectTrigger className="w-28"><SelectValue placeholder="Ano" /></SelectTrigger>
-            <SelectContent>
-              {[2024, 2025, 2026].map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={() => navigate("/config/categorias-despesa")}>
-            <Settings2 className="h-4 w-4 mr-2" /> Categorias
-          </Button>
-        </div>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Mês" /></SelectTrigger>
+          <SelectContent>
+            {mesesOptions.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
+          <SelectTrigger className="w-28"><SelectValue placeholder="Ano" /></SelectTrigger>
+          <SelectContent>
+            {[2024, 2025, 2026].map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="sm" onClick={() => navigate("/config/categorias-despesa")}>
+          <Settings2 className="h-4 w-4 mr-2" /> Categorias
+        </Button>
+      </div>
 
-        {/* KPIs */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10"><DollarSign className="h-5 w-5 text-green-500" /></div>
-                <div className="min-w-0">
-                  <p className="text-lg md:text-xl font-bold truncate">R$ {receitaBruta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-muted-foreground">Receita Bruta</p>
-                </div>
+      {/* KPIs */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none" />
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-lg bg-green-500/10"><DollarSign className="h-4 w-4 text-green-600" /></div>
+            </div>
+            <p className="text-xl font-bold tabular-nums">R$ {receitaBruta.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+            <p className="text-xs text-muted-foreground">Receita Bruta</p>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-lg bg-primary/10"><TrendingUp className="h-4 w-4 text-primary" /></div>
+            </div>
+            <p className="text-xl font-bold tabular-nums">R$ {lucroBruto.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+            <p className="text-xs text-muted-foreground">Lucro Bruto</p>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden">
+          <div className={`absolute inset-0 bg-gradient-to-br ${lucroLiquido >= 0 ? "from-green-500/5" : "from-destructive/5"} to-transparent pointer-events-none`} />
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`p-2 rounded-lg ${lucroLiquido >= 0 ? "bg-green-500/10" : "bg-destructive/10"}`}>
+                {lucroLiquido >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10"><TrendingUp className="h-5 w-5 text-primary" /></div>
-                <div className="min-w-0">
-                  <p className="text-lg md:text-xl font-bold truncate">R$ {lucroBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-muted-foreground">Lucro Bruto</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${lucroLiquido >= 0 ? "bg-green-500/10" : "bg-destructive/10"}`}>
-                  {lucroLiquido >= 0 ? <TrendingUp className="h-5 w-5 text-green-500" /> : <TrendingDown className="h-5 w-5 text-destructive" />}
-                </div>
-                <div className="min-w-0">
-                  <p className={`text-lg md:text-xl font-bold truncate ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
-                    R$ {lucroLiquido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Resultado</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10"><Target className="h-5 w-5 text-blue-500" /></div>
-                <div className="min-w-0">
-                  <p className="text-lg md:text-xl font-bold truncate">{pontoEquilibrio} un.</p>
-                  <p className="text-xs text-muted-foreground">Ponto de Equilíbrio</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <p className={`text-xl font-bold tabular-nums ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
+              R$ {lucroLiquido.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-xs text-muted-foreground">Resultado</p>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-lg bg-blue-500/10"><Target className="h-4 w-4 text-blue-500" /></div>
+            </div>
+            <p className="text-xl font-bold tabular-nums">{pontoEquilibrio} un.</p>
+            <p className="text-xs text-muted-foreground">Ponto de Equilíbrio</p>
+          </CardContent>
+        </Card>
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Custos / Despesas agrupados */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Custos / Despesas</CardTitle>
-                <Badge variant="outline" className="text-destructive">
-                  Total: R$ {totalCustos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </Badge>
+      {/* Gráficos - Waterfall DRE + Canais Pie */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Composição do Resultado
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={dreBarData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tickFormatter={v => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  formatter={(value: number) => [`R$ ${Math.abs(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, ""]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {dreBarData.map((entry, i) => (
+                    <Cell key={i} fill={entry.value >= 0 ? "hsl(152, 69%, 40%)" : "hsl(0, 72%, 51%)"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Receita por Canal</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pieData.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-8">Sem dados</p>
+            ) : (
+              <div className="flex flex-col items-center">
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="value">
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 w-full">
+                  {pieData.map((cat, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs truncate">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.fill }} />
+                      <span className="truncate text-muted-foreground">{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-right w-32">Valor (R$)</TableHead>
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {custosAgrupados.map(grupo => (
-                      <>
-                        <TableRow key={grupo.key} className="bg-muted/30">
-                          <TableCell colSpan={2} className="py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            {grupo.label}
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Custos / Despesas agrupados */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Custos / Despesas</CardTitle>
+              <Badge variant="outline" className="text-destructive">
+                Total: R$ {totalCustos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right w-32">Valor (R$)</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {custosAgrupados.map(grupo => (
+                    <>
+                      <TableRow key={grupo.key} className="bg-muted/30">
+                        <TableCell colSpan={2} className="py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          {grupo.label}
+                        </TableCell>
+                        <TableCell className="py-1 text-right text-xs font-bold text-muted-foreground">
+                          R$ {grupo.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                      </TableRow>
+                      {grupo.items.map(c => (
+                        <TableRow key={c.id}>
+                          <TableCell className="py-1.5 text-sm">
+                            <div className="flex items-center gap-1.5">
+                              {c.nome}
+                              {c.valorReal > 0 && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-500/10 text-green-700 border-green-200">
+                                  auto
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
-                          <TableCell className="py-1 text-right text-xs font-bold text-muted-foreground">
-                            R$ {grupo.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          <TableCell className="py-1.5 text-right">
+                            <Input
+                              type="number"
+                              value={c.valor || ""}
+                              onChange={(e) => handleCustoChange(c.id, Number(e.target.value))}
+                              className="h-7 text-right text-sm w-28 ml-auto tabular-nums"
+                            />
+                          </TableCell>
+                          <TableCell className="py-1.5">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoverCusto(c.id)}>
+                              <Trash2 className="h-3 w-3 text-muted-foreground" />
+                            </Button>
                           </TableCell>
                         </TableRow>
-                        {grupo.items.map(c => (
-                          <TableRow key={c.id}>
-                            <TableCell className="py-1.5 text-sm">
-                              <div className="flex items-center gap-1.5">
-                                {c.nome}
-                                {c.valorReal > 0 && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-500/10 text-green-700 border-green-200">
-                                    auto
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-1.5 text-right">
-                              <Input
-                                type="number"
-                                value={c.valor || ""}
-                                onChange={(e) => handleCustoChange(c.id, Number(e.target.value))}
-                                className="h-7 text-right text-sm w-28 ml-auto"
-                              />
-                            </TableCell>
-                            <TableCell className="py-1.5">
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoverCusto(c.id)}>
-                                <Trash2 className="h-3 w-3 text-muted-foreground" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </>
-                    ))}
-                    <TableRow className="bg-muted/50 font-bold border-t-2">
-                      <TableCell className="py-2">Total Geral</TableCell>
-                      <TableCell className="py-2 text-right text-destructive">
-                        R$ {totalCustos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Input placeholder="Novo custo" value={novoCusto.nome} onChange={e => setNovoCusto(p => ({ ...p, nome: e.target.value }))} className="h-8 text-sm" />
-                <Input type="number" placeholder="Valor" value={novoCusto.valor} onChange={e => setNovoCusto(p => ({ ...p, valor: e.target.value }))} className="h-8 text-sm w-28" />
-                <Button size="sm" variant="outline" className="h-8" onClick={handleAdicionarCusto}><Plus className="h-3 w-3" /></Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Vendas por Canal */}
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Vendas por Canal</CardTitle></CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Canal</TableHead>
-                      <TableHead className="text-right">Qtde</TableHead>
-                      <TableHead className="text-right hidden md:table-cell">Preço Venda</TableHead>
-                      <TableHead className="text-right">Total R$</TableHead>
-                      <TableHead className="text-right hidden lg:table-cell">Preço Compra</TableHead>
-                      <TableHead className="text-right hidden md:table-cell">MC R$</TableHead>
-                      <TableHead className="text-right hidden lg:table-cell">Ton.</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {canais.length === 0 ? (
-                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Nenhuma venda no período</TableCell></TableRow>
-                    ) : canais.map(c => (
-                      <TableRow key={c.canal}>
-                        <TableCell className="py-1.5 text-sm font-medium">{c.canal}</TableCell>
-                        <TableCell className="py-1.5 text-right text-sm">{c.qtde}</TableCell>
-                        <TableCell className="py-1.5 text-right text-sm hidden md:table-cell">{c.precoVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="py-1.5 text-right text-sm">{c.totalRS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="py-1.5 text-right text-sm hidden lg:table-cell">{c.precoCompra.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="py-1.5 text-right text-sm hidden md:table-cell text-green-600">{c.margemRS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="py-1.5 text-right text-sm hidden lg:table-cell">{c.tonelagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                      </TableRow>
-                    ))}
-                    {canais.length > 0 && (
-                      <TableRow className="bg-muted/50 font-bold">
-                        <TableCell className="py-2">Total</TableCell>
-                        <TableCell className="py-2 text-right">{totalQtde}</TableCell>
-                        <TableCell className="py-2 hidden md:table-cell"></TableCell>
-                        <TableCell className="py-2 text-right">{receitaBruta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="py-2 hidden lg:table-cell"></TableCell>
-                        <TableCell className="py-2 text-right hidden md:table-cell text-green-600">{(receitaBruta - custoMatPrima).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="py-2 text-right hidden lg:table-cell">{totalTonelagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Resumo Financeiro + Participação */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Demonstrativo de Resultado</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">Receita Bruta</TableCell>
-                    <TableCell className="text-right font-bold">R$ {receitaBruta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium text-destructive">(-) Custo Mat. Prima</TableCell>
-                    <TableCell className="text-right text-destructive">R$ {custoMatPrima.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                  </TableRow>
-                  <TableRow className="bg-muted/30">
-                    <TableCell className="font-bold">= Lucro Bruto</TableCell>
-                    <TableCell className="text-right font-bold">R$ {lucroBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                  </TableRow>
-                  {custosAgrupados.map(g => (
-                    <TableRow key={g.key}>
-                      <TableCell className="font-medium text-destructive text-sm">(-) {g.label}</TableCell>
-                      <TableCell className="text-right text-destructive text-sm">R$ {g.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                    </TableRow>
+                      ))}
+                    </>
                   ))}
-                  <TableRow className={lucroLiquido >= 0 ? "bg-green-500/5" : "bg-destructive/5"}>
-                    <TableCell className="font-bold text-lg">Resultado</TableCell>
-                    <TableCell className={`text-right font-bold text-lg ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
-                      R$ {lucroLiquido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  <TableRow className="bg-muted/50 font-bold border-t-2">
+                    <TableCell className="py-2">Total Geral</TableCell>
+                    <TableCell className="py-2 text-right text-destructive tabular-nums">
+                      R$ {totalCustos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </TableCell>
+                    <TableCell></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
-              <div className="mt-4 p-3 rounded-lg bg-muted/50 flex items-center justify-between">
-                <span className="text-sm font-medium">Ponto de Equilíbrio</span>
-                <span className="text-lg font-bold text-primary">{pontoEquilibrio.toLocaleString("pt-BR")} un.</span>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <Input placeholder="Novo custo" value={novoCusto.nome} onChange={e => setNovoCusto(p => ({ ...p, nome: e.target.value }))} className="h-8 text-sm" />
+              <Input type="number" placeholder="Valor" value={novoCusto.valor} onChange={e => setNovoCusto(p => ({ ...p, valor: e.target.value }))} className="h-8 text-sm w-28" />
+              <Button size="sm" variant="outline" className="h-8" onClick={handleAdicionarCusto}><Plus className="h-3 w-3" /></Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Participação por Canal</CardTitle></CardHeader>
-            <CardContent>
-              {canais.length === 0 ? (
-                <p className="text-center text-muted-foreground py-6">Nenhuma venda no período</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Canal</TableHead>
-                      <TableHead className="text-right">Share</TableHead>
-                      <TableHead className="text-right">Qtde</TableHead>
+        {/* Vendas por Canal */}
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Vendas por Canal</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Canal</TableHead>
+                    <TableHead className="text-right">Qtde</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">P. Venda</TableHead>
+                    <TableHead className="text-right">Total R$</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">MC R$</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {canais.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhuma venda no período</TableCell></TableRow>
+                  ) : canais.map(c => (
+                    <TableRow key={c.canal}>
+                      <TableCell className="py-1.5 text-sm font-medium">{c.canal}</TableCell>
+                      <TableCell className="py-1.5 text-right text-sm tabular-nums">{c.qtde}</TableCell>
+                      <TableCell className="py-1.5 text-right text-sm tabular-nums hidden md:table-cell">{c.precoVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="py-1.5 text-right text-sm tabular-nums">{c.totalRS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="py-1.5 text-right text-sm tabular-nums hidden md:table-cell text-green-600">{c.margemRS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {canais.sort((a, b) => b.qtde - a.qtde).map(c => {
-                      const share = totalCanaisQtde > 0 ? ((c.qtde / totalCanaisQtde) * 100) : 0;
-                      return (
-                        <TableRow key={c.canal}>
-                          <TableCell className="py-1.5 text-sm font-medium">{c.canal}</TableCell>
-                          <TableCell className="py-1.5 text-right text-sm">
-                            <div className="flex items-center justify-end gap-2">
-                              <div className="w-16 h-2 rounded-full bg-muted overflow-hidden hidden sm:block">
-                                <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
-                              </div>
-                              <span>{share.toFixed(0)}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-1.5 text-right text-sm font-medium">{c.qtde.toLocaleString("pt-BR")}</TableCell>
-                        </TableRow>
-                      );
-                    })}
+                  ))}
+                  {canais.length > 0 && (
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell className="py-2">Total</TableCell>
-                      <TableCell className="py-2 text-right">100%</TableCell>
-                      <TableCell className="py-2 text-right">{totalCanaisQtde.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="py-2 text-right tabular-nums">{totalQtde}</TableCell>
+                      <TableCell className="py-2 hidden md:table-cell"></TableCell>
+                      <TableCell className="py-2 text-right tabular-nums">{receitaBruta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="py-2 text-right hidden md:table-cell text-green-600 tabular-nums">{(receitaBruta - custoMatPrima).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                     </TableRow>
-                  </TableBody>
-                </Table>
-              )}
-              <div className="mt-4 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dados de Referência</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="p-2 rounded bg-muted/50">
-                    <p className="text-xs text-muted-foreground">Preço Compra P13</p>
-                    <p className="font-medium">R$ {precoCompraP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="p-2 rounded bg-muted/50">
-                    <p className="text-xs text-muted-foreground">Preço Venda P13</p>
-                    <p className="font-medium">R$ {precoVendaP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="p-2 rounded bg-muted/50">
-                    <p className="text-xs text-muted-foreground">Margem Bruta P13</p>
-                    <p className="font-medium text-green-600">R$ {(precoVendaP13 - precoCompraP13).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="p-2 rounded bg-muted/50">
-                    <p className="text-xs text-muted-foreground">Tonelagem Total</p>
-                    <p className="font-medium">{totalTonelagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ton</p>
-                  </div>
-                </div>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Resumo Financeiro */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Demonstrativo de Resultado</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Receita Bruta</TableCell>
+                  <TableCell className="text-right font-bold tabular-nums">R$ {receitaBruta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-destructive">(-) Custo Mat. Prima</TableCell>
+                  <TableCell className="text-right text-destructive tabular-nums">R$ {custoMatPrima.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                </TableRow>
+                <TableRow className="bg-muted/30">
+                  <TableCell className="font-bold">= Lucro Bruto</TableCell>
+                  <TableCell className="text-right font-bold tabular-nums">R$ {lucroBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                </TableRow>
+                {custosAgrupados.map(g => (
+                  <TableRow key={g.key}>
+                    <TableCell className="font-medium text-destructive text-sm">(-) {g.label}</TableCell>
+                    <TableCell className="text-right text-destructive text-sm tabular-nums">R$ {g.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className={lucroLiquido >= 0 ? "bg-green-500/5" : "bg-destructive/5"}>
+                  <TableCell className="font-bold text-lg">Resultado</TableCell>
+                  <TableCell className={`text-right font-bold text-lg tabular-nums ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
+                    R$ {lucroLiquido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            <div className="mt-4 p-3 rounded-lg bg-muted/50 flex items-center justify-between">
+              <span className="text-sm font-medium">Ponto de Equilíbrio</span>
+              <span className="text-lg font-bold text-primary tabular-nums">{pontoEquilibrio.toLocaleString("pt-BR")} un.</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Dados Referência */}
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Indicadores de Referência</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Preço Compra P13</p>
+                <p className="font-bold tabular-nums">R$ {precoCompraP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Preço Venda P13</p>
+                <p className="font-bold tabular-nums">R$ {precoVendaP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Margem Bruta P13</p>
+                <p className="font-bold text-green-600 tabular-nums">R$ {(precoVendaP13 - precoCompraP13).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Tonelagem Total</p>
+                <p className="font-bold tabular-nums">{totalTonelagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ton</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Margem Líquida</p>
+                <p className={`font-bold tabular-nums ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  {receitaBruta > 0 ? ((lucroLiquido / receitaBruta) * 100).toFixed(1) : "0.0"}%
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">Ticket Médio</p>
+                <p className="font-bold tabular-nums">
+                  R$ {totalQtde > 0 ? (receitaBruta / totalQtde).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "0,00"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 
