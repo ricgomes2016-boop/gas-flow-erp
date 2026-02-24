@@ -958,6 +958,12 @@ export default function CadastroClientesCad() {
                         <SelectItem value="todos">Todos</SelectItem>
                         <SelectItem value="residencial">Residencial</SelectItem>
                         <SelectItem value="comercial">Comercial</SelectItem>
+                        <SelectItem value="industrial">Industrial</SelectItem>
+                        <SelectItem value="revenda">Revenda</SelectItem>
+                        <SelectItem value="revendedor">Revendedor</SelectItem>
+                        <SelectItem value="condominio">Condomínio</SelectItem>
+                        <SelectItem value="orgao_publico">Órgão Público</SelectItem>
+                        <SelectItem value="rural">Rural</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1274,6 +1280,12 @@ export default function CadastroClientesCad() {
                   <SelectContent>
                     <SelectItem value="residencial">Residencial</SelectItem>
                     <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="industrial">Industrial</SelectItem>
+                    <SelectItem value="revenda">Revenda</SelectItem>
+                    <SelectItem value="revendedor">Revendedor</SelectItem>
+                    <SelectItem value="condominio">Condomínio</SelectItem>
+                    <SelectItem value="orgao_publico">Órgão Público</SelectItem>
+                    <SelectItem value="rural">Rural</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
