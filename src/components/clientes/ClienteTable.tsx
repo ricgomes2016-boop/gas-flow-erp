@@ -3,7 +3,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Phone, MapPin, Edit, Trash2, Eye } from "lucide-react";
+import { Phone, MapPin, Edit, Trash2, Eye, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ClienteDB, ClienteForm } from "@/hooks/useClientes";
 import {
@@ -13,15 +13,17 @@ import {
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { ClienteTagsBadges } from "./ClienteTagsBadges";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   clientes: ClienteDB[];
   loading: boolean;
   onEdit: (cliente: ClienteDB) => void;
   onDelete: (id: string) => void;
+  onManageUnidades?: (cliente: ClienteDB) => void;
 }
 
-export function ClienteTable({ clientes, loading, onEdit, onDelete }: Props) {
+export function ClienteTable({ clientes, loading, onEdit, onDelete, onManageUnidades }: Props) {
   const navigate = useNavigate();
   if (loading) {
     return (
@@ -117,6 +119,16 @@ export function ClienteTable({ clientes, loading, onEdit, onDelete }: Props) {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/clientes/${cliente.id}`)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {onManageUnidades && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onManageUnidades(cliente)}>
+                            <Building2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Unidades do cliente</TooltipContent>
+                      </Tooltip>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(cliente)}>
                       <Edit className="h-4 w-4" />
                     </Button>

@@ -1395,6 +1395,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cliente_unidades: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          unidade_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          unidade_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          unidade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_unidades_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_unidades_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           ativo: boolean | null
