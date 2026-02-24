@@ -28,7 +28,13 @@ interface Entregador {
   unread: number;
 }
 
-export function ChatOperador() {
+interface ChatOperadorProps {
+  externalOpen?: boolean;
+  onExternalClose?: () => void;
+  onUnreadChange?: (count: number) => void;
+}
+
+export function ChatOperador({ externalOpen, onExternalClose, onUnreadChange }: ChatOperadorProps) {
   const [open, setOpen] = useState(false);
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [selected, setSelected] = useState<Entregador | null>(null);
@@ -39,7 +45,16 @@ export function ChatOperador() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { profile } = useAuth();
 
-  // Carrega entregadores e contagem de não lidas
+  useEffect(() => {
+    if (externalOpen) setOpen(true);
+  }, [externalOpen]);
+
+  const handleClose = () => {
+    setOpen(false);
+    setSelected(null);
+    onExternalClose?.();
+  };
+
   const fetchEntregadores = async () => {
     const { data: entregadoresData } = await supabase
       .from("entregadores")
@@ -49,7 +64,6 @@ export function ChatOperador() {
 
     if (!entregadoresData) return;
 
-    // Busca mensagens não lidas por entregador
     const { data: unreadData } = await supabase
       .from("chat_mensagens")
       .select("remetente_id")
@@ -67,14 +81,15 @@ export function ChatOperador() {
     }));
 
     setEntregadores(list);
-    setTotalUnread(Object.values(unreadMap).reduce((a, b) => a + b, 0));
+    const total = Object.values(unreadMap).reduce((a, b) => a + b, 0);
+    setTotalUnread(total);
+    onUnreadChange?.(total);
   };
 
   useEffect(() => {
     fetchEntregadores();
   }, []);
 
-  // Realtime: atualiza lista ao chegar nova mensagem
   useEffect(() => {
     const channel = supabase
       .channel("chat-operador-list")
@@ -85,7 +100,6 @@ export function ChatOperador() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Carrega mensagens do entregador selecionado
   const fetchMessages = async (entregadorId: string) => {
     const { data } = await supabase
       .from("chat_mensagens")
@@ -98,7 +112,6 @@ export function ChatOperador() {
     if (data) setMessages(data as ChatMessage[]);
   };
 
-  // Marca como lidas ao abrir conversa
   const markAsRead = async (entregadorId: string) => {
     await supabase
       .from("chat_mensagens")
@@ -115,7 +128,6 @@ export function ChatOperador() {
     await markAsRead(e.id);
   };
 
-  // Realtime mensagens da conversa aberta
   useEffect(() => {
     if (!selected) return;
     const channel = supabase
@@ -135,7 +147,6 @@ export function ChatOperador() {
     return () => { supabase.removeChannel(channel); };
   }, [selected]);
 
-  // Auto-scroll
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -144,7 +155,7 @@ export function ChatOperador() {
     if (!input.trim() || !selected || sending) return;
     setSending(true);
     await supabase.from("chat_mensagens").insert({
-      remetente_id: selected.id, // usando id do entregador como referência no remetente para a query funcionar
+      remetente_id: selected.id,
       remetente_tipo: "base",
       remetente_nome: profile?.full_name || "Base",
       destinatario_id: selected.id,
@@ -163,11 +174,11 @@ export function ChatOperador() {
 
   return (
     <>
-      {/* Botão flutuante */}
+      {/* Desktop floating button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-20 right-[4.5rem] md:bottom-6 md:right-24 z-40 h-12 w-12 md:h-14 md:w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
+          className="fixed bottom-6 right-24 z-40 hidden md:flex h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 items-center justify-center"
           title="Chat com Entregadores"
         >
           <MessageCircle className="h-6 w-6" />
@@ -179,9 +190,12 @@ export function ChatOperador() {
         </button>
       )}
 
-      {/* Painel de chat */}
+      {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-40 w-[360px] max-w-[calc(100vw-1rem)] h-[500px] max-h-[calc(100vh-5rem)] bg-background border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className={cn(
+          "fixed z-40 bg-background border shadow-2xl flex flex-col overflow-hidden",
+          "bottom-0 left-0 right-0 h-[80vh] rounded-t-2xl rounded-b-none md:bottom-6 md:right-6 md:left-auto md:w-[360px] md:h-[500px] md:max-h-[calc(100vh-5rem)] md:rounded-2xl"
+        )}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-primary text-primary-foreground rounded-t-2xl">
             <div className="flex items-center gap-2">
@@ -195,7 +209,7 @@ export function ChatOperador() {
                 {selected ? selected.nome : "Chat com Entregadores"}
               </span>
             </div>
-            <button onClick={() => { setOpen(false); setSelected(null); }} className="hover:opacity-80">
+            <button onClick={handleClose} className="hover:opacity-80">
               <X className="h-4 w-4" />
             </button>
           </div>

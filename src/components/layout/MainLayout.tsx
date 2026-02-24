@@ -1,10 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useCallback } from "react";
 import { Sidebar } from "./Sidebar";
 import { SidebarProvider, useSidebarContext } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
-
 import { AiFloatingButton } from "@/components/ai/AiFloatingButton";
 import { ChatOperador } from "@/components/chat/ChatOperador";
+import { MobileBottomBar } from "@/components/layout/MobileBottomBar";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -12,20 +12,28 @@ interface MainLayoutProps {
 
 function MainLayoutContent({ children }: MainLayoutProps) {
   const { collapsed } = useSidebarContext();
+  const [aiOpen, setAiOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
       <main
         className={cn(
-          "transition-all duration-300 ml-0",
+          "transition-all duration-300 ml-0 pb-14 md:pb-0",
           collapsed ? "md:ml-16" : "md:ml-64"
         )}
       >
         {children}
       </main>
-      <AiFloatingButton />
-      <ChatOperador />
+      <AiFloatingButton externalOpen={aiOpen} onExternalClose={() => setAiOpen(false)} />
+      <ChatOperador externalOpen={chatOpen} onExternalClose={() => setChatOpen(false)} onUnreadChange={setChatUnread} />
+      <MobileBottomBar
+        onOpenAi={() => setAiOpen(true)}
+        onOpenChat={() => setChatOpen(true)}
+        chatUnread={chatUnread}
+      />
     </div>
   );
 }
