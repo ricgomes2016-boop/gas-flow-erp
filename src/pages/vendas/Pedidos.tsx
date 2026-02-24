@@ -28,7 +28,7 @@ import {
   Search, Eye, Truck, CheckCircle, Clock, XCircle, Sparkles,
   User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
   Share2, DollarSign, Trash2, Lock, MessageCircle, CreditCard,
-  ChevronLeft, ChevronRight, CheckSquare, Building2, Pencil, MoveRight,
+  ChevronLeft, ChevronRight, CheckSquare, Building2, Pencil, MoveRight, Map,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
@@ -437,6 +437,10 @@ export default function Pedidos() {
         {/* Top action */}
         <div className="flex items-center justify-end gap-2 flex-wrap">
           <SmartImportButtons edgeFunctionName="parse-orders-history" onDataExtracted={handleImportData} />
+          <Button variant="outline" onClick={() => navigate("/operacional/centro")}>
+            <Map className="h-4 w-4 mr-2" />
+            Mapa Operacional
+          </Button>
           <Button onClick={() => navigate("/vendas/nova")}>Nova Venda</Button>
         </div>
 
