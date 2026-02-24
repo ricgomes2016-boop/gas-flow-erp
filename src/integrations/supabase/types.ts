@@ -308,6 +308,48 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          created_at: string
+          dados_antigos: Json | null
+          dados_novos: Json | null
+          empresa_id: string | null
+          id: string
+          ip_address: string | null
+          operacao: string
+          registro_id: string | null
+          tabela: string
+          unidade_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          dados_antigos?: Json | null
+          dados_novos?: Json | null
+          empresa_id?: string | null
+          id?: string
+          ip_address?: string | null
+          operacao: string
+          registro_id?: string | null
+          tabela: string
+          unidade_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          dados_antigos?: Json | null
+          dados_novos?: Json | null
+          empresa_id?: string | null
+          id?: string
+          ip_address?: string | null
+          operacao?: string
+          registro_id?: string | null
+          tabela?: string
+          unidade_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       avaliacoes_desempenho: {
         Row: {
           avaliador_id: string | null
