@@ -36,12 +36,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role
+    // Check admin or super_admin role
     const { data: roleData } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "admin");
+      .in("role", ["admin", "super_admin"]);
 
     if (!roleData || roleData.length === 0) {
       return new Response(JSON.stringify({ error: "Acesso restrito a administradores" }), {
@@ -49,6 +49,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const isSuperAdmin = roleData.some((r: any) => r.role === "super_admin");
 
     const { action, ...params } = await req.json();
 
@@ -79,7 +81,7 @@ Deno.serve(async (req) => {
 
     // CREATE user
     if (action === "create") {
-      const { email, password, full_name, phone, role, unidade_ids } = params;
+      const { email, password, full_name, phone, role, unidade_ids, empresa_id: targetEmpresaId } = params;
 
       if (!email || !password || !full_name || !role) {
         return new Response(JSON.stringify({ error: "Campos obrigatórios: email, password, full_name, role" }), {
@@ -88,25 +90,32 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check plan user limit
-      const { data: callerProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("empresa_id")
-        .eq("user_id", caller.id)
-        .single();
+      // Determine empresa_id: super_admin can specify, regular admin uses their own
+      let empresaId = null;
+      if (isSuperAdmin && targetEmpresaId) {
+        empresaId = targetEmpresaId;
+      } else {
+        const { data: callerProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("empresa_id")
+          .eq("user_id", caller.id)
+          .single();
+        empresaId = callerProfile?.empresa_id;
+      }
 
-      if (callerProfile?.empresa_id) {
+      // Check plan user limit
+      if (empresaId) {
         const { data: empresa } = await supabaseAdmin
           .from("empresas")
           .select("plano_max_usuarios, plano")
-          .eq("id", callerProfile.empresa_id)
+          .eq("id", empresaId)
           .single();
 
         if (empresa) {
           const { count } = await supabaseAdmin
             .from("profiles")
             .select("id", { count: "exact", head: true })
-            .eq("empresa_id", callerProfile.empresa_id);
+            .eq("empresa_id", empresaId);
 
           if ((count || 0) >= empresa.plano_max_usuarios) {
             return new Response(JSON.stringify({
@@ -131,10 +140,14 @@ Deno.serve(async (req) => {
       if (newUser.user) {
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        if (phone) {
+        const profileUpdate: Record<string, any> = {};
+        if (phone) profileUpdate.phone = phone;
+        if (empresaId) profileUpdate.empresa_id = empresaId;
+
+        if (Object.keys(profileUpdate).length > 0) {
           await supabaseAdmin
             .from("profiles")
-            .update({ phone })
+            .update(profileUpdate)
             .eq("user_id", newUser.user.id);
         }
 
