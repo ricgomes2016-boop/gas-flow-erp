@@ -69,7 +69,7 @@ export function Sidebar() {
       >
         {/* Header */}
         <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/dashboard" className="flex items-center gap-2">
             <img src={logoImg} alt="Nacional Gás" className="h-9 w-9 flex-shrink-0 rounded-lg object-contain" />
             {!collapsed && (
               <span className="text-lg font-bold text-sidebar-foreground">

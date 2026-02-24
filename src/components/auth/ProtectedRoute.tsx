@@ -92,7 +92,7 @@ export function ProtectedRoute({
                 Roles necessárias: {allowedRoles.join(", ")}
               </p>
               <Button asChild variant="outline">
-                <Link to="/">Voltar ao Dashboard</Link>
+                <Link to="/dashboard">Voltar ao Dashboard</Link>
               </Button>
             </div>
           </div>

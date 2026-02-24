@@ -56,7 +56,7 @@ export default function Auth() {
     } else if (roles.includes("entregador") && !roles.includes("admin") && !roles.includes("gestor")) {
       navigate("/entregador");
     } else {
-      navigate("/");
+      navigate("/dashboard");
     }
   }, [user, roles, loading, navigate]);
 

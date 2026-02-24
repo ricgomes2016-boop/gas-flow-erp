@@ -15,9 +15,10 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/ui/page-loader";
 
-// Eager load: Auth + Dashboard (critical path)
+// Eager load: Auth + Dashboard + Landing (critical path)
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import LandingPage from "./pages/LandingPage";
 
 // Lazy load everything else
 const Vendas = lazy(() => import("./pages/Vendas"));
@@ -255,6 +256,9 @@ const App = () => (
                 <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                 <Routes>
+                  {/* Landing Page - Pública */}
+                  <Route path="/" element={<LandingPage />} />
+
                   {/* Auth - Pública */}
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={
@@ -286,7 +290,7 @@ const App = () => (
                   } />
                   
                   {/* Dashboard - Protegida */}
-                  <Route path="/" element={
+                  <Route path="/dashboard" element={
                     <ProtectedRoute>
                       <Dashboard />
                     </ProtectedRoute>
