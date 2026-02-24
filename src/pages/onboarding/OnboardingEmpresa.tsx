@@ -89,7 +89,7 @@ export default function OnboardingEmpresa() {
 
       toast.success("Empresa criada com sucesso! Bem-vindo ao Gás Fácil.");
       await refetch();
-      navigate("/");
+      navigate("/dashboard");
     } catch (error: any) {
       console.error("Onboarding error:", error);
       toast.error("Erro ao criar empresa: " + error.message);
