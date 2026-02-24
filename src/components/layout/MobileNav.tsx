@@ -56,7 +56,7 @@ export function MobileNav() {
               <Flame className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h2 className="font-bold text-sidebar-foreground text-lg">Gas Express25</h2>
+              <h2 className="font-bold text-sidebar-foreground text-lg">Gás Fácil</h2>
               <p className="text-xs text-sidebar-foreground/60">Gestão de Gás</p>
             </div>
           </div>
