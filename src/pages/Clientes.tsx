@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { useClientes, type ClienteDB, type ClienteForm } from "@/hooks/useClientes";
 import { ClienteTable } from "@/components/clientes/ClienteTable";
 import { ClienteFormDialog } from "@/components/clientes/ClienteFormDialog";
+import { ClienteUnidadesDialog } from "@/components/clientes/ClienteUnidadesDialog";
+import { useUnidade } from "@/contexts/UnidadeContext";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -28,9 +30,12 @@ export default function Clientes() {
     bairros, page, setPage, totalPages, totalCount,
     salvarCliente, excluirCliente, emptyForm, fetchClientes,
   } = useClientes();
+  const { unidadeAtual } = useUnidade();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editData, setEditData] = useState<{ form: ClienteForm; id?: string }>({ form: emptyForm });
+  const [unidadesDialogOpen, setUnidadesDialogOpen] = useState(false);
+  const [unidadesCliente, setUnidadesCliente] = useState<{ id: string; nome: string } | null>(null);
 
   const handleNovo = () => {
     setEditData({ form: emptyForm });
@@ -178,7 +183,7 @@ export default function Clientes() {
   };
 
   const importCsv = async () => {
-    if (csvPreview.length === 0) return;
+    if (csvPreview.length === 0 || !unidadeAtual) return;
     setImporting(true);
     try {
       const rows = csvPreview.map((c) => ({
@@ -194,8 +199,20 @@ export default function Clientes() {
         tipo: c.tipo || "residencial",
       }));
 
-      const { error } = await supabase.from("clientes").insert(rows);
+      const { data: insertedClientes, error } = await supabase
+        .from("clientes")
+        .insert(rows)
+        .select("id");
       if (error) throw error;
+
+      // Associate all imported clients with the current unidade
+      if (insertedClientes && insertedClientes.length > 0) {
+        const cuRows = insertedClientes.map((c: any) => ({
+          cliente_id: c.id,
+          unidade_id: unidadeAtual.id,
+        }));
+        await supabase.from("cliente_unidades").insert(cuRows);
+      }
 
       toast.success(`${rows.length} cliente(s) importado(s) com sucesso!`);
       setCsvDialogOpen(false);
@@ -277,6 +294,10 @@ export default function Clientes() {
               loading={loading}
               onEdit={handleEdit}
               onDelete={excluirCliente}
+              onManageUnidades={(c) => {
+                setUnidadesCliente({ id: c.id, nome: c.nome });
+                setUnidadesDialogOpen(true);
+              }}
             />
 
             {/* Pagination */}
@@ -365,6 +386,16 @@ export default function Clientes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {unidadesCliente && (
+        <ClienteUnidadesDialog
+          open={unidadesDialogOpen}
+          onOpenChange={setUnidadesDialogOpen}
+          clienteId={unidadesCliente.id}
+          clienteNome={unidadesCliente.nome}
+          onSaved={fetchClientes}
+        />
+      )}
     </MainLayout>
   );
 }

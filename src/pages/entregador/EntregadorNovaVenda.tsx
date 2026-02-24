@@ -243,6 +243,18 @@ export default function EntregadorNovaVenda() {
           complemento: data.complemento || "",
         });
         if (criado) {
+          // Associate with entregador's unidade
+          const { data: entData } = await supabase
+            .from("entregadores")
+            .select("unidade_id")
+            .eq("user_id", user?.id || "")
+            .maybeSingle();
+          if (entData?.unidade_id) {
+            await supabase.from("cliente_unidades").insert({
+              cliente_id: criado.id,
+              unidade_id: entData.unidade_id,
+            });
+          }
           toast({ title: "Novo cliente cadastrado!", description: `${data.cliente_nome} adicionado ao sistema.` });
         }
       }

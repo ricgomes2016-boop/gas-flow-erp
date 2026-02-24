@@ -10,6 +10,7 @@ import { formatPhone, formatCEP } from "@/hooks/useInputMasks";
 import { geocodeAddress } from "@/lib/geocoding";
 import { MapPickerDialog } from "@/components/ui/map-picker-dialog";
 import type { GeocodingResult } from "@/lib/geocoding";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Cliente {
   id: string;
@@ -42,6 +43,7 @@ interface CustomerSearchProps {
 }
 
 export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
+  const { unidadeAtual } = useUnidade();
   const [searchResults, setSearchResults] = useState<Cliente[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -50,6 +52,22 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [unidadeClienteIds, setUnidadeClienteIds] = useState<string[] | null>(null);
+
+  // Fetch cliente IDs for current unidade
+  useEffect(() => {
+    if (!unidadeAtual?.id) {
+      setUnidadeClienteIds(null);
+      return;
+    }
+    supabase
+      .from("cliente_unidades")
+      .select("cliente_id")
+      .eq("unidade_id", unidadeAtual.id)
+      .then(({ data }) => {
+        setUnidadeClienteIds(data ? data.map((d: any) => d.cliente_id) : []);
+      });
+  }, [unidadeAtual?.id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -84,11 +102,18 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     }
 
     try {
+      // Filter by unidade clients if available
+      const filterByUnidade = unidadeClienteIds && unidadeClienteIds.length > 0;
+
       let query = supabase
         .from("clientes")
         .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
         .eq("ativo", true)
-        .limit(8);
+        .limit(filterByUnidade ? 50 : 8);
+
+      if (filterByUnidade) {
+        query = query.in("id", unidadeClienteIds);
+      }
 
       if (field === "telefone") {
         query = query.ilike("telefone", `%${cleanTerm}%`);
@@ -103,11 +128,17 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           return;
         }
 
-        const { data, error } = await supabase
+        let addrQuery = supabase
           .from("clientes")
           .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
           .eq("ativo", true)
           .limit(50);
+
+        if (filterByUnidade) {
+          addrQuery = addrQuery.in("id", unidadeClienteIds);
+        }
+
+        const { data, error } = await addrQuery;
 
         if (!error && data) {
           const filtered = data.filter(cliente => {

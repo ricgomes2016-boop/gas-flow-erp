@@ -311,6 +311,13 @@ export default function NovaVenda() {
             observacao: data.observacoes || "",
           });
         } else {
+          // Associate new client with current unidade
+          if (unidadeAtual?.id) {
+            await supabase.from("cliente_unidades").insert({
+              cliente_id: clienteCriado.id,
+              unidade_id: unidadeAtual.id,
+            });
+          }
           setCustomer({
             id: clienteCriado.id,
             nome: data.cliente_nome,
@@ -437,7 +444,15 @@ export default function NovaVenda() {
                 })
                 .select("id")
                 .single();
-              if (created) clienteId = created.id;
+              if (created) {
+                clienteId = created.id;
+                if (unidadeAtual?.id) {
+                  await supabase.from("cliente_unidades").insert({
+                    cliente_id: created.id,
+                    unidade_id: unidadeAtual.id,
+                  });
+                }
+              }
             }
           }
 
@@ -621,6 +636,13 @@ export default function NovaVenda() {
         
         if (!clienteError && novoCliente) {
           clienteId = novoCliente.id;
+          // Associate with current unidade
+          if (unidadeAtual?.id) {
+            await supabase.from("cliente_unidades").insert({
+              cliente_id: novoCliente.id,
+              unidade_id: unidadeAtual.id,
+            });
+          }
           toast({ title: "Cliente cadastrado automaticamente!", description: `${customer.nome} foi adicionado ao sistema.` });
         }
       }

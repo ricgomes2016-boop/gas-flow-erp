@@ -66,13 +66,38 @@ export function useClientes() {
   const [totalCount, setTotalCount] = useState(0);
 
   const fetchClientes = useCallback(async () => {
+    if (!unidadeAtual) {
+      setClientes([]);
+      setTotalCount(0);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Get clientes
+      // First get cliente_ids for this unidade
+      const { data: cuData, error: cuError } = await supabase
+        .from("cliente_unidades")
+        .select("cliente_id")
+        .eq("unidade_id", unidadeAtual.id);
+
+      if (cuError) throw cuError;
+
+      const clienteIds = (cuData || []).map((cu: any) => cu.cliente_id);
+
+      if (clienteIds.length === 0) {
+        setClientes([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
+
+      // Get clientes filtered by those IDs
       let query = supabase
         .from("clientes")
         .select("*", { count: "exact" })
         .eq("ativo", true)
+        .in("id", clienteIds)
         .order("nome", { ascending: true });
 
       if (busca) {
@@ -94,11 +119,11 @@ export function useClientes() {
 
       // Get pedidos count per client
       if (data && data.length > 0) {
-        const clienteIds = data.map((c) => c.id);
+        const ids = data.map((c) => c.id);
         const { data: pedidosData } = await supabase
           .from("pedidos")
           .select("cliente_id, created_at")
-          .in("cliente_id", clienteIds)
+          .in("cliente_id", ids)
           .order("created_at", { ascending: false });
 
         const pedidoMap = new Map<string, { count: number; ultimo: string | null }>();
@@ -128,7 +153,7 @@ export function useClientes() {
     } finally {
       setLoading(false);
     }
-  }, [busca, filtroBairro, page]);
+  }, [busca, filtroBairro, page, unidadeAtual?.id]);
 
   useEffect(() => {
     fetchClientes();
@@ -137,11 +162,16 @@ export function useClientes() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [busca, filtroBairro]);
+  }, [busca, filtroBairro, unidadeAtual?.id]);
 
   const bairros = [...new Set(clientes.map((c) => c.bairro).filter(Boolean))] as string[];
 
   const salvarCliente = async (form: ClienteForm, editId?: string) => {
+    if (!unidadeAtual) {
+      toast.error("Selecione uma unidade primeiro");
+      return false;
+    }
+
     try {
       const payload = {
         nome: form.nome,
@@ -163,8 +193,19 @@ export function useClientes() {
         if (error) throw error;
         toast.success("Cliente atualizado!");
       } else {
-        const { error } = await supabase.from("clientes").insert(payload);
+        const { data: newCliente, error } = await supabase
+          .from("clientes")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
+
+        // Associate the new client with the current unidade
+        const { error: cuError } = await supabase
+          .from("cliente_unidades")
+          .insert({ cliente_id: newCliente.id, unidade_id: unidadeAtual.id });
+        if (cuError) console.error("Erro ao associar cliente à unidade:", cuError);
+
         toast.success("Cliente cadastrado!");
       }
 
@@ -179,7 +220,6 @@ export function useClientes() {
 
   const excluirCliente = async (id: string) => {
     try {
-      // Soft delete
       const { error } = await supabase.from("clientes").update({ ativo: false }).eq("id", id);
       if (error) throw error;
       toast.success("Cliente excluído");
