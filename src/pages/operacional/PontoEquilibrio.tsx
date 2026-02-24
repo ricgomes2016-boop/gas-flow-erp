@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Line, Area } from "recharts";
-import { Calculator, TrendingUp, DollarSign, Package, AlertTriangle, Plus, Trash2, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Calculator, TrendingUp, DollarSign, Package, AlertTriangle, Plus, Trash2, Loader2, CheckCircle2, XCircle, FileDown, Printer } from "lucide-react";
+import { exportPEtoPdf, handlePrint } from "@/services/reportPdfService";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { startOfMonth, endOfMonth } from "date-fns";
@@ -182,6 +183,16 @@ export default function PontoEquilibrio({ embedded = false }: { embedded?: boole
 
   const content = (
     <div className="space-y-6">
+      {/* Ações */}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => exportPEtoPdf(peUnidades, peReais, margemContribuicao, margemPercentual, totalCustosFixos, precoVendaUnit, custoVariavelUnit, custosFixos, vendasMesAtual)}>
+          <FileDown className="h-4 w-4 mr-2" /> PDF
+        </Button>
+        <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Printer className="h-4 w-4 mr-2" /> Imprimir
+        </Button>
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Card className="relative overflow-hidden">

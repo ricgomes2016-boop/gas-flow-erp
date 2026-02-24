@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, DollarSign, Loader2, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, DollarSign, Loader2, ArrowUpRight, ArrowDownRight, BarChart3, FileDown, Printer } from "lucide-react";
+import { exportDREtoPdf, handlePrint } from "@/services/reportPdfService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrasiliaDate } from "@/lib/utils";
@@ -181,6 +183,14 @@ export default function DRE({ embedded = false }: { embedded?: boolean }) {
         <Badge variant="outline" className="text-xs">
           {meses[0]} a {meses[meses.length - 1]}
         </Badge>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportDREtoPdf(dre, meses, `${meses[0]} a ${meses[meses.length - 1]}`)}>
+            <FileDown className="h-4 w-4 mr-2" /> PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" /> Imprimir
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
