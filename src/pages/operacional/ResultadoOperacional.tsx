@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, TrendingDown, DollarSign, Target, Plus, Trash2, Settings2, BarChart3 } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, DollarSign, Target, Plus, Trash2, Settings2, BarChart3, FileDown, Printer } from "lucide-react";
+import { exportROtoPdf, handlePrint } from "@/services/reportPdfService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -290,6 +291,14 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
         <Button variant="outline" size="sm" onClick={() => navigate("/config/categorias-despesa")}>
           <Settings2 className="h-4 w-4 mr-2" /> Categorias
         </Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportROtoPdf(receitaBruta, custoMatPrima, lucroBruto, lucroLiquido, totalCustos, custosAgrupados, canais, mesLabel)}>
+            <FileDown className="h-4 w-4 mr-2" /> PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" /> Imprimir
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
