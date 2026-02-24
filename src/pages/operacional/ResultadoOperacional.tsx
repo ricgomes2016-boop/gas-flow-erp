@@ -127,7 +127,7 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
           if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
           return q;
         })(),
-        supabase.from("produtos").select("id, nome, preco"),
+        supabase.from("produtos").select("id, nome, preco, preco_custo"),
         (() => {
           let q = supabase.from("bonus").select("valor").gte("created_at", inicio).lte("created_at", fim);
           if (unidadeAtual?.id) q = q.eq("unidade_id", unidadeAtual.id);
@@ -153,6 +153,8 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
       const totalManutencao = manutencoes.reduce((s, m) => s + (Number(m.valor) || 0), 0);
       const totalBonus = bonus.reduce((s, b) => s + (Number(b.valor) || 0), 0);
       const totalTaxasCartao = conferencias.reduce((s, c) => s + (Number(c.valor_taxa) || 0), 0);
+      // Encargos sobre salários (~20% INSS patronal + ~8% FGTS = ~28%)
+      const totalImpostosSalario = totalSalarios * 0.28;
 
       const despesasPorCategoria: Record<string, number> = {};
       despesas.forEach(d => {
@@ -163,7 +165,14 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
       const custosCalculados: CustoItem[] = ((categorias || []) as any[]).map(cat => {
         let valorReal = 0;
         const nomeLC = cat.nome.toLowerCase();
-        if (nomeLC.includes("salário") || nomeLC === "salários") valorReal = totalSalarios;
+        // Impostos/encargos sobre salários (INSS patronal + FGTS) — deve vir ANTES do check de "salário"
+        if (nomeLC.includes("imposto") && nomeLC.includes("salário") || nomeLC.includes("encargo") && nomeLC.includes("salário") || nomeLC.includes("inss") || nomeLC.includes("fgts")) {
+          valorReal = totalImpostosSalario;
+        }
+        // Salários puros (sem a palavra "imposto" ou "encargo")
+        else if ((nomeLC.includes("salário") || nomeLC === "salários") && !nomeLC.includes("imposto") && !nomeLC.includes("encargo")) {
+          valorReal = totalSalarios;
+        }
         else if (nomeLC.includes("combustível") || nomeLC.includes("combustivel")) valorReal = totalCombustivel;
         else if (nomeLC.includes("manutenção") || nomeLC.includes("manutencao") || nomeLC.includes("manut")) valorReal = totalManutencao;
         else if (nomeLC.includes("premiação") || nomeLC.includes("bônus") || nomeLC.includes("bonus")) valorReal = totalBonus;
@@ -181,10 +190,11 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
 
       setCustos(custosCalculados);
 
-      const produtoMap = new Map((produtos || []).map(p => [p.id, { nome: p.nome, preco: Number(p.preco) || 0 }]));
+      const produtoMap = new Map((produtos || []).map(p => [p.id, { nome: p.nome, preco: Number(p.preco) || 0, precoCusto: Number((p as any).preco_custo) || 0 }]));
       const p13 = (produtos || []).find(p => p.nome?.toLowerCase().includes("p13") || p.nome?.toLowerCase().includes("13kg"));
       if (p13) {
-        setPrecoCompraP13(Number(p13.preco) * 0.7);
+        const custoProduto = Number((p13 as any).preco_custo) || 0;
+        setPrecoCompraP13(custoProduto > 0 ? custoProduto : Number(p13.preco) * 0.7);
         setPrecoVendaP13(Number(p13.preco) || 0);
       }
 
@@ -197,7 +207,9 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
           const prod = produtoMap.get(item.produto_id);
           const qty = item.quantidade || 0;
           canalMap[canal].qtde += qty;
-          canalMap[canal].custoTotal += qty * (prod?.preco || 0) * 0.7;
+          // Usa preco_custo real quando disponível, senão estima 70% do preço de venda
+          const custoUnit = prod?.precoCusto && prod.precoCusto > 0 ? prod.precoCusto : (prod?.preco || 0) * 0.7;
+          canalMap[canal].custoTotal += qty * custoUnit;
           const nomeProd = prod?.nome?.toLowerCase() || "";
           if (nomeProd.includes("p13") || nomeProd.includes("13kg")) canalMap[canal].tonelagem += qty * 13 / 1000;
           else if (nomeProd.includes("p45") || nomeProd.includes("45kg")) canalMap[canal].tonelagem += qty * 45 / 1000;
@@ -578,33 +590,43 @@ export default function ResultadoOperacional({ embedded = false }: { embedded?: 
           <CardHeader className="pb-3"><CardTitle className="text-base">Indicadores de Referência</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50 flex flex-col justify-between min-h-[72px]">
                 <p className="text-xs text-muted-foreground">Preço Compra P13</p>
-                <p className="font-bold tabular-nums">R$ {precoCompraP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="font-bold tabular-nums mt-1">R$ {precoCompraP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {precoCompraP13 > 0 && precoVendaP13 > 0 && precoCompraP13 !== precoVendaP13 * 0.7 ? "Cadastro de produtos" : "Estimado (70% venda)"}
+                </p>
               </div>
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50 flex flex-col justify-between min-h-[72px]">
                 <p className="text-xs text-muted-foreground">Preço Venda P13</p>
-                <p className="font-bold tabular-nums">R$ {precoVendaP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="font-bold tabular-nums mt-1">R$ {precoVendaP13.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Cadastro de produtos</p>
               </div>
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50 flex flex-col justify-between min-h-[72px]">
                 <p className="text-xs text-muted-foreground">Margem Bruta P13</p>
-                <p className="font-bold text-green-600 tabular-nums">R$ {(precoVendaP13 - precoCompraP13).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="font-bold text-green-600 tabular-nums mt-1">R$ {(precoVendaP13 - precoCompraP13).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {precoVendaP13 > 0 ? `${((1 - precoCompraP13 / precoVendaP13) * 100).toFixed(1)}% de margem` : "—"}
+                </p>
               </div>
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50 flex flex-col justify-between min-h-[72px]">
                 <p className="text-xs text-muted-foreground">Tonelagem Total</p>
-                <p className="font-bold tabular-nums">{totalTonelagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ton</p>
+                <p className="font-bold tabular-nums mt-1">{totalTonelagem.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ton</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Pedidos do período</p>
               </div>
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50 flex flex-col justify-between min-h-[72px]">
                 <p className="text-xs text-muted-foreground">Margem Líquida</p>
-                <p className={`font-bold tabular-nums ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
+                <p className={`font-bold tabular-nums mt-1 ${lucroLiquido >= 0 ? "text-green-600" : "text-destructive"}`}>
                   {receitaBruta > 0 ? ((lucroLiquido / receitaBruta) * 100).toFixed(1) : "0.0"}%
                 </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Lucro / Receita</p>
               </div>
-              <div className="p-3 rounded-lg bg-muted/50">
+              <div className="p-3 rounded-lg bg-muted/50 flex flex-col justify-between min-h-[72px]">
                 <p className="text-xs text-muted-foreground">Ticket Médio</p>
-                <p className="font-bold tabular-nums">
+                <p className="font-bold tabular-nums mt-1">
                   R$ {totalQtde > 0 ? (receitaBruta / totalQtde).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "0,00"}
                 </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Receita / Qtde vendida</p>
               </div>
             </div>
           </CardContent>
