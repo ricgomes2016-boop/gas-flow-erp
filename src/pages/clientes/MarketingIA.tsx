@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -159,11 +160,8 @@ export default function MarketingIA() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Marketing com IA</h1>
-          <p className="text-muted-foreground">Crie conteúdo profissional para suas redes sociais</p>
-        </div>
+      <Header title="Marketing com IA" subtitle="Crie conteúdo profissional para suas redes sociais" />
+      <div className="space-y-6 p-4 md:p-6">
 
         <Tabs defaultValue="posts" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
