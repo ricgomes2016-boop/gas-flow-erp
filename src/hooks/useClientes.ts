@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { toast } from "sonner";
 
 export interface ClienteDB {
@@ -58,6 +59,7 @@ const PAGE_SIZE = 15;
 
 export function useClientes() {
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const [clientes, setClientes] = useState<ClienteDB[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
@@ -173,7 +175,7 @@ export function useClientes() {
     }
 
     try {
-      const payload = {
+      const payload: any = {
         nome: form.nome,
         telefone: form.telefone || null,
         email: form.email || null,
@@ -187,6 +189,10 @@ export function useClientes() {
         latitude: form.latitude,
         longitude: form.longitude,
       };
+
+      if (!editId && empresa?.id) {
+        payload.empresa_id = empresa.id;
+      }
 
       if (editId) {
         const { error } = await supabase.from("clientes").update(payload).eq("id", editId);

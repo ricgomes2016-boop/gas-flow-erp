@@ -1378,22 +1378,33 @@ export type Database = {
         Row: {
           cor: string
           created_at: string
+          empresa_id: string | null
           id: string
           nome: string
         }
         Insert: {
           cor?: string
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome: string
         }
         Update: {
           cor?: string
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cliente_tags_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cliente_unidades: {
         Row: {
@@ -1440,6 +1451,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           email: string | null
+          empresa_id: string | null
           endereco: string | null
           id: string
           latitude: number | null
@@ -1458,6 +1470,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          empresa_id?: string | null
           endereco?: string | null
           id?: string
           latitude?: number | null
@@ -1476,6 +1489,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          empresa_id?: string | null
           endereco?: string | null
           id?: string
           latitude?: number | null
@@ -1486,7 +1500,15 @@ export type Database = {
           tipo?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clientes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comissao_config: {
         Row: {
@@ -1942,6 +1964,7 @@ export type Database = {
         Row: {
           created_at: string
           descricao: string | null
+          empresa_id: string | null
           icone: string | null
           id: string
           meta_valor: number
@@ -1952,6 +1975,7 @@ export type Database = {
         Insert: {
           created_at?: string
           descricao?: string | null
+          empresa_id?: string | null
           icone?: string | null
           id?: string
           meta_valor?: number
@@ -1962,6 +1986,7 @@ export type Database = {
         Update: {
           created_at?: string
           descricao?: string | null
+          empresa_id?: string | null
           icone?: string | null
           id?: string
           meta_valor?: number
@@ -1969,7 +1994,15 @@ export type Database = {
           pontos?: number
           tipo?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conquistas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contas_bancarias: {
         Row: {

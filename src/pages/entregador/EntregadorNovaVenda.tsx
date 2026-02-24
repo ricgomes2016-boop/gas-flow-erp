@@ -42,6 +42,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 
 interface ProdutoDB {
   id: string;
@@ -90,6 +91,7 @@ export default function EntregadorNovaVenda() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { empresa } = useEmpresa();
 
   const [produtos, setProdutos] = useState<ProdutoDB[]>([]);
   const [clientes, setClientes] = useState<ClienteDB[]>([]);
@@ -231,6 +233,7 @@ export default function EntregadorNovaVenda() {
           cidade: data.cidade || null,
           telefone: data.cliente_telefone || null,
           ativo: true,
+          empresa_id: empresa?.id || null,
         };
         const { data: criado, error: createErr } = await supabase.from("clientes").insert(novoCliente).select("id").single();
         setCliente({
