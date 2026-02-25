@@ -22,18 +22,18 @@ interface RotearPagamentosParams {
 }
 
 /**
- * Busca a conta bancária configurada para uma forma de pagamento na unidade
+ * Busca a conta bancária principal da unidade (primeira conta ativa)
  */
-async function getContaDestino(formaPagamento: string, unidadeId?: string | null): Promise<string | null> {
+async function getContaPrincipal(unidadeId?: string | null): Promise<string | null> {
   if (!unidadeId) return null;
   const { data } = await supabase
-    .from("config_destino_pagamento")
-    .select("conta_bancaria_id")
-    .eq("forma_pagamento", formaPagamento)
+    .from("contas_bancarias")
+    .select("id")
     .eq("unidade_id", unidadeId)
     .eq("ativo", true)
+    .limit(1)
     .maybeSingle();
-  return data?.conta_bancaria_id || null;
+  return data?.id || null;
 }
 
 /**
@@ -150,9 +150,9 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "pix": {
-        // PIX vai DIRETO para conta bancária — nunca entra no caixa físico
+        // PIX vai DIRETO para conta bancária principal — nunca entra no caixa físico
         promises.push(
-          getContaDestino("pix", unidadeId).then(contaId => {
+          getContaPrincipal(unidadeId).then(contaId => {
             if (contaId) {
               return criarMovimentacaoBancaria({
                 contaBancariaId: contaId,

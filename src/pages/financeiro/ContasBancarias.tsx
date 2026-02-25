@@ -17,7 +17,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ArrowRightLeft, Landmark, Send, FileSpreadsheet, Receipt, Pencil, Settings2 } from "lucide-react";
+import { Plus, ArrowRightLeft, Landmark, Send, FileSpreadsheet, Receipt, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +25,6 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import Conciliacao from "./Conciliacao";
 import ExtratoBancario from "@/components/financeiro/ExtratoBancario";
-import ConfigDestinoPagamento from "@/components/financeiro/ConfigDestinoPagamento";
 
 interface ContaBancaria {
   id: string;
@@ -292,7 +291,6 @@ export default function ContasBancarias() {
             <TabsTrigger value="transferencias" className="text-xs sm:text-sm"><ArrowRightLeft className="h-4 w-4 mr-1" />Transf.</TabsTrigger>
             <TabsTrigger value="extrato" className="text-xs sm:text-sm"><Receipt className="h-4 w-4 mr-1" />Extrato</TabsTrigger>
             <TabsTrigger value="conciliacao" className="text-xs sm:text-sm"><FileSpreadsheet className="h-4 w-4 mr-1" />OFX</TabsTrigger>
-            <TabsTrigger value="config" className="text-xs sm:text-sm"><Settings2 className="h-4 w-4 mr-1" />Destinos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contas" className="mt-4">
@@ -398,10 +396,6 @@ export default function ContasBancarias() {
 
           <TabsContent value="conciliacao" className="mt-4">
             <Conciliacao embedded />
-          </TabsContent>
-
-          <TabsContent value="config" className="mt-4">
-            <ConfigDestinoPagamento contas={contas} />
           </TabsContent>
         </Tabs>
 
