@@ -737,21 +737,25 @@ export default function NovaVenda() {
       });
 
       // #5 - Rotear pagamentos para caixa/contas a receber/cheques
-      await rotearPagamentosVenda({
-        pedidoId: pedido.id,
-        clienteId,
-        clienteNome: customer.nome || "Consumidor",
-        pagamentos: pagamentos.map(p => ({
-          forma: p.forma,
-          valor: p.valor,
-          cheque_numero: p.cheque_numero,
-          cheque_banco: p.cheque_banco,
-          cheque_foto_url: p.cheque_foto_url,
-          data_vencimento_fiado: p.data_vencimento_fiado,
-        })),
-        unidadeId: unidadeAtual?.id,
-        entregadorId: entregador.id || null,
-      });
+      // Se tem entregador, o roteamento financeiro acontece APENAS no acerto diário
+      // porque o entregador ainda não entregou/coletou o dinheiro
+      if (!entregador.id) {
+        await rotearPagamentosVenda({
+          pedidoId: pedido.id,
+          clienteId,
+          clienteNome: customer.nome || "Consumidor",
+          pagamentos: pagamentos.map(p => ({
+            forma: p.forma,
+            valor: p.valor,
+            cheque_numero: p.cheque_numero,
+            cheque_banco: p.cheque_banco,
+            cheque_foto_url: p.cheque_foto_url,
+            data_vencimento_fiado: p.data_vencimento_fiado,
+          })),
+          unidadeId: unidadeAtual?.id,
+          entregadorId: null,
+        });
+      }
 
       // #6 - Clear draft after successful sale
       clearDraft();

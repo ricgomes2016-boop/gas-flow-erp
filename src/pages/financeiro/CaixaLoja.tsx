@@ -44,6 +44,7 @@ interface ContaBancaria {
 
 export default function CaixaLoja() {
   const [movs, setMovs] = useState<Movimentacao[]>([]);
+  const [saldoTotal, setSaldoTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [depositoOpen, setDepositoOpen] = useState(false);
@@ -68,6 +69,20 @@ export default function CaixaLoja() {
     const { data, error } = await query;
     if (error) console.error(error);
     else setMovs((data as Movimentacao[]) || []);
+
+    // Buscar saldo total acumulado (ALL TIME) para o caixa da unidade
+    let qTotal = supabase
+      .from("movimentacoes_caixa")
+      .select("tipo, valor");
+    if (unidadeAtual?.id) qTotal = qTotal.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    const { data: allMovs } = await qTotal;
+    if (allMovs) {
+      const total = allMovs.reduce((acc, m: any) => {
+        return acc + (m.tipo === "entrada" ? Number(m.valor) : -Number(m.valor));
+      }, 0);
+      setSaldoTotal(total);
+    }
+
     setLoading(false);
   };
 
@@ -346,16 +361,16 @@ export default function CaixaLoja() {
 
         {/* Cards de resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <Card>
+          <Card className="border-2 border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Saldo Caixa</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs sm:text-sm font-medium">💰 Total em Caixa</CardTitle>
+              <DollarSign className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className={`text-lg sm:text-2xl font-bold ${saldo >= 0 ? "text-success" : "text-destructive"}`}>
-                R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              <div className={`text-lg sm:text-2xl font-bold ${saldoTotal >= 0 ? "text-success" : "text-destructive"}`}>
+                R$ {saldoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Período selecionado</p>
+              <p className="text-xs text-muted-foreground mt-1">Saldo acumulado total</p>
             </CardContent>
           </Card>
           <Card>
