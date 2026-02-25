@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PedidoFormatado, PedidoStatus } from "@/types/pedido";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { reverterEstoqueVenda } from "@/services/estoqueService";
+import { toast } from "sonner";
 
 export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) {
   const queryClient = useQueryClient();
@@ -81,13 +82,55 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
     },
   });
 
-  // #8 - Realtime: auto-refresh on pedidos changes
+  // #8 - Realtime: auto-refresh on pedidos changes + toast notifications
+  const knownPedidosRef = useRef<Map<string, string>>(new Map());
+  const isFirstLoadRef = useRef(true);
+
+  // Track known pedidos for toast diff
+  useEffect(() => {
+    if (pedidos.length > 0 && isFirstLoadRef.current) {
+      pedidos.forEach(p => knownPedidosRef.current.set(p.id, p.status));
+      isFirstLoadRef.current = false;
+    }
+  }, [pedidos]);
+
   useEffect(() => {
     const channel = supabase
       .channel("pedidos-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pedidos" },
+        { event: "INSERT", schema: "public", table: "pedidos" },
+        (payload) => {
+          const p = payload.new as any;
+          toast("🛵 Novo Pedido!", {
+            description: `${p?.cliente_nome || "Cliente"} · R$ ${Number(p?.valor_total || 0).toFixed(2)}`,
+            duration: 5000,
+          });
+          queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos" },
+        (payload) => {
+          const p = payload.new as any;
+          const prevStatus = knownPedidosRef.current.get(p.id);
+          const newStatus = p?.status;
+          if (prevStatus && newStatus && prevStatus !== newStatus) {
+            const icons: Record<string, string> = { pendente: "🕐", em_rota: "🚚", entregue: "✅", cancelado: "❌", finalizado: "✅" };
+            const labels: Record<string, string> = { pendente: "Pendente", em_rota: "Em Rota", entregue: "Entregue", cancelado: "Cancelado", finalizado: "Finalizado" };
+            toast(`${icons[newStatus] || "📦"} Status Atualizado`, {
+              description: `Pedido #${p.id?.substring(0, 8).toUpperCase()}: ${labels[newStatus] || newStatus}`,
+              duration: 4000,
+            });
+          }
+          if (p?.status) knownPedidosRef.current.set(p.id, p.status);
+          queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "pedidos" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["pedidos"] });
         }
