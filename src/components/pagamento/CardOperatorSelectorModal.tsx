@@ -29,6 +29,7 @@ interface CardOperatorSelectorModalProps {
   onClose: () => void;
   valor: number;
   tipoCartao: "debito" | "credito" | "pix_maquininha";
+  unidadeId?: string;
   onSelect: (operadora: { id: string; nome: string; taxa: number; prazo: number; valorLiquido: number }) => void;
 }
 
@@ -37,6 +38,7 @@ export function CardOperatorSelectorModal({
   onClose,
   valor,
   tipoCartao,
+  unidadeId: externalUnidadeId,
   onSelect,
 }: CardOperatorSelectorModalProps) {
   const [operadoras, setOperadoras] = useState<Operadora[]>([]);
@@ -44,13 +46,15 @@ export function CardOperatorSelectorModal({
   const [loading, setLoading] = useState(true);
   const { unidadeAtual } = useUnidade();
 
+  const resolvedUnidadeId = externalUnidadeId || unidadeAtual?.id;
+
   useEffect(() => {
-    if (!open || !unidadeAtual?.id) return;
+    if (!open || !resolvedUnidadeId) return;
     setLoading(true);
     supabase
       .from("operadoras_cartao")
       .select("*")
-      .eq("unidade_id", unidadeAtual.id)
+      .eq("unidade_id", resolvedUnidadeId)
       .eq("ativo", true)
       .then(({ data }) => {
         const items = (data || []) as Operadora[];
@@ -59,7 +63,7 @@ export function CardOperatorSelectorModal({
         else setSelected(null);
         setLoading(false);
       });
-  }, [open, unidadeAtual?.id]);
+  }, [open, resolvedUnidadeId]);
 
   const getTaxaEPrazo = (op: Operadora) => {
     switch (tipoCartao) {

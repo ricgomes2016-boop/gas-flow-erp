@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PixQRCode } from "@/components/pix/PixQRCode";
+import { PixKeySelectorModal } from "@/components/pagamento/PixKeySelectorModal";
+import { CardOperatorSelectorModal } from "@/components/pagamento/CardOperatorSelectorModal";
 import { format, addDays } from "date-fns";
 import { toast as sonnerToast } from "sonner";
 
@@ -80,6 +82,7 @@ export default function FinalizarEntrega() {
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [chavePix, setChavePix] = useState<string | null>(null);
   const [nomeUnidade, setNomeUnidade] = useState<string | null>(null);
+  const [unidadeId, setUnidadeId] = useState<string | null>(null);
   const [showPixQR, setShowPixQR] = useState(false);
   // Cheque fields
   const [chequeNumero, setChequeNumero] = useState("");
@@ -88,6 +91,11 @@ export default function FinalizarEntrega() {
   const [isUploadingCheque, setIsUploadingCheque] = useState(false);
   // Fiado fields
   const [dataVencimentoFiado, setDataVencimentoFiado] = useState("");
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [cardModalTipo, setCardModalTipo] = useState<"credito" | "debito" | "pix_maquininha">("credito");
+  const [selectedPaymentInfo, setSelectedPaymentInfo] = useState<string | null>(null);
+  const [selectedPaymentExtras, setSelectedPaymentExtras] = useState<{ operadora_id?: string; conta_bancaria_id?: string }>({});
   const chequePhotoRef = useRef<HTMLInputElement>(null);
   const chequeCameraRef = useRef<HTMLInputElement>(null);
 
@@ -120,6 +128,7 @@ export default function FinalizarEntrega() {
         }
         // Fetch chave_pix from unidade
         if ((data as any).unidade_id) {
+          setUnidadeId((data as any).unidade_id);
           const { data: unidadeData } = await supabase
             .from("unidades")
             .select("chave_pix, nome")
@@ -551,27 +560,41 @@ export default function FinalizarEntrega() {
                     <div className="space-y-4">
                      <div>
                         <Label>Forma de Pagamento</Label>
-                        <Select value={novoPagamentoForma} onValueChange={(v) => { setNovoPagamentoForma(v); if (v === "PIX" && chavePix) setShowPixQR(true); else setShowPixQR(false); }}>
+                        <Select value={novoPagamentoForma} onValueChange={(v) => {
+                          setNovoPagamentoForma(v);
+                          setSelectedPaymentInfo(null);
+                          setSelectedPaymentExtras({});
+                          if (v === "PIX") {
+                            setPixModalOpen(true);
+                            setShowPixQR(false);
+                          } else if (v === "Cartão Crédito" || v === "Cartão Débito" || v === "PIX Maquininha") {
+                            const tipo = v === "Cartão Crédito" ? "credito" : v === "PIX Maquininha" ? "pix_maquininha" : "debito";
+                            setCardModalTipo(tipo);
+                            setCardModalOpen(true);
+                          } else {
+                            setShowPixQR(false);
+                          }
+                        }}>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
-                            {formasPagamento.filter((f) => f !== "Vale Gás").map((forma) => (
+                            {[...formasPagamento, "PIX Maquininha"].filter((f) => f !== "Vale Gás").map((forma) => (
                               <SelectItem key={forma} value={forma}>{forma}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      {novoPagamentoForma === "PIX" && chavePix && (
+                      {selectedPaymentInfo && (
+                        <div className="p-3 rounded-lg bg-success/10 text-success text-sm text-center font-medium">
+                          {selectedPaymentInfo}
+                        </div>
+                      )}
+                      {novoPagamentoForma === "PIX" && showPixQR && chavePix && (
                         <PixQRCode
                           chavePix={chavePix}
                           valor={diferenca > 0 ? diferenca : totalItens}
                           beneficiario={nomeUnidade || undefined}
                         />
                       )}
-                      {novoPagamentoForma === "PIX" && !chavePix && (
-                        <div className="p-3 rounded-lg bg-warning/10 text-warning text-sm text-center">
-                          Chave PIX não configurada para esta unidade.
-                        </div>
-                       )}
                        {/* Cheque fields */}
                        {novoPagamentoForma === "Cheque" && (
                          <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-dashed">
@@ -664,6 +687,33 @@ export default function FinalizarEntrega() {
           {isSaving ? "Salvando..." : "Finalizar Entrega"}
         </Button>
       </div>
+
+      {/* PIX Key Selector */}
+      <PixKeySelectorModal
+        open={pixModalOpen}
+        onClose={() => setPixModalOpen(false)}
+        valor={diferenca > 0 ? diferenca : totalItens}
+        beneficiario={nomeUnidade || undefined}
+        unidadeId={unidadeId || undefined}
+        onSelect={(chavePix, contaBancariaId) => {
+          setSelectedPaymentExtras({ conta_bancaria_id: contaBancariaId });
+          setSelectedPaymentInfo("PIX via conta selecionada");
+          setShowPixQR(false);
+        }}
+      />
+
+      {/* Card Operator Selector */}
+      <CardOperatorSelectorModal
+        open={cardModalOpen}
+        onClose={() => setCardModalOpen(false)}
+        valor={diferenca > 0 ? diferenca : totalItens}
+        tipoCartao={cardModalTipo}
+        unidadeId={unidadeId || undefined}
+        onSelect={(op) => {
+          setSelectedPaymentExtras({ operadora_id: op.id });
+          setSelectedPaymentInfo(`${op.nome} • Taxa ${op.taxa.toFixed(2)}% • D+${op.prazo} • Líq. R$ ${op.valorLiquido.toFixed(2)}`);
+        }}
+      />
     </EntregadorLayout>
   );
 }

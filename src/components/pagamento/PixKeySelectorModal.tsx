@@ -24,6 +24,7 @@ interface PixKeySelectorModalProps {
   onClose: () => void;
   valor: number;
   beneficiario?: string;
+  unidadeId?: string;
   onSelect: (chavePix: string, contaBancariaId: string) => void;
 }
 
@@ -32,6 +33,7 @@ export function PixKeySelectorModal({
   onClose,
   valor,
   beneficiario,
+  unidadeId: externalUnidadeId,
   onSelect,
 }: PixKeySelectorModalProps) {
   const [chaves, setChaves] = useState<ChavePix[]>([]);
@@ -39,13 +41,15 @@ export function PixKeySelectorModal({
   const [loading, setLoading] = useState(true);
   const { unidadeAtual } = useUnidade();
 
+  const resolvedUnidadeId = externalUnidadeId || unidadeAtual?.id;
+
   useEffect(() => {
-    if (!open || !unidadeAtual?.id) return;
+    if (!open || !resolvedUnidadeId) return;
     setLoading(true);
     supabase
       .from("contas_bancarias")
       .select("id, nome, banco, chave_pix")
-      .eq("unidade_id", unidadeAtual.id)
+      .eq("unidade_id", resolvedUnidadeId)
       .eq("ativo", true)
       .not("chave_pix", "is", null)
       .then(({ data }) => {
@@ -55,7 +59,7 @@ export function PixKeySelectorModal({
         else setSelected(null);
         setLoading(false);
       });
-  }, [open, unidadeAtual?.id]);
+  }, [open, resolvedUnidadeId]);
 
   const selectedChave = chaves.find((c) => c.id === selected);
 

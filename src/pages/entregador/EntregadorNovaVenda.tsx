@@ -42,6 +42,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { PixKeySelectorModal } from "@/components/pagamento/PixKeySelectorModal";
+import { CardOperatorSelectorModal } from "@/components/pagamento/CardOperatorSelectorModal";
 import { useEmpresa } from "@/contexts/EmpresaContext";
 
 interface ProdutoDB {
@@ -65,6 +67,7 @@ interface ClienteDB {
 const formasPagamento = [
   { value: "dinheiro", label: "Dinheiro" },
   { value: "pix", label: "PIX" },
+  { value: "pix_maquininha", label: "PIX Maquininha" },
   { value: "cartao_credito", label: "Cartão Crédito" },
   { value: "cartao_debito", label: "Cartão Débito" },
   { value: "fiado", label: "Fiado" },
@@ -96,6 +99,7 @@ export default function EntregadorNovaVenda() {
   const [produtos, setProdutos] = useState<ProdutoDB[]>([]);
   const [clientes, setClientes] = useState<ClienteDB[]>([]);
   const [entregadorId, setEntregadorId] = useState<string | null>(null);
+  const [entregadorUnidadeId, setEntregadorUnidadeId] = useState<string | null>(null);
 
   const [cliente, setCliente] = useState<Cliente>({
     id: null,
@@ -112,6 +116,12 @@ export default function EntregadorNovaVenda() {
   const [dialogClienteAberto, setDialogClienteAberto] = useState(false);
   const [buscaCliente, setBuscaCliente] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Payment provider modals
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [cardModalTipo, setCardModalTipo] = useState<"credito" | "debito" | "pix_maquininha">("credito");
+  const [selectedPaymentInfo, setSelectedPaymentInfo] = useState<string | null>(null);
+  const [selectedPaymentExtras, setSelectedPaymentExtras] = useState<{ operadora_id?: string; conta_bancaria_id?: string }>({});
 
   // Voice / AI command state
   const [aiCommand, setAiCommand] = useState("");
@@ -135,6 +145,7 @@ export default function EntregadorNovaVenda() {
       if (entregador) {
         setEntregadorId(entregador.id);
         unidadeId = entregador.unidade_id;
+        setEntregadorUnidadeId(entregador.unidade_id);
       }
     }
 
@@ -594,7 +605,18 @@ export default function EntregadorNovaVenda() {
           <CardContent className="space-y-3">
             <div>
               <Label className="text-xs">Forma de Pagamento *</Label>
-              <Select value={formaPagamento} onValueChange={setFormaPagamento}>
+              <Select value={formaPagamento} onValueChange={(v) => {
+                setFormaPagamento(v);
+                setSelectedPaymentInfo(null);
+                setSelectedPaymentExtras({});
+                if (v === "pix") {
+                  setPixModalOpen(true);
+                } else if (v === "cartao_credito" || v === "cartao_debito" || v === "pix_maquininha") {
+                  const tipo = v === "cartao_credito" ? "credito" : v === "pix_maquininha" ? "pix_maquininha" : "debito";
+                  setCardModalTipo(tipo);
+                  setCardModalOpen(true);
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -605,6 +627,11 @@ export default function EntregadorNovaVenda() {
                 </SelectContent>
               </Select>
             </div>
+            {selectedPaymentInfo && (
+              <div className="p-3 rounded-lg bg-success/10 text-success text-sm text-center font-medium">
+                {selectedPaymentInfo}
+              </div>
+            )}
             <div>
               <Label className="text-xs">Observação</Label>
               <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Observações..." rows={2} />
@@ -636,6 +663,31 @@ export default function EntregadorNovaVenda() {
           Finalizar Venda • R$ {total.toFixed(2)}
         </Button>
       </div>
+
+      {/* PIX Key Selector */}
+      <PixKeySelectorModal
+        open={pixModalOpen}
+        onClose={() => setPixModalOpen(false)}
+        valor={total}
+        unidadeId={entregadorUnidadeId || undefined}
+        onSelect={(chavePix, contaBancariaId) => {
+          setSelectedPaymentExtras({ conta_bancaria_id: contaBancariaId });
+          setSelectedPaymentInfo("PIX via conta selecionada");
+        }}
+      />
+
+      {/* Card Operator Selector */}
+      <CardOperatorSelectorModal
+        open={cardModalOpen}
+        onClose={() => setCardModalOpen(false)}
+        valor={total}
+        tipoCartao={cardModalTipo}
+        unidadeId={entregadorUnidadeId || undefined}
+        onSelect={(op) => {
+          setSelectedPaymentExtras({ operadora_id: op.id });
+          setSelectedPaymentInfo(`${op.nome} • Taxa ${op.taxa.toFixed(2)}% • D+${op.prazo} • Líq. R$ ${op.valorLiquido.toFixed(2)}`);
+        }}
+      />
     </EntregadorLayout>
   );
 }
