@@ -1,4 +1,4 @@
-export type PedidoStatus = "pendente" | "em_rota" | "entregue" | "cancelado";
+export type PedidoStatus = "pendente" | "em_rota" | "entregue" | "cancelado" | "finalizado";
 
 export interface PedidoItem {
   id: string;
