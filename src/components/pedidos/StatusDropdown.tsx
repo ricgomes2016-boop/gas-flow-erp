@@ -7,29 +7,32 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Clock, Truck, CheckCircle, XCircle } from "lucide-react";
 
-type PedidoStatus = "pendente" | "em_rota" | "entregue" | "cancelado";
+type PedidoStatus = "pendente" | "em_rota" | "entregue" | "cancelado" | "finalizado";
 
 interface StatusDropdownProps {
-  status: PedidoStatus;
+  status: PedidoStatus | string;
   onStatusChange: (newStatus: PedidoStatus) => void;
   disabled?: boolean;
 }
 
-const statusConfig = {
-  pendente: { label: "Pendente", variant: "secondary" as const, icon: Clock },
-  em_rota: { label: "Em Rota", variant: "default" as const, icon: Truck },
-  entregue: { label: "Entregue", variant: "outline" as const, icon: CheckCircle },
-  cancelado: { label: "Cancelado", variant: "destructive" as const, icon: XCircle },
+const statusConfig: Record<string, { label: string; variant: "secondary" | "default" | "outline" | "destructive"; icon: typeof Clock }> = {
+  pendente: { label: "Pendente", variant: "secondary", icon: Clock },
+  em_rota: { label: "Em Rota", variant: "default", icon: Truck },
+  entregue: { label: "Entregue", variant: "outline", icon: CheckCircle },
+  finalizado: { label: "Finalizado", variant: "outline", icon: CheckCircle },
+  cancelado: { label: "Cancelado", variant: "destructive", icon: XCircle },
 };
+
+const defaultConfig = { label: "Desconhecido", variant: "secondary" as const, icon: Clock };
 
 const statusOptions: PedidoStatus[] = ["pendente", "em_rota", "entregue", "cancelado"];
 
 export function StatusDropdown({ status, onStatusChange, disabled }: StatusDropdownProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || defaultConfig;
   const StatusIcon = config.icon;
 
   // Status já finalizados não podem ser alterados
-  const isEditable = status !== "cancelado" && status !== "entregue" && !disabled;
+  const isEditable = status !== "cancelado" && status !== "entregue" && status !== "finalizado" && !disabled;
 
   if (!isEditable) {
     return (
