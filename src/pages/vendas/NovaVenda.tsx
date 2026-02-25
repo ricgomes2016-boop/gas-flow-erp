@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
+import { rotearPagamentosVenda } from "@/services/paymentRoutingService";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useEmpresa } from "@/contexts/EmpresaContext";
 import { cn, getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
@@ -735,7 +736,24 @@ export default function NovaVenda() {
         empresa: empresaConfig,
       });
 
-      // #5 - Clear draft after successful sale
+      // #5 - Rotear pagamentos para caixa/contas a receber/cheques
+      await rotearPagamentosVenda({
+        pedidoId: pedido.id,
+        clienteId,
+        clienteNome: customer.nome || "Consumidor",
+        pagamentos: pagamentos.map(p => ({
+          forma: p.forma,
+          valor: p.valor,
+          cheque_numero: p.cheque_numero,
+          cheque_banco: p.cheque_banco,
+          cheque_foto_url: p.cheque_foto_url,
+          data_vencimento_fiado: p.data_vencimento_fiado,
+        })),
+        unidadeId: unidadeAtual?.id,
+        entregadorId: entregador.id || null,
+      });
+
+      // #6 - Clear draft after successful sale
       clearDraft();
 
       toast({

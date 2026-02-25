@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService";
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
+import { rotearPagamentosVenda } from "@/services/paymentRoutingService";
 
 import { BarcodeScanner } from "@/components/pdv/BarcodeScanner";
 import { PDVProductList, PDVItem } from "@/components/pdv/PDVProductList";
@@ -304,6 +305,14 @@ export default function PDV() {
         canalVenda: "portaria",
         observacoes: "",
         empresa: empresaConfig,
+      });
+
+      // Rotear pagamento para caixa/financeiro
+      await rotearPagamentosVenda({
+        pedidoId: pedido.id,
+        clienteNome: "Consumidor Final",
+        pagamentos: [{ forma: formaPagamento, valor: total }],
+        unidadeId: unidadeAtual?.id,
       });
 
       toast({
