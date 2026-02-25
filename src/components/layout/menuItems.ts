@@ -184,6 +184,7 @@ export const menuItems: MenuItem[] = [
     label: "Gestão Financeira",
     submenu: [
       { icon: Gauge, label: "Dashboard", path: "/financeiro" },
+      { icon: Banknote, label: "Caixa da Loja", path: "/financeiro/caixa-loja" },
       { icon: ArrowUpDown, label: "Fluxo de Caixa", path: "/financeiro/fluxo" },
       { icon: HandCoins, label: "Contas a Pagar", path: "/financeiro/pagar" },
       { icon: Banknote, label: "Contas a Receber", path: "/financeiro/receber" },
