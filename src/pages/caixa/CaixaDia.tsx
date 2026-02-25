@@ -125,7 +125,7 @@ export default function CaixaDia() {
     const dataStr = format(dataSelecionada, "yyyy-MM-dd");
 
     // Fetch movimentações, pedidos and sessão in parallel
-    let qMov = supabase.from("movimentacoes_caixa").select("*").gte("created_at", inicio).lte("created_at", fim).order("created_at", { ascending: false });
+    let qMov = supabase.from("movimentacoes_caixa").select("*").gte("created_at", inicio).lte("created_at", fim).neq("categoria", "Vale Gás").order("created_at", { ascending: false });
     if (unidadeAtual?.id) qMov = qMov.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
 
     let qPed = supabase.from("pedidos").select("id, valor_total, forma_pagamento, status, created_at, entregador_id, canal_venda, responsavel_acerto, entregadores(nome)").gte("created_at", inicio).lte("created_at", fim);
@@ -151,12 +151,16 @@ export default function CaixaDia() {
       
       // Normaliza nome da forma de pagamento para evitar duplicatas (ex: "Dinheiro" vs "dinheiro")
       const normalizarForma = (f: string): string => {
-        const lower = f.trim().toLowerCase();
+        const lower = f.trim().toLowerCase().replace(/_/g, " ");
         const map: Record<string, string> = {
-          dinheiro: "Dinheiro", pix: "PIX", "cartão crédito": "Cartão Crédito",
-          "cartao credito": "Cartão Crédito", "cartão débito": "Cartão Débito",
-          "cartao debito": "Cartão Débito", fiado: "Fiado", cheque: "Cheque",
+          dinheiro: "Dinheiro", pix: "PIX",
+          "cartão crédito": "Cartão Crédito", "cartao credito": "Cartão Crédito",
+          "cartão débito": "Cartão Débito", "cartao debito": "Cartão Débito",
+          credito: "Cartão Crédito", debito: "Cartão Débito",
+          fiado: "Fiado", cheque: "Cheque",
           "vale gás": "Vale Gás", "vale gas": "Vale Gás",
+          "pix maquininha": "PIX Maquininha",
+          boleto: "Boleto",
         };
         return map[lower] || f.trim();
       };
@@ -276,7 +280,7 @@ export default function CaixaDia() {
 
   // === Tesouraria: saldo acumulado total + contas bancárias ===
   const fetchTesouraria = async () => {
-    let qTotal = supabase.from("movimentacoes_caixa").select("tipo, valor");
+    let qTotal = supabase.from("movimentacoes_caixa").select("tipo, valor").neq("categoria", "Vale Gás");
     if (unidadeAtual?.id) qTotal = qTotal.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     const { data: allMovs } = await qTotal;
     if (allMovs) {
@@ -288,7 +292,7 @@ export default function CaixaDia() {
     const { data: contasData } = await qContas;
     setContas((contasData as ContaBancaria[]) || []);
     const desde = subDays(new Date(), 30).toISOString();
-    let qChart = supabase.from("movimentacoes_caixa").select("*").gte("created_at", desde).order("created_at", { ascending: false });
+    let qChart = supabase.from("movimentacoes_caixa").select("*").gte("created_at", desde).neq("categoria", "Vale Gás").order("created_at", { ascending: false });
     if (unidadeAtual?.id) qChart = qChart.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     const { data: cData } = await qChart;
     setChartMovs((cData as Mov[]) || []);

@@ -39,7 +39,7 @@ export default function FluxoCaixa({ embedded }: { embedded?: boolean } = {}) {
   const fetchMovs = async () => {
     setLoading(true);
     const sevenDaysAgo = subDays(new Date(), 7).toISOString();
-    let query = supabase.from("movimentacoes_caixa").select("*").gte("created_at", sevenDaysAgo).order("created_at", { ascending: false });
+    let query = supabase.from("movimentacoes_caixa").select("*").gte("created_at", sevenDaysAgo).neq("categoria", "Vale Gás").order("created_at", { ascending: false });
     if (unidadeAtual?.id) query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     const { data, error } = await query;
     if (error) console.error(error);
