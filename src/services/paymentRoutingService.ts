@@ -39,7 +39,7 @@ async function getContaDestino(formaPagamento: string, unidadeId?: string | null
 /**
  * Cria movimentação bancária e atualiza saldo da conta
  */
-async function criarMovimentacaoBancaria(params: {
+export async function criarMovimentacaoBancaria(params: {
   contaBancariaId: string;
   valor: number;
   descricao: string;
@@ -48,7 +48,6 @@ async function criarMovimentacaoBancaria(params: {
   userId?: string;
   pedidoId?: string;
 }) {
-  // Buscar saldo atual
   const { data: conta } = await supabase
     .from("contas_bancarias")
     .select("saldo_atual")
@@ -59,7 +58,6 @@ async function criarMovimentacaoBancaria(params: {
 
   const novoSaldo = Number(conta.saldo_atual) + params.valor;
 
-  // Inserir movimentação
   await supabase.from("movimentacoes_bancarias").insert({
     conta_bancaria_id: params.contaBancariaId,
     data: getBrasiliaDateString(),
@@ -74,7 +72,6 @@ async function criarMovimentacaoBancaria(params: {
     unidade_id: params.unidadeId || null,
   });
 
-  // Atualizar saldo
   await supabase
     .from("contas_bancarias")
     .update({ saldo_atual: novoSaldo })
@@ -100,14 +97,16 @@ async function criarNotificacaoFinanceira(params: {
 }
 
 /**
- * Roteia automaticamente os pagamentos de uma venda para os destinos financeiros corretos:
- * - Dinheiro / PIX → movimentacoes_caixa + movimentacoes_bancarias (se conta configurada)
- * - Cartão Débito → movimentacoes_caixa + contas_receber (D+1) + movimentacoes_bancarias futura
- * - Cartão Crédito → movimentacoes_caixa + contas_receber (D+30) + movimentacoes_bancarias futura
- * - Cheque → movimentacoes_caixa + tabela cheques
- * - Fiado → contas_receber (sem entrada no caixa)
- * - Boleto → contas_receber (sem entrada no caixa)
- * - Vale Gás → movimentacoes_caixa + movimentacoes_bancarias (se conta configurada)
+ * Roteia automaticamente os pagamentos de uma venda:
+ * 
+ * - Dinheiro → movimentacoes_caixa APENAS (caixa físico). Depósito bancário é manual.
+ * - PIX → movimentacoes_bancarias DIRETO (nunca entra no caixa físico)
+ * - Cartão Débito → contas_receber (D+1). Entra no banco quando liquidado.
+ * - Cartão Crédito → contas_receber (D+30). Entra no banco quando liquidado.
+ * - Cheque → movimentacoes_caixa + tabela cheques. Entra no banco quando depositado.
+ * - Fiado → contas_receber apenas
+ * - Boleto → contas_receber apenas. Entra no banco quando baixado.
+ * - Vale Gás → movimentacoes_caixa (depende da forma como será pago)
  */
 export async function rotearPagamentosVenda(params: RotearPagamentosParams): Promise<void> {
   const { pedidoId, clienteId, clienteNome, pagamentos, unidadeId, entregadorId } = params;
@@ -135,46 +134,23 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
 
     switch (pag.forma) {
       case "dinheiro": {
+        // Dinheiro entra APENAS no caixa físico da loja
+        // Depósito bancário é feito manualmente na tela "Caixa da Loja"
         promises.push(insertCaixa({
           tipo: "entrada",
           descricao: `Venda #${pedidoRef} - Dinheiro`,
           valor: pag.valor,
-          categoria: "venda",
+          categoria: "Venda Dinheiro",
           status: "aprovada",
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
           entregador_id: entregadorId || null,
         }));
-        // Movimentação bancária automática
-        promises.push(
-          getContaDestino("dinheiro", unidadeId).then(contaId => {
-            if (contaId) {
-              return criarMovimentacaoBancaria({
-                contaBancariaId: contaId,
-                valor: pag.valor,
-                descricao: `Venda #${pedidoRef} - Dinheiro`,
-                categoria: "venda",
-                unidadeId,
-                userId,
-                pedidoId,
-              });
-            }
-          })
-        );
         break;
       }
 
       case "pix": {
-        promises.push(insertCaixa({
-          tipo: "entrada",
-          descricao: `Venda #${pedidoRef} - PIX`,
-          valor: pag.valor,
-          categoria: "venda",
-          status: "aprovada",
-          pedido_id: pedidoId,
-          unidade_id: unidadeId || null,
-          entregador_id: entregadorId || null,
-        }));
+        // PIX vai DIRETO para conta bancária — nunca entra no caixa físico
         promises.push(
           getContaDestino("pix", unidadeId).then(contaId => {
             if (contaId) {
@@ -195,16 +171,8 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
 
       case "cartao_debito":
       case "debito": {
-        promises.push(insertCaixa({
-          tipo: "entrada",
-          descricao: `Venda #${pedidoRef} - Cartão Débito`,
-          valor: pag.valor,
-          categoria: "venda_cartao",
-          status: "aprovada",
-          pedido_id: pedidoId,
-          unidade_id: unidadeId || null,
-          entregador_id: entregadorId || null,
-        }));
+        // Cartão Débito → só contas a receber (D+1)
+        // Entra no banco automaticamente quando liquidado
         promises.push(insertContasReceber({
           cliente: clienteNome || "Operadora Cartão",
           descricao: `Cartão Débito - Venda #${pedidoRef}`,
@@ -215,22 +183,13 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
         }));
-        // Nota: movimentação bancária será criada quando o contas_receber for liquidado
         break;
       }
 
       case "cartao_credito":
       case "credito": {
-        promises.push(insertCaixa({
-          tipo: "entrada",
-          descricao: `Venda #${pedidoRef} - Cartão Crédito`,
-          valor: pag.valor,
-          categoria: "venda_cartao",
-          status: "aprovada",
-          pedido_id: pedidoId,
-          unidade_id: unidadeId || null,
-          entregador_id: entregadorId || null,
-        }));
+        // Cartão Crédito → só contas a receber (D+30)
+        // Entra no banco automaticamente quando liquidado
         promises.push(insertContasReceber({
           cliente: clienteNome || "Operadora Cartão",
           descricao: `Cartão Crédito - Venda #${pedidoRef}`,
@@ -245,11 +204,13 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "cheque": {
+        // Cheque entra no caixa como registro + tabela cheques
+        // Entra no banco quando for depositado manualmente
         promises.push(insertCaixa({
           tipo: "entrada",
           descricao: `Venda #${pedidoRef} - Cheque #${pag.cheque_numero || "s/n"}`,
           valor: pag.valor,
-          categoria: "venda_cheque",
+          categoria: "Cheque",
           status: "aprovada",
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
@@ -274,6 +235,7 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "fiado": {
+        // Fiado → apenas contas a receber (sem caixa, sem banco)
         const vencimento = pag.data_vencimento_fiado || format(addDays(new Date(), 30), "yyyy-MM-dd");
         promises.push(insertContasReceber({
           cliente: clienteNome || "Cliente não identificado",
@@ -289,6 +251,7 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "boleto": {
+        // Boleto → apenas contas a receber. Entra no banco quando baixado.
         promises.push(insertContasReceber({
           cliente: clienteNome || "Cliente não identificado",
           descricao: `Boleto - Venda #${pedidoRef}`,
@@ -303,31 +266,17 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "vale_gas": {
+        // Vale Gás entra no caixa físico (depende da forma como será pago)
         promises.push(insertCaixa({
           tipo: "entrada",
           descricao: `Venda #${pedidoRef} - Vale Gás`,
           valor: pag.valor,
-          categoria: "venda_vale",
+          categoria: "Vale Gás",
           status: "aprovada",
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
           entregador_id: entregadorId || null,
         }));
-        promises.push(
-          getContaDestino("vale_gas", unidadeId).then(contaId => {
-            if (contaId) {
-              return criarMovimentacaoBancaria({
-                contaBancariaId: contaId,
-                valor: pag.valor,
-                descricao: `Venda #${pedidoRef} - Vale Gás`,
-                categoria: "venda",
-                unidadeId,
-                userId,
-                pedidoId,
-              });
-            }
-          })
-        );
         break;
       }
     }
