@@ -23,6 +23,7 @@ interface PDVPaymentProps {
 const formasPagamento = [
   { value: "dinheiro", label: "Dinheiro", icon: Banknote },
   { value: "pix", label: "PIX", icon: Smartphone },
+  { value: "pix_maquininha", label: "PIX Maquininha", icon: Smartphone },
   { value: "credito", label: "Cartão Crédito", icon: CreditCard },
   { value: "debito", label: "Cartão Débito", icon: CreditCard },
   { value: "vale_gas", label: "Vale Gás", icon: Receipt },
