@@ -79,6 +79,7 @@ export function ConferenciaCartao() {
   const [opForm, setOpForm] = useState({
     nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
     taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+    taxa_pix: "", prazo_pix: "0",
   });
   const [opDeleteId, setOpDeleteId] = useState<string | null>(null);
 
@@ -137,6 +138,7 @@ export function ConferenciaCartao() {
   const resetOpForm = () => setOpForm({
     nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
     taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+    taxa_pix: "", prazo_pix: "0",
   });
 
   const handleOpSubmit = async () => {
@@ -149,6 +151,8 @@ export function ConferenciaCartao() {
       taxa_credito_parcelado: parseFloat(opForm.taxa_credito_parcelado) || 0,
       prazo_debito: parseInt(opForm.prazo_debito) || 1,
       prazo_credito: parseInt(opForm.prazo_credito) || 30,
+      taxa_pix: parseFloat(opForm.taxa_pix) || 0,
+      prazo_pix: parseInt(opForm.prazo_pix) || 0,
       unidade_id: unidadeAtual?.id || null,
     };
     if (opEditId) {
@@ -179,7 +183,8 @@ export function ConferenciaCartao() {
     const operadora = operadoras.find(o => o.id === confForm.operadora_id);
     let taxaPct = 0;
     if (operadora) {
-      if (confForm.tipo === "debito") taxaPct = operadora.taxa_debito;
+      if (confForm.tipo === "pix_maquininha") taxaPct = (operadora as any).taxa_pix || 0;
+      else if (confForm.tipo === "debito") taxaPct = operadora.taxa_debito;
       else if (parseInt(confForm.parcelas) > 1) taxaPct = operadora.taxa_credito_parcelado;
       else taxaPct = operadora.taxa_credito_vista;
     }
@@ -188,8 +193,8 @@ export function ConferenciaCartao() {
     const valorLiquidoEsperado = valorBruto - valorTaxa;
 
     const prazo = operadora
-      ? (confForm.tipo === "debito" ? operadora.prazo_debito : operadora.prazo_credito)
-      : (confForm.tipo === "debito" ? 1 : 30);
+      ? (confForm.tipo === "pix_maquininha" ? ((operadora as any).prazo_pix || 0) : confForm.tipo === "debito" ? operadora.prazo_debito : operadora.prazo_credito)
+      : (confForm.tipo === "pix_maquininha" ? 0 : confForm.tipo === "debito" ? 1 : 30);
     const dataPrevista = addDays(new Date(confForm.data_venda), prazo);
 
     const payload = {
@@ -482,6 +487,7 @@ export function ConferenciaCartao() {
                 <SelectItem value="todos">Todos Tipos</SelectItem>
                 <SelectItem value="credito">Crédito</SelectItem>
                 <SelectItem value="debito">Débito</SelectItem>
+                <SelectItem value="pix_maquininha">PIX Maquininha</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filtroBandeira} onValueChange={setFiltroBandeira}>
@@ -620,6 +626,7 @@ export function ConferenciaCartao() {
                             taxa_debito: String(op.taxa_debito), taxa_credito_vista: String(op.taxa_credito_vista),
                             taxa_credito_parcelado: String(op.taxa_credito_parcelado),
                             prazo_debito: String(op.prazo_debito), prazo_credito: String(op.prazo_credito),
+                            taxa_pix: String((op as any).taxa_pix || 0), prazo_pix: String((op as any).prazo_pix || 0),
                           });
                           setOpDialogOpen(true);
                         }}>
@@ -646,6 +653,11 @@ export function ConferenciaCartao() {
                         <p className="font-medium">{Number(op.taxa_credito_parcelado).toFixed(2)}%</p>
                         <p className="text-[10px] text-muted-foreground">D+{op.prazo_credito}</p>
                       </div>
+                      <div className="p-2 rounded bg-muted/50">
+                        <p className="text-muted-foreground">PIX Maq.</p>
+                        <p className="font-medium">{Number((op as any).taxa_pix || 0).toFixed(2)}%</p>
+                        <p className="text-[10px] text-muted-foreground">D+{(op as any).prazo_pix || 0}</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -668,6 +680,7 @@ export function ConferenciaCartao() {
                   <SelectContent>
                     <SelectItem value="credito">Crédito</SelectItem>
                     <SelectItem value="debito">Débito</SelectItem>
+                    <SelectItem value="pix_maquininha">PIX Maquininha</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -793,6 +806,10 @@ export function ConferenciaCartao() {
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Prazo Débito (D+)</Label><Input type="number" min="0" value={opForm.prazo_debito} onChange={e => setOpForm({ ...opForm, prazo_debito: e.target.value })} /></div>
               <div><Label>Prazo Crédito (D+)</Label><Input type="number" min="0" value={opForm.prazo_credito} onChange={e => setOpForm({ ...opForm, prazo_credito: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Taxa PIX Maquininha (%)</Label><Input type="number" step="0.01" min="0" value={opForm.taxa_pix} onChange={e => setOpForm({ ...opForm, taxa_pix: e.target.value })} placeholder="0.00" /></div>
+              <div><Label>Prazo PIX Maq. (D+)</Label><Input type="number" min="0" value={opForm.prazo_pix} onChange={e => setOpForm({ ...opForm, prazo_pix: e.target.value })} placeholder="0" /></div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => { setOpDialogOpen(false); setOpEditId(null); resetOpForm(); }}>Cancelar</Button>

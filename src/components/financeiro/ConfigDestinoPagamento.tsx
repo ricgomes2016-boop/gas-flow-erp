@@ -29,6 +29,7 @@ interface Props {
 const FORMAS_PAGAMENTO = [
   { value: "dinheiro", label: "💵 Dinheiro", desc: "Entra no Caixa da Loja. Depósito bancário é manual." },
   { value: "pix", label: "📱 PIX", desc: "Entrada DIRETA na conta bancária (não passa pelo caixa)" },
+  { value: "pix_maquininha", label: "📱 PIX Maquininha", desc: "Contas a Receber (prazo da operadora). Entra no banco quando liquidado." },
   { value: "cartao_debito", label: "💳 Cartão Débito", desc: "Contas a Receber (D+1). Entra no banco quando liquidado." },
   { value: "cartao_credito", label: "💳 Cartão Crédito", desc: "Contas a Receber (D+30). Entra no banco quando liquidado." },
   { value: "cheque", label: "📝 Cheque", desc: "Entra no caixa + tabela cheques. Banco quando depositado." },

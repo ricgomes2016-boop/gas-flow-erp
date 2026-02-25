@@ -4529,9 +4529,11 @@ export type Database = {
           nome: string
           prazo_credito: number
           prazo_debito: number
+          prazo_pix: number | null
           taxa_credito_parcelado: number
           taxa_credito_vista: number
           taxa_debito: number
+          taxa_pix: number | null
           unidade_id: string | null
           updated_at: string
         }
@@ -4543,9 +4545,11 @@ export type Database = {
           nome: string
           prazo_credito?: number
           prazo_debito?: number
+          prazo_pix?: number | null
           taxa_credito_parcelado?: number
           taxa_credito_vista?: number
           taxa_debito?: number
+          taxa_pix?: number | null
           unidade_id?: string | null
           updated_at?: string
         }
@@ -4557,9 +4561,11 @@ export type Database = {
           nome?: string
           prazo_credito?: number
           prazo_debito?: number
+          prazo_pix?: number | null
           taxa_credito_parcelado?: number
           taxa_credito_vista?: number
           taxa_debito?: number
+          taxa_pix?: number | null
           unidade_id?: string | null
           updated_at?: string
         }

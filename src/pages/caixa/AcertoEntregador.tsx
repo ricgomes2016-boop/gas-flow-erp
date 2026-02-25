@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ import autoTable from "jspdf-autotable";
 import { QRCodeScanner } from "@/components/entregador/QRCodeScanner";
 import { useToast } from "@/hooks/use-toast";
 import { validarValeGasNoBanco } from "@/hooks/useValeGasValidation";
+import { rotearPagamentosVenda, PagamentoRoteamento } from "@/services/paymentRoutingService";
 
 const formatCurrency = (v: number) =>
   `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -40,6 +41,7 @@ const formatCurrency = (v: number) =>
 const paymentLabels: Record<string, string> = {
   dinheiro: "Dinheiro",
   pix: "PIX",
+  pix_maquininha: "PIX Maquininha",
   cartao_credito: "Cartão Crédito",
   cartao_debito: "Cartão Débito",
   fiado: "Fiado",
@@ -47,6 +49,7 @@ const paymentLabels: Record<string, string> = {
   cheque: "Cheque",
   Dinheiro: "Dinheiro",
   PIX: "PIX",
+  "PIX Maquininha": "PIX Maquininha",
   "Cartão Crédito": "Cartão Crédito",
   "Cartão Débito": "Cartão Débito",
   "Vale Gás": "Vale Gás",
@@ -54,7 +57,7 @@ const paymentLabels: Record<string, string> = {
 };
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado",
+  "Dinheiro", "PIX", "PIX Maquininha", "Cartão Crédito", "Cartão Débito", "Cheque", "Vale Gás", "Fiado",
 ];
 
 const CANAIS_VIRTUAIS = [
@@ -92,6 +95,8 @@ export default function AcertoEntregador() {
   const [valeGasCodigoInput, setValeGasCodigoInput] = useState("");
   const [validandoValeGas, setValidandoValeGas] = useState(false);
   const [valeGasValidado, setValeGasValidado] = useState<{ parceiro: string; codigo: string; valor: number; valido: boolean } | null>(null);
+  const [isConfirmingAcerto, setIsConfirmingAcerto] = useState(false);
+  const [acertoConfirmado, setAcertoConfirmado] = useState(false);
 
   const podeEditar = hasAnyRole(["admin", "gestor"]);
 
@@ -176,6 +181,7 @@ export default function AcertoEntregador() {
       return;
     }
     setBuscar(true);
+    setAcertoConfirmado(false);
   };
 
   // Open edit dialog
@@ -367,6 +373,77 @@ export default function AcertoEntregador() {
   }, [entregas]);
 
   const nomeEntregador = canalVirtual?.canal || entregadores.find((e) => e.id === selectedId)?.nome || "";
+
+  // Normalizar forma de pagamento para o roteamento
+  const normalizarFormaPagamento = (forma: string): string => {
+    const map: Record<string, string> = {
+      "Dinheiro": "dinheiro",
+      "PIX": "pix",
+      "PIX Maquininha": "pix_maquininha",
+      "Cartão Crédito": "cartao_credito",
+      "Cartão Débito": "cartao_debito",
+      "Cheque": "cheque",
+      "Vale Gás": "vale_gas",
+      "Fiado": "fiado",
+    };
+    return map[forma] || forma.toLowerCase().replace(/\s+/g, "_");
+  };
+
+  // Confirmar acerto: rotear cada pagamento para o destino correto
+  const confirmarAcerto = async () => {
+    if (entregas.length === 0) {
+      toast.error("Nenhuma entrega para confirmar");
+      return;
+    }
+    setIsConfirmingAcerto(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      for (const entrega of entregas) {
+        // Parse pagamentos da entrega
+        const fp = entrega.forma_pagamento || "";
+        let pagamentos: PagamentoRoteamento[] = [];
+
+        if (fp.includes(", ") || fp.startsWith("Múltiplos: ")) {
+          // Pagamento múltiplo: "Dinheiro R$50.00, PIX R$30.00"
+          const cleanFp = fp.replace("Múltiplos: ", "");
+          const parts = cleanFp.split(/,\s*|\s*\+\s*/);
+          pagamentos = parts.map((part: string) => {
+            const match = part.trim().match(/^(.+?)\s+R\$(\d+[\.,]?\d*)$/);
+            if (match) {
+              return { forma: normalizarFormaPagamento(match[1].trim()), valor: parseFloat(match[2].replace(",", ".")) };
+            }
+            return { forma: normalizarFormaPagamento(part.trim()), valor: Number(entrega.valor_total) };
+          });
+        } else if (fp) {
+          pagamentos = [{ forma: normalizarFormaPagamento(fp), valor: Number(entrega.valor_total) }];
+        } else {
+          pagamentos = [{ forma: "dinheiro", valor: Number(entrega.valor_total) }];
+        }
+
+        await rotearPagamentosVenda({
+          pedidoId: entrega.id,
+          clienteId: entrega.clientes?.id || null,
+          clienteNome: entrega.clientes?.nome || "Cliente",
+          pagamentos,
+          unidadeId: unidadeAtual?.id || null,
+          entregadorId: canalVirtual ? null : selectedId,
+          userId: user?.id,
+        });
+
+        // Marcar pedido como "finalizado" (acerto feito)
+        await supabase.from("pedidos").update({ status: "finalizado" }).eq("id", entrega.id);
+      }
+
+      setAcertoConfirmado(true);
+      toast.success(`Acerto confirmado! ${entregas.length} entrega(s) roteadas financeiramente.`);
+      queryClient.invalidateQueries({ queryKey: ["acerto-entregas"] });
+    } catch (err: any) {
+      toast.error("Erro ao confirmar acerto: " + err.message);
+    } finally {
+      setIsConfirmingAcerto(false);
+    }
+  };
 
   // Exportar PDF do acerto
   const exportarPDF = () => {
@@ -611,10 +688,44 @@ export default function AcertoEntregador() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
-            )}
+                </Card>
+              )}
 
-            {/* Formas de pagamento + Resumo de produtos */}
+              {/* Botão Confirmar Acerto */}
+              {!isLoading && entregas.length > 0 && !acertoConfirmado && (
+                <Card className="border-success/30 bg-success/5">
+                  <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-sm">✅ Confirmar Acerto Financeiro</p>
+                      <p className="text-xs text-muted-foreground">
+                        Ao confirmar, cada pagamento será roteado automaticamente: Dinheiro → Caixa da Loja, PIX → Banco, Cartão → Contas a Receber, etc.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={confirmarAcerto}
+                      disabled={isConfirmingAcerto}
+                      className="gap-2 whitespace-nowrap"
+                      size="lg"
+                    >
+                      {isConfirmingAcerto ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Processando...</>
+                      ) : (
+                        <><CheckCircle className="h-4 w-4" />Confirmar Acerto</>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {acertoConfirmado && (
+                <Card className="border-success/50 bg-success/10">
+                  <CardContent className="p-4 text-center">
+                    <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
+                    <p className="font-semibold text-success">Acerto confirmado com sucesso!</p>
+                    <p className="text-xs text-muted-foreground">Todas as movimentações financeiras foram criadas automaticamente.</p>
+                  </CardContent>
+                </Card>
+              )}
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader className="pb-3">

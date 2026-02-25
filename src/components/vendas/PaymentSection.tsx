@@ -37,6 +37,7 @@ interface PaymentSectionProps {
 const formasPagamento = [
   { value: "dinheiro", label: "Dinheiro", icon: "💵" },
   { value: "pix", label: "PIX", icon: "📱" },
+  { value: "pix_maquininha", label: "PIX Maquininha", icon: "📱" },
   { value: "cartao_debito", label: "Cartão Débito", icon: "💳" },
   { value: "cartao_credito", label: "Cartão Crédito", icon: "💳" },
   { value: "boleto", label: "Boleto", icon: "📄" },

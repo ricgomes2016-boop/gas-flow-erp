@@ -203,6 +203,39 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
         break;
       }
 
+      case "pix_maquininha": {
+        // PIX Maquininha → contas a receber (prazo configurável por operadora, D+0 ou D+1)
+        // Busca prazo da operadora configurada na unidade
+        promises.push(
+          (async () => {
+            let prazoPix = 0; // default D+0
+            if (unidadeId) {
+              const { data: opData } = await supabase
+                .from("operadoras_cartao")
+                .select("prazo_pix, taxa_pix")
+                .or(`unidade_id.eq.${unidadeId},unidade_id.is.null`)
+                .eq("ativo", true)
+                .limit(1)
+                .maybeSingle();
+              if (opData) {
+                prazoPix = opData.prazo_pix || 0;
+              }
+            }
+            await insertContasReceber({
+              cliente: clienteNome || "Operadora PIX Maquininha",
+              descricao: `PIX Maquininha - Venda #${pedidoRef}`,
+              valor: pag.valor,
+              vencimento: format(addDays(new Date(), prazoPix), "yyyy-MM-dd"),
+              status: "pendente",
+              forma_pagamento: "pix_maquininha",
+              pedido_id: pedidoId,
+              unidade_id: unidadeId || null,
+            });
+          })()
+        );
+        break;
+      }
+
       case "cheque": {
         // Cheque entra no caixa como registro + tabela cheques
         // Entra no banco quando for depositado manualmente
