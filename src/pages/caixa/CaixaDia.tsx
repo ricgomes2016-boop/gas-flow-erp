@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { AcertoPendenteDialog } from "@/components/caixa/AcertoPendenteDialog";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -18,12 +18,15 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock, Eye, Lock, Unlock, ShieldAlert } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Plus, ShoppingCart, Package, CreditCard, CalendarIcon, DoorOpen, DoorClosed, FileDown, FileSpreadsheet, Users, AlertTriangle, Clock, Eye, Lock, Unlock, ShieldAlert, Landmark, ArrowRightLeft, Banknote, RefreshCw } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -32,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { criarMovimentacaoBancaria } from "@/services/paymentRoutingService";
 
 interface Mov {
   id: string;
@@ -62,6 +66,13 @@ interface FormaPagamentoResumo {
   total: number;
 }
 
+interface ContaBancaria {
+  id: string;
+  nome: string;
+  banco: string;
+  saldo_atual: number;
+}
+
 interface CaixaSessao {
   id: string;
   valor_abertura: number;
@@ -85,12 +96,22 @@ export default function CaixaDia() {
   const [aberturaOpen, setAberturaOpen] = useState(false);
   const [fechamentoOpen, setFechamentoOpen] = useState(false);
   const [dataSelecionada, setDataSelecionada] = useState<Date>(getBrasiliaDate());
-  const { unidadeAtual } = useUnidade();
+  const { unidadeAtual, unidades } = useUnidade();
   const { user, hasAnyRole } = useAuth();
   const isGestor = hasAnyRole(["admin", "gestor"]);
   const [form, setForm] = useState({ tipo: "entrada", descricao: "", valor: "", categoria: "" });
   const [aberturaForm, setAberturaForm] = useState({ valor: "", obs: "" });
   const [fechamentoForm, setFechamentoForm] = useState({ valor: "", obs: "" });
+
+  // Tesouraria state
+  const [saldoTotalCaixa, setSaldoTotalCaixa] = useState(0);
+  const [contas, setContas] = useState<ContaBancaria[]>([]);
+  const [depositoOpen, setDepositoOpen] = useState(false);
+  const [transferenciaOpen, setTransferenciaOpen] = useState(false);
+  const [depositoForm, setDepositoForm] = useState({ contaId: "", valor: "", descricao: "" });
+  const [transferenciaForm, setTransferenciaForm] = useState({ unidadeDestinoId: "", valor: "", descricao: "" });
+  const [periodoChart, setPeriodoChart] = useState<"7dias" | "30dias">("7dias");
+  const [chartMovs, setChartMovs] = useState<Mov[]>([]);
 
   const [entregadoresPendentes, setEntregadoresPendentes] = useState<{ nome: string; entregas: number; total: number }[]>([]);
   const [sangriasPendentes, setSangriasPendentes] = useState(0);
@@ -252,6 +273,80 @@ export default function CaixaDia() {
   };
 
   useEffect(() => { fetchData(); }, [unidadeAtual, dataSelecionada]);
+
+  // === Tesouraria: saldo acumulado total + contas bancárias ===
+  const fetchTesouraria = async () => {
+    let qTotal = supabase.from("movimentacoes_caixa").select("tipo, valor");
+    if (unidadeAtual?.id) qTotal = qTotal.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    const { data: allMovs } = await qTotal;
+    if (allMovs) {
+      const total = allMovs.reduce((acc: number, m: any) => acc + (m.tipo === "entrada" ? Number(m.valor) : -Number(m.valor)), 0);
+      setSaldoTotalCaixa(total);
+    }
+    let qContas = supabase.from("contas_bancarias").select("id, nome, banco, saldo_atual").eq("ativo", true);
+    if (unidadeAtual?.id) qContas = qContas.eq("unidade_id", unidadeAtual.id);
+    const { data: contasData } = await qContas;
+    setContas((contasData as ContaBancaria[]) || []);
+    const desde = subDays(new Date(), 30).toISOString();
+    let qChart = supabase.from("movimentacoes_caixa").select("*").gte("created_at", desde).order("created_at", { ascending: false });
+    if (unidadeAtual?.id) qChart = qChart.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
+    const { data: cData } = await qChart;
+    setChartMovs((cData as Mov[]) || []);
+  };
+
+  useEffect(() => { fetchTesouraria(); }, [unidadeAtual]);
+
+  const chartData = useMemo(() => {
+    const daysBack = periodoChart === "7dias" ? 6 : 29;
+    const days: Record<string, { entradas: number; saidas: number }> = {};
+    for (let i = daysBack; i >= 0; i--) {
+      const d = format(subDays(new Date(), i), "dd/MM");
+      days[d] = { entradas: 0, saidas: 0 };
+    }
+    chartMovs.forEach(m => {
+      const d = format(new Date(m.created_at), "dd/MM");
+      if (days[d]) {
+        if (m.tipo === "entrada") days[d].entradas += Number(m.valor);
+        else days[d].saidas += Number(m.valor);
+      }
+    });
+    return Object.entries(days).map(([data, v]) => ({ data, ...v }));
+  }, [chartMovs, periodoChart]);
+
+  const handleDeposito = async () => {
+    const valor = parseFloat(depositoForm.valor);
+    if (!depositoForm.contaId || !valor || valor <= 0) { toast.error("Selecione a conta e informe o valor"); return; }
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const desc = depositoForm.descricao || "Depósito bancário do caixa";
+    const { error: errCaixa } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: "saida", descricao: `💰→🏦 ${desc}`, valor, categoria: "Depósito Bancário", unidade_id: unidadeAtual?.id || null,
+    });
+    if (errCaixa) { toast.error("Erro ao registrar saída do caixa"); return; }
+    try {
+      await criarMovimentacaoBancaria({ contaBancariaId: depositoForm.contaId, valor, descricao: `Depósito do caixa - ${desc}`, categoria: "deposito_caixa", unidadeId: unidadeAtual?.id, userId: authUser?.id });
+    } catch (e) { console.error(e); toast.error("Erro ao creditar na conta bancária"); return; }
+    toast.success("Depósito realizado!");
+    setDepositoOpen(false); setDepositoForm({ contaId: "", valor: "", descricao: "" });
+    fetchData(); fetchTesouraria();
+  };
+
+  const handleTransferencia = async () => {
+    const valor = parseFloat(transferenciaForm.valor);
+    if (!transferenciaForm.unidadeDestinoId || !valor || valor <= 0) { toast.error("Selecione a unidade destino e informe o valor"); return; }
+    const unidadeDestino = unidades.find(u => u.id === transferenciaForm.unidadeDestinoId);
+    const desc = transferenciaForm.descricao || `Transferência para ${unidadeDestino?.nome || "outra loja"}`;
+    const { error: err1 } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: "saida", descricao: `🔄 Saída: ${desc}`, valor, categoria: "Transferência Caixa", unidade_id: unidadeAtual?.id || null,
+    });
+    if (err1) { toast.error("Erro ao registrar saída"); return; }
+    const { error: err2 } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: "entrada", descricao: `🔄 Entrada: Transferência de ${unidadeAtual?.nome || "outra loja"}`, valor, categoria: "Transferência Caixa", unidade_id: transferenciaForm.unidadeDestinoId,
+    });
+    if (err2) { toast.error("Erro ao registrar entrada no destino"); return; }
+    toast.success(`Transferência de R$ ${valor.toFixed(2)} para ${unidadeDestino?.nome} realizada!`);
+    setTransferenciaOpen(false); setTransferenciaForm({ unidadeDestinoId: "", valor: "", descricao: "" });
+    fetchData(); fetchTesouraria();
+  };
 
   const handleSubmit = async () => {
     if (!form.descricao || !form.valor) { toast.error("Preencha os campos"); return; }
@@ -431,7 +526,7 @@ export default function CaixaDia() {
 
   return (
     <MainLayout>
-      <Header title="Caixa do Dia" subtitle="Controle de movimentações financeiras" />
+      <Header title="Caixa da Loja" subtitle="Operação diária, tesouraria e depósitos bancários" />
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Top bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -613,11 +708,12 @@ export default function CaixaDia() {
         )}
 
         {/* Cards de resumo */}
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+          <Card className="border-2 border-primary/30"><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><Banknote className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className={`text-base sm:text-2xl font-bold truncate ${saldoTotalCaixa >= 0 ? "text-success" : "text-destructive"}`}>R$ {saldoTotalCaixa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p><p className="text-xs text-muted-foreground">💰 Total em Caixa</p></div></div></CardContent></Card>
           <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><ShoppingCart className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold truncate">R$ {totalVendas.toFixed(2)}</p><p className="text-xs text-muted-foreground">{qtdPedidos} vendas</p></div></div></CardContent></Card>
-          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-success/10 shrink-0"><TrendingUp className="h-5 w-5 text-success" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-success truncate">R$ {totalEntradas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Entradas</p></div></div></CardContent></Card>
-          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-destructive/10 shrink-0"><TrendingDown className="h-5 w-5 text-destructive" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-destructive truncate">R$ {totalSaidas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saídas</p></div></div></CardContent></Card>
-          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><DollarSign className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold truncate">R$ {saldo.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saldo</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-success/10 shrink-0"><TrendingUp className="h-5 w-5 text-success" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-success truncate">R$ {totalEntradas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Entradas Hoje</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-destructive/10 shrink-0"><TrendingDown className="h-5 w-5 text-destructive" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold text-destructive truncate">R$ {totalSaidas.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saídas Hoje</p></div></div></CardContent></Card>
+          <Card><CardContent className="p-3 sm:pt-6 sm:p-6"><div className="flex items-center gap-3"><div className="p-2 sm:p-3 rounded-lg bg-primary/10 shrink-0"><DollarSign className="h-5 w-5 text-primary" /></div><div className="min-w-0"><p className="text-base sm:text-2xl font-bold truncate">R$ {saldo.toFixed(2)}</p><p className="text-xs text-muted-foreground">Saldo do Dia</p></div></div></CardContent></Card>
         </div>
 
         {/* Dashboard em tempo real */}
@@ -669,6 +765,7 @@ export default function CaixaDia() {
             <TabsTrigger value="movimentacoes" className="flex-1 sm:flex-none text-xs sm:text-sm">Movimentações</TabsTrigger>
             <TabsTrigger value="produtos" className="flex-1 sm:flex-none text-xs sm:text-sm">Produtos</TabsTrigger>
             <TabsTrigger value="pagamentos" className="flex-1 sm:flex-none text-xs sm:text-sm">Pagamentos</TabsTrigger>
+            <TabsTrigger value="tesouraria" className="flex-1 sm:flex-none text-xs sm:text-sm">💰 Tesouraria</TabsTrigger>
           </TabsList>
 
           <TabsContent value="movimentacoes">
@@ -798,6 +895,123 @@ export default function CaixaDia() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Aba Tesouraria */}
+          <TabsContent value="tesouraria">
+            <div className="space-y-4">
+              {/* Ações de Tesouraria */}
+              <div className="flex flex-wrap gap-2">
+                <Dialog open={depositoOpen} onOpenChange={setDepositoOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="secondary"><Landmark className="h-4 w-4 mr-2" />Depositar no Banco</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle className="flex items-center gap-2"><Landmark className="h-5 w-5 text-primary" />Depositar Dinheiro no Banco</DialogTitle></DialogHeader>
+                    <p className="text-sm text-muted-foreground">O valor sairá do <strong>Caixa da Loja</strong> e entrará na <strong>Conta Bancária</strong> selecionada.</p>
+                    <div className="space-y-4 pt-2">
+                      <div>
+                        <Label>Conta Bancária Destino *</Label>
+                        <Select value={depositoForm.contaId} onValueChange={v => setDepositoForm({ ...depositoForm, contaId: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                          <SelectContent>
+                            {contas.map(c => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.nome} ({c.banco}) — R$ {Number(c.saldo_atual).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div><Label>Valor *</Label><Input type="number" step="0.01" value={depositoForm.valor} onChange={e => setDepositoForm({ ...depositoForm, valor: e.target.value })} placeholder="0.00" /></div>
+                      <div><Label>Descrição</Label><Input value={depositoForm.descricao} onChange={e => setDepositoForm({ ...depositoForm, descricao: e.target.value })} placeholder="Ex: Depósito diário" /></div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setDepositoOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleDeposito}><Landmark className="h-4 w-4 mr-2" />Confirmar Depósito</Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {unidades.length > 1 && (
+                  <Dialog open={transferenciaOpen} onOpenChange={setTransferenciaOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline"><ArrowRightLeft className="h-4 w-4 mr-2" />Transferir entre Caixas</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle className="flex items-center gap-2"><ArrowRightLeft className="h-5 w-5 text-primary" />Transferência entre Caixas</DialogTitle></DialogHeader>
+                      <p className="text-sm text-muted-foreground">Transfere dinheiro físico do caixa de <strong>{unidadeAtual?.nome || "esta loja"}</strong> para outra unidade.</p>
+                      <div className="space-y-4 pt-2">
+                        <div>
+                          <Label>Unidade Destino *</Label>
+                          <Select value={transferenciaForm.unidadeDestinoId} onValueChange={v => setTransferenciaForm({ ...transferenciaForm, unidadeDestinoId: v })}>
+                            <SelectTrigger><SelectValue placeholder="Selecione a loja" /></SelectTrigger>
+                            <SelectContent>
+                              {unidades.filter(u => u.id !== unidadeAtual?.id).map(u => (
+                                <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div><Label>Valor *</Label><Input type="number" step="0.01" value={transferenciaForm.valor} onChange={e => setTransferenciaForm({ ...transferenciaForm, valor: e.target.value })} placeholder="0.00" /></div>
+                        <div><Label>Descrição</Label><Input value={transferenciaForm.descricao} onChange={e => setTransferenciaForm({ ...transferenciaForm, descricao: e.target.value })} placeholder="Ex: Troco para filial centro" /></div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setTransferenciaOpen(false)}>Cancelar</Button>
+                          <Button onClick={handleTransferencia}><ArrowRightLeft className="h-4 w-4 mr-2" />Transferir</Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+
+                <Select value={periodoChart} onValueChange={(v: "7dias" | "30dias") => setPeriodoChart(v)}>
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7dias">7 dias</SelectItem>
+                    <SelectItem value="30dias">30 dias</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button variant="outline" size="icon" onClick={() => { fetchData(); fetchTesouraria(); }}><RefreshCw className="h-4 w-4" /></Button>
+              </div>
+
+              {/* Gráfico de movimentações */}
+              <Card>
+                <CardHeader><CardTitle>Movimentações — {periodoChart === "7dias" ? "Últimos 7 dias" : "Últimos 30 dias"}</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="data" fontSize={12} />
+                      <YAxis fontSize={12} />
+                      <Tooltip formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR")}`} />
+                      <Area type="monotone" dataKey="entradas" stroke="hsl(var(--success))" fill="hsl(var(--success))" fillOpacity={0.3} name="Entradas" />
+                      <Area type="monotone" dataKey="saidas" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive))" fillOpacity={0.3} name="Saídas" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Contas bancárias resumo */}
+              {contas.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Landmark className="h-5 w-5" />Contas Bancárias</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {contas.map(c => (
+                        <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div>
+                            <p className="font-medium text-sm">{c.nome}</p>
+                            <p className="text-xs text-muted-foreground">{c.banco}</p>
+                          </div>
+                          <span className="font-bold text-sm">R$ {Number(c.saldo_atual).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
