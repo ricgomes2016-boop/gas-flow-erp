@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -19,7 +20,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   User, Package, Wallet, Download, CreditCard, Banknote, Receipt, Minus, Pencil, Loader2, Save,
-  QrCode, Keyboard, CheckCircle, AlertCircle, Plus, Trash2, FileText,
+  QrCode, Keyboard, CheckCircle, AlertCircle, Plus, Trash2, FileText, Clock, History, Filter, Search,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrasiliaDateString } from "@/lib/utils";
@@ -65,6 +66,8 @@ const CANAIS_VIRTUAIS = [
   { id: "__pdv__", nome: "🖥️ PDV", canal: "PDV" },
 ];
 
+type FiltroStatus = "pendentes" | "acertados" | "todos";
+
 interface PagamentoMultiplo {
   forma: string;
   valor: number;
@@ -89,6 +92,7 @@ export default function AcertoEntregador() {
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
   const [buscar, setBuscar] = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("pendentes");
   const [editingEntrega, setEditingEntrega] = useState<EditingEntrega | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [valeGasModoManual, setValeGasModoManual] = useState(true);
@@ -122,11 +126,25 @@ export default function AcertoEntregador() {
 
   const canalVirtual = CANAIS_VIRTUAIS.find(c => c.id === selectedId);
 
+  // Build status filter based on filtroStatus
+  const getStatusFilter = () => {
+    if (canalVirtual) {
+      if (filtroStatus === "pendentes") return ["entregue", "pago"];
+      if (filtroStatus === "acertados") return ["finalizado"];
+      return ["entregue", "finalizado", "pago"];
+    } else {
+      if (filtroStatus === "pendentes") return ["entregue"];
+      if (filtroStatus === "acertados") return ["finalizado"];
+      return ["entregue", "finalizado"];
+    }
+  };
+
   // Entregas do período
   const { data: entregas = [], isLoading: loadingEntregas } = useQuery({
-    queryKey: ["acerto-entregas", selectedId, dataInicio, dataFim, unidadeAtual?.id],
+    queryKey: ["acerto-entregas", selectedId, dataInicio, dataFim, unidadeAtual?.id, filtroStatus],
     queryFn: async () => {
       if (!selectedId) return [];
+      const statusList = getStatusFilter();
       let query = supabase
         .from("pedidos")
         .select(`
@@ -136,13 +154,13 @@ export default function AcertoEntregador() {
         `)
         .gte("created_at", `${dataInicio}T00:00:00-03:00`)
         .lte("created_at", `${dataFim}T23:59:59-03:00`)
+        .in("status", statusList)
         .order("created_at", { ascending: true });
 
       if (canalVirtual) {
-        // Buscar por responsavel_acerto (portaria/pdv) em vez de canal_venda
-        query = query.eq("responsavel_acerto", canalVirtual.canal.toLowerCase()).in("status", ["entregue", "finalizado", "pago"]);
+        query = query.eq("responsavel_acerto", canalVirtual.canal.toLowerCase());
       } else {
-        query = query.eq("entregador_id", selectedId).eq("status", "entregue");
+        query = query.eq("entregador_id", selectedId);
       }
 
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
@@ -187,11 +205,9 @@ export default function AcertoEntregador() {
   // Open edit dialog
   const abrirEdicao = (entrega: any) => {
     const totalEntrega = Number(entrega.valor_total || 0);
-    // Parse existing forma_pagamento into pagamentos_multiplos
     let pagamentos: PagamentoMultiplo[] = [];
     const fp = entrega.forma_pagamento || "";
     if (fp.startsWith("Múltiplos: ")) {
-      // Legacy format: "Múltiplos: Dinheiro R$50.00 + PIX R$30.00"
       const parts = fp.replace("Múltiplos: ", "").split(" + ");
       pagamentos = parts.map((part: string) => {
         const match = part.match(/^(.+?)\s+R\$(\d+[\.,]?\d*)$/);
@@ -199,7 +215,6 @@ export default function AcertoEntregador() {
         return { forma: part, valor: 0 };
       });
     } else if (fp.includes(", ")) {
-      // Comma-separated: "Dinheiro R$50.00, PIX R$30.00"
       const parts = fp.split(", ");
       pagamentos = parts.map((part: string) => {
         const match = part.match(/^(.+?)\s+R\$(\d+[\.,]?\d*)$/);
@@ -268,7 +283,6 @@ export default function AcertoEntregador() {
     setIsSavingEdit(true);
 
     try {
-      // Update each pedido_item
       for (const item of editingEntrega.itens) {
         const { error } = await supabase
           .from("pedido_itens")
@@ -277,15 +291,11 @@ export default function AcertoEntregador() {
         if (error) throw error;
       }
 
-      // Recalculate total
       const novoTotal = editingEntrega.itens.reduce(
         (acc, item) => acc + item.quantidade * item.preco_unitario, 0
       );
 
-      // Determinar forma de pagamento a salvar
       const pagamentos = editingEntrega.pagamentos_multiplos.filter(p => p.valor > 0);
-      
-      // Validar soma dos pagamentos
       const totalPagamentos = pagamentos.reduce((a, p) => a + p.valor, 0);
       if (Math.abs(novoTotal - totalPagamentos) > 0.01) {
         toast.error("A soma dos pagamentos não confere com o total da entrega");
@@ -297,22 +307,18 @@ export default function AcertoEntregador() {
       if (pagamentos.length === 1) {
         formaPgtoSalvar = pagamentos[0].forma;
       } else {
-        // Salvar como: "Dinheiro R$50.00, PIX R$30.00"
         formaPgtoSalvar = pagamentos
           .map(p => `${p.forma} R$${p.valor.toFixed(2)}`)
           .join(", ");
       }
 
-      // Update pedido
       const { error } = await supabase
         .from("pedidos")
         .update({ forma_pagamento: formaPgtoSalvar, valor_total: novoTotal })
         .eq("id", editingEntrega.id);
       if (error) throw error;
 
-      // Se tem vale gás validado, vincular ao cliente do pedido
       if (valeGasValidado?.valido && (valeGasValidado as any)?.valeId) {
-        // Buscar dados do cliente no pedido
         const { data: pedidoData } = await supabase
           .from("pedidos")
           .select("cliente_id, clientes(nome, telefone, endereco, bairro)")
@@ -357,6 +363,13 @@ export default function AcertoEntregador() {
     return { totalVendas, porForma, totalDespesas, saldoLiquido };
   }, [entregas, despesas]);
 
+  // Separar pendentes e acertados para contadores
+  const contadores = useMemo(() => {
+    const pendentes = entregas.filter(e => e.status === "entregue" || e.status === "pago").length;
+    const acertados = entregas.filter(e => e.status === "finalizado").length;
+    return { pendentes, acertados, total: entregas.length };
+  }, [entregas]);
+
   // Resumo consolidado de produtos
   const resumoProdutos = useMemo(() => {
     const map = new Map<string, { nome: string; qtd: number; total: number }>();
@@ -374,7 +387,6 @@ export default function AcertoEntregador() {
 
   const nomeEntregador = canalVirtual?.canal || entregadores.find((e) => e.id === selectedId)?.nome || "";
 
-  // Normalizar forma de pagamento para o roteamento
   const normalizarFormaPagamento = (forma: string): string => {
     const map: Record<string, string> = {
       "Dinheiro": "dinheiro",
@@ -389,23 +401,22 @@ export default function AcertoEntregador() {
     return map[forma] || forma.toLowerCase().replace(/\s+/g, "_");
   };
 
-  // Confirmar acerto: rotear cada pagamento para o destino correto
+  // Confirmar acerto
   const confirmarAcerto = async () => {
-    if (entregas.length === 0) {
-      toast.error("Nenhuma entrega para confirmar");
+    const pendentes = entregas.filter(e => e.status === "entregue" || e.status === "pago");
+    if (pendentes.length === 0) {
+      toast.error("Nenhuma entrega pendente para confirmar");
       return;
     }
     setIsConfirmingAcerto(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      for (const entrega of entregas) {
-        // Parse pagamentos da entrega
+      for (const entrega of pendentes) {
         const fp = entrega.forma_pagamento || "";
         let pagamentos: PagamentoRoteamento[] = [];
 
         if (fp.includes(", ") || fp.startsWith("Múltiplos: ")) {
-          // Pagamento múltiplo: "Dinheiro R$50.00, PIX R$30.00"
           const cleanFp = fp.replace("Múltiplos: ", "");
           const parts = cleanFp.split(/,\s*|\s*\+\s*/);
           pagamentos = parts.map((part: string) => {
@@ -431,13 +442,14 @@ export default function AcertoEntregador() {
           userId: user?.id,
         });
 
-        // Marcar pedido como "finalizado" (acerto feito)
         await supabase.from("pedidos").update({ status: "finalizado" }).eq("id", entrega.id);
       }
 
       setAcertoConfirmado(true);
-      toast.success(`Acerto confirmado! ${entregas.length} entrega(s) roteadas financeiramente.`);
+      toast.success(`Acerto confirmado! ${pendentes.length} entrega(s) roteadas financeiramente.`);
       queryClient.invalidateQueries({ queryKey: ["acerto-entregas"] });
+      // Switch to "acertados" to show the settled orders
+      setFiltroStatus("acertados");
     } catch (err: any) {
       toast.error("Erro ao confirmar acerto: " + err.message);
     } finally {
@@ -459,6 +471,7 @@ export default function AcertoEntregador() {
     doc.text(canalVirtual ? `Canal: ${canalVirtual.canal}` : `Entregador: ${nomeEntregador}`, 14, 22);
     doc.text(`Período: ${format(parseISO(dataInicio), "dd/MM/yyyy")} a ${format(parseISO(dataFim), "dd/MM/yyyy")}`, 14, 28);
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
+    doc.text(`Filtro: ${filtroStatus === "pendentes" ? "Pendentes" : filtroStatus === "acertados" ? "Acertados" : "Todos"}`, 14, 40);
 
     autoTable(doc, {
       head: [["Métrica", "Valor"]],
@@ -472,7 +485,7 @@ export default function AcertoEntregador() {
         ["Total Despesas", formatCurrency(metricas.totalDespesas)],
         ["Saldo Líquido", formatCurrency(metricas.saldoLiquido)],
       ],
-      startY: 40,
+      startY: 46,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [51, 65, 85] },
     });
@@ -492,12 +505,13 @@ export default function AcertoEntregador() {
     doc.setFontSize(12);
     doc.text("Entregas Detalhadas", 14, y + 10);
     autoTable(doc, {
-      head: [["Hora", "Cliente", "Itens", "Pagamento", "Valor"]],
+      head: [["Hora", "Cliente", "Itens", "Pagamento", "Status", "Valor"]],
       body: entregas.map((e) => [
         format(parseISO(e.created_at), "HH:mm"),
         e.clientes?.nome || "—",
         (e.pedido_itens || []).map((i: any) => `${i.quantidade}x ${i.produtos?.nome || "?"}`).join(", ") || "—",
         paymentLabels[e.forma_pagamento || ""] || e.forma_pagamento || "—",
+        e.status === "finalizado" ? "Acertado" : "Pendente",
         formatCurrency(Number(e.valor_total || 0)),
       ]),
       startY: y + 14,
@@ -538,23 +552,21 @@ export default function AcertoEntregador() {
 
   const isLoading = loadingEntregas || loadingDespesas;
 
+  // Check if there are pendentes in current result set
+  const temPendentes = entregas.some(e => e.status === "entregue" || e.status === "pago");
+
   return (
     <MainLayout>
       <Header title="Acerto Financeiro" subtitle="Conferência de entregas, portaria e PDV" />
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Filtros */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="h-5 w-5" />Selecionar Entregador / Canal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
-              <div className="col-span-2 sm:col-span-3 md:col-span-1 space-y-1">
-                <Label className="text-xs">Entregador / Canal</Label>
-                <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); setBuscar(false); }}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="pt-5 pb-4">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6 items-end">
+              <div className="col-span-2 sm:col-span-1 space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Entregador / Canal</Label>
+                <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); setBuscar(false); setAcertoConfirmado(false); }}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {CANAIS_VIRTUAIS.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
@@ -568,34 +580,80 @@ export default function AcertoEntregador() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Data Início</Label>
-                <Input type="date" value={dataInicio} onChange={(e) => { setDataInicio(e.target.value); setBuscar(false); }} />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Data Início</Label>
+                <Input type="date" value={dataInicio} onChange={(e) => { setDataInicio(e.target.value); setBuscar(false); }} className="h-9" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Data Fim</Label>
-                <Input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setBuscar(false); }} />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Data Fim</Label>
+                <Input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setBuscar(false); }} className="h-9" />
               </div>
-              <div className="flex items-end">
-                <Button className="w-full gap-2" onClick={handleBuscar} disabled={isLoading}>
-                  {isLoading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" /> : <Package className="h-4 w-4" />}
-                  Carregar
-                </Button>
-              </div>
-              <div className="flex items-end">
-                <Button variant="outline" className="w-full gap-2" onClick={exportarPDF} disabled={entregas.length === 0}>
-                  <Download className="h-4 w-4" />PDF
-                </Button>
-              </div>
+              <Button className="h-9 gap-2" onClick={handleBuscar} disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Buscar
+              </Button>
+              <Button variant="outline" className="h-9 gap-2" onClick={exportarPDF} disabled={entregas.length === 0}>
+                <Download className="h-4 w-4" />PDF
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Métricas */}
+        {/* Content */}
         {buscar && (
           <>
+            {/* Status tabs */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex bg-muted rounded-lg p-0.5 gap-0.5">
+                <button
+                  onClick={() => setFiltroStatus("pendentes")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    filtroStatus === "pendentes"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  Pendentes
+                  {buscar && !isLoading && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px] ml-0.5">
+                      {entregas.filter(e => e.status !== "finalizado").length}
+                    </Badge>
+                  )}
+                </button>
+                <button
+                  onClick={() => setFiltroStatus("acertados")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    filtroStatus === "acertados"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Acertados
+                  {buscar && !isLoading && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px] ml-0.5">
+                      {entregas.filter(e => e.status === "finalizado").length}
+                    </Badge>
+                  )}
+                </button>
+                <button
+                  onClick={() => setFiltroStatus("todos")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    filtroStatus === "todos"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  Todos
+                </button>
+              </div>
+            </div>
+
+            {/* Métricas */}
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-              <Card>
+              <Card className="border-border/60">
                 <CardContent className="flex items-center gap-3 p-3">
                   <div className="rounded-lg bg-primary/10 p-2 shrink-0"><Package className="h-5 w-5 text-primary" /></div>
                   <div className="min-w-0">
@@ -604,7 +662,7 @@ export default function AcertoEntregador() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-border/60">
                 <CardContent className="flex items-center gap-3 p-3">
                   <div className="rounded-lg bg-success/10 p-2 shrink-0"><Wallet className="h-5 w-5 text-success" /></div>
                   <div className="min-w-0">
@@ -613,7 +671,7 @@ export default function AcertoEntregador() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-border/60">
                 <CardContent className="flex items-center gap-3 p-3">
                   <div className="rounded-lg bg-destructive/10 p-2 shrink-0"><Minus className="h-5 w-5 text-destructive" /></div>
                   <div className="min-w-0">
@@ -622,7 +680,7 @@ export default function AcertoEntregador() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-border/60">
                 <CardContent className="flex items-center gap-3 p-3">
                   <div className="rounded-lg bg-warning/10 p-2 shrink-0"><Receipt className="h-5 w-5 text-warning" /></div>
                   <div className="min-w-0">
@@ -633,7 +691,7 @@ export default function AcertoEntregador() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-border/60">
                 <CardContent className="flex items-center gap-3 p-3">
                   <div className="rounded-lg bg-info/10 p-2 shrink-0"><CreditCard className="h-5 w-5 text-info" /></div>
                   <div className="min-w-0">
@@ -644,8 +702,8 @@ export default function AcertoEntregador() {
               </Card>
             </div>
 
-            {/* Resumo automático do acerto */}
-            {!isLoading && entregas.length > 0 && (
+            {/* Resumo automático do acerto - only for pendentes */}
+            {!isLoading && temPendentes && filtroStatus !== "acertados" && (
               <Card className="border-primary/30 bg-primary/5">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -688,46 +746,47 @@ export default function AcertoEntregador() {
                     </div>
                   </div>
                 </CardContent>
-                </Card>
-              )}
+              </Card>
+            )}
 
-              {/* Botão Confirmar Acerto */}
-              {!isLoading && entregas.length > 0 && !acertoConfirmado && (
-                <Card className="border-success/30 bg-success/5">
-                  <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                      <p className="font-semibold text-sm">✅ Confirmar Acerto Financeiro</p>
-                      <p className="text-xs text-muted-foreground">
-                        Ao confirmar, cada pagamento será roteado automaticamente: Dinheiro → Caixa da Loja, PIX → Banco, Cartão → Contas a Receber, etc.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={confirmarAcerto}
-                      disabled={isConfirmingAcerto}
-                      className="gap-2 whitespace-nowrap"
-                      size="lg"
-                    >
-                      {isConfirmingAcerto ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" />Processando...</>
-                      ) : (
-                        <><CheckCircle className="h-4 w-4" />Confirmar Acerto</>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
+            {/* Botão Confirmar Acerto */}
+            {!isLoading && temPendentes && filtroStatus !== "acertados" && !acertoConfirmado && (
+              <Card className="border-success/30 bg-success/5">
+                <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-sm">✅ Confirmar Acerto Financeiro</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ao confirmar, cada pagamento será roteado automaticamente: Dinheiro → Caixa da Loja, PIX → Banco, Cartão → Contas a Receber, etc.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={confirmarAcerto}
+                    disabled={isConfirmingAcerto}
+                    className="gap-2 whitespace-nowrap"
+                    size="lg"
+                  >
+                    {isConfirmingAcerto ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Processando...</>
+                    ) : (
+                      <><CheckCircle className="h-4 w-4" />Confirmar Acerto</>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-              {acertoConfirmado && (
-                <Card className="border-success/50 bg-success/10">
-                  <CardContent className="p-4 text-center">
-                    <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
-                    <p className="font-semibold text-success">Acerto confirmado com sucesso!</p>
-                    <p className="text-xs text-muted-foreground">Todas as movimentações financeiras foram criadas automaticamente.</p>
-                  </CardContent>
-                </Card>
-              )}
+            {acertoConfirmado && (
+              <Card className="border-success/50 bg-success/10">
+                <CardContent className="p-4 text-center">
+                  <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
+                  <p className="font-semibold text-success">Acerto confirmado com sucesso!</p>
+                  <p className="text-xs text-muted-foreground">Todas as movimentações financeiras foram criadas automaticamente.</p>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
+              <Card className="border-border/60">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Banknote className="h-5 w-5" />Resumo por Forma de Pagamento
@@ -779,7 +838,7 @@ export default function AcertoEntregador() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/60">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Package className="h-5 w-5" />Produtos Vendidos
@@ -823,7 +882,7 @@ export default function AcertoEntregador() {
 
             {/* Despesas do entregador */}
             {despesas.length > 0 && (
-              <Card>
+              <Card className="border-border/60">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base text-destructive">
                     <Minus className="h-5 w-5" />Despesas do Entregador
@@ -865,7 +924,7 @@ export default function AcertoEntregador() {
             )}
 
             {/* Lista de entregas com produtos */}
-            <Card>
+            <Card className="border-border/60">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between flex-wrap gap-2">
                   <span className="flex items-center gap-2 text-base"><Receipt className="h-5 w-5" />Entregas Detalhadas</span>
@@ -876,20 +935,35 @@ export default function AcertoEntregador() {
                 {isLoading ? (
                   <div className="space-y-3 p-4">{[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
                 ) : entregas.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">
-                    {selectedId ? "Nenhuma entrega encontrada para este período" : "Selecione um entregador e clique em Carregar"}
-                  </p>
+                  <div className="text-center py-10">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                      {filtroStatus === "pendentes" ? <Clock className="h-6 w-6 text-muted-foreground" /> : <CheckCircle className="h-6 w-6 text-muted-foreground" />}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {filtroStatus === "pendentes" 
+                        ? "Nenhuma entrega pendente de acerto"
+                        : filtroStatus === "acertados"
+                        ? "Nenhuma entrega acertada neste período"
+                        : "Nenhuma entrega encontrada"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {filtroStatus === "pendentes" 
+                        ? "Troque para 'Acertados' para ver o histórico"
+                        : "Ajuste os filtros de data ou entregador"}
+                    </p>
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <Table className="min-w-[480px]">
+                    <Table className="min-w-[520px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-14">Hora</TableHead>
                           <TableHead>Cliente</TableHead>
                           <TableHead className="hidden md:table-cell">Produtos</TableHead>
                           <TableHead>Pagamento</TableHead>
+                          <TableHead className="w-20">Status</TableHead>
                           <TableHead className="text-right">Valor</TableHead>
-                          {podeEditar && <TableHead className="w-10" />}
+                          {podeEditar && filtroStatus !== "acertados" && <TableHead className="w-10" />}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -897,8 +971,9 @@ export default function AcertoEntregador() {
                           const itensStr = (e.pedido_itens || [])
                             .map((i: any) => `${i.quantidade}x ${i.produtos?.nome || "?"}`)
                             .join(", ") || "—";
+                          const isAcertado = e.status === "finalizado";
                           return (
-                            <TableRow key={e.id}>
+                            <TableRow key={e.id} className={isAcertado ? "opacity-75" : ""}>
                               <TableCell className="text-xs">{format(parseISO(e.created_at), "HH:mm")}</TableCell>
                               <TableCell className="text-sm font-medium">
                                 <div>{e.clientes?.nome || "—"}</div>
@@ -906,12 +981,25 @@ export default function AcertoEntregador() {
                               </TableCell>
                               <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{itensStr}</TableCell>
                               <TableCell><Badge variant="outline" className="text-xs whitespace-nowrap">{paymentLabels[e.forma_pagamento || ""] || e.forma_pagamento || "—"}</Badge></TableCell>
+                              <TableCell>
+                                {isAcertado ? (
+                                  <Badge className="bg-success/15 text-success border-success/30 text-[10px] gap-1">
+                                    <CheckCircle className="h-3 w-3" />Acertado
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-[10px] gap-1">
+                                    <Clock className="h-3 w-3" />Pendente
+                                  </Badge>
+                                )}
+                              </TableCell>
                               <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(Number(e.valor_total || 0))}</TableCell>
-                              {podeEditar && (
+                              {podeEditar && filtroStatus !== "acertados" && (
                                 <TableCell>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(e)}>
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
+                                  {!isAcertado && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrirEdicao(e)}>
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </TableCell>
                               )}
                             </TableRow>
@@ -935,7 +1023,7 @@ export default function AcertoEntregador() {
           </DialogHeader>
           {editingEntrega && (
             <div className="space-y-4">
-              {/* Pagamentos - sempre como lista */}
+              {/* Pagamentos */}
               <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
                 <Label className="text-sm font-medium flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-primary" /> Formas de Pagamento
@@ -1018,7 +1106,7 @@ export default function AcertoEntregador() {
                 })()}
               </div>
 
-              {/* Vale Gás - código/QR quando algum pagamento é Vale Gás */}
+              {/* Vale Gás */}
               {editingEntrega.pagamentos_multiplos.some(p => p.forma === "Vale Gás") && (
                 <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
                   <Label className="text-sm font-medium flex items-center gap-2">
