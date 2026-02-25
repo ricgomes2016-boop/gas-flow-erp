@@ -78,8 +78,8 @@ export function MobileNav() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h2 className="font-bold text-sidebar-foreground text-base tracking-tight">Gás Fácil</h2>
-                <p className="text-[10px] font-medium text-sidebar-foreground/40 uppercase tracking-widest">ERP Pro</p>
+                <h2 className="font-bold text-sidebar-foreground text-[17px] tracking-[-0.03em]">Gás Fácil</h2>
+                <p className="text-[9px] font-semibold text-primary/60 uppercase tracking-[0.2em]">ERP Pro</p>
               </motion.div>
             </div>
           </div>
@@ -104,7 +104,7 @@ export function MobileNav() {
                       <button
                         onClick={() => toggleMenu(item.label)}
                         className={cn(
-                          "group flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200",
+                          "group flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-[-0.01em] transition-all duration-200",
                           hasActiveChild
                             ? "bg-primary/8 text-primary"
                             : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
@@ -112,7 +112,7 @@ export function MobileNav() {
                       >
                         <div className="flex items-center gap-3">
                           <Icon className={cn(
-                            "h-[18px] w-[18px] transition-transform duration-200",
+                            "h-[18px] w-[18px] transition-transform duration-200 stroke-[2.25]",
                             !hasActiveChild && "group-hover:scale-110"
                           )} />
                           <span>{item.label}</span>
@@ -149,14 +149,14 @@ export function MobileNav() {
                                       to={sub.path}
                                       onClick={() => setOpen(false)}
                                       className={cn(
-                                        "group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-200",
+                                        "group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12px] font-semibold tracking-[-0.005em] transition-all duration-200",
                                         subActive
                                           ? "bg-primary text-primary-foreground shadow-sm"
-                                          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                                          : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                                       )}
                                     >
                                       <SubIcon className={cn(
-                                        "h-3.5 w-3.5 flex-shrink-0 transition-all duration-200",
+                                        "h-3.5 w-3.5 flex-shrink-0 transition-all duration-200 stroke-[2]",
                                         !subActive && "group-hover:scale-110 group-hover:text-primary"
                                       )} />
                                       <span>{sub.label}</span>
@@ -183,14 +183,14 @@ export function MobileNav() {
                       to={item.path!}
                       onClick={() => setOpen(false)}
                       className={cn(
-                        "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200",
+                        "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-[-0.01em] transition-all duration-200",
                         isActive(item.path!)
                           ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                          : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                          : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                       )}
                     >
                       <Icon className={cn(
-                        "h-[18px] w-[18px] transition-transform duration-200",
+                        "h-[18px] w-[18px] transition-transform duration-200 stroke-[2.25]",
                         !isActive(item.path!) && "group-hover:scale-110"
                       )} />
                       <span>{item.label}</span>
@@ -208,8 +208,8 @@ export function MobileNav() {
                 <span className="text-xs font-bold text-primary">{userInitial}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-sidebar-foreground truncate">{userName}</p>
-                <p className="text-[10px] text-sidebar-foreground/50">Administrador</p>
+                <p className="text-[13px] font-bold tracking-[-0.02em] text-sidebar-foreground truncate">{userName}</p>
+                <p className="text-[10px] font-medium text-sidebar-foreground/45 uppercase tracking-wider">Administrador</p>
               </div>
               <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                 <Button

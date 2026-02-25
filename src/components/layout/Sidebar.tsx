@@ -96,10 +96,10 @@ export function Sidebar() {
                   transition={{ duration: 0.2 }}
                   className="flex flex-col"
                 >
-                  <span className="text-base font-bold tracking-tight text-sidebar-foreground">
+                  <span className="text-[17px] font-bold tracking-[-0.03em] text-sidebar-foreground">
                     Gás Fácil
                   </span>
-                  <span className="text-[10px] font-medium text-sidebar-foreground/50 uppercase tracking-widest">
+                  <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-[0.2em]">
                     ERP Pro
                   </span>
                 </motion.div>
@@ -249,14 +249,14 @@ export function Sidebar() {
                     <Link
                       to={item.path}
                       className={cn(
-                        "group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-200 relative",
+                        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold tracking-[-0.01em] transition-all duration-200 relative",
                         isItemActive
                           ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                          : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                          : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                       )}
                     >
                       <item.icon className={cn(
-                        "h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200",
+                        "h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200 stroke-[2.25]",
                         !isItemActive && "group-hover:scale-110"
                       )} />
                       <span className="truncate">{item.label}</span>
@@ -265,14 +265,14 @@ export function Sidebar() {
                     <button
                       onClick={() => toggleSubmenu(item.label)}
                       className={cn(
-                        "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-200",
+                        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold tracking-[-0.01em] transition-all duration-200",
                         isChildActive
                           ? "bg-primary/8 text-primary"
-                          : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                          : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                       )}
                     >
                       <item.icon className={cn(
-                        "h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200",
+                        "h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200 stroke-[2.25]",
                         !isChildActive && "group-hover:scale-110"
                       )} />
                       <span className="flex-1 text-left truncate">{item.label}</span>
@@ -311,14 +311,14 @@ export function Sidebar() {
                                 <Link
                                   to={subItem.path}
                                   className={cn(
-                                    "group flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+                                    "group flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold tracking-[-0.005em] transition-all duration-200",
                                     subActive
                                       ? "bg-primary text-primary-foreground shadow-sm"
-                                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                                      : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                                   )}
                                 >
                                   <SubIcon className={cn(
-                                    "h-3.5 w-3.5 flex-shrink-0 transition-all duration-200",
+                                    "h-3.5 w-3.5 flex-shrink-0 transition-all duration-200 stroke-[2]",
                                     !subActive && "group-hover:scale-110 group-hover:text-primary"
                                   )} />
                                   <span className="truncate">{subItem.label}</span>
@@ -376,8 +376,8 @@ export function Sidebar() {
                   <span className="text-xs font-bold text-primary">{userInitial}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-sidebar-foreground truncate">{userName}</p>
-                  <p className="text-[10px] text-sidebar-foreground/50 truncate">Administrador</p>
+                  <p className="text-[13px] font-bold tracking-[-0.02em] text-sidebar-foreground truncate">{userName}</p>
+                  <p className="text-[10px] font-medium text-sidebar-foreground/45 truncate uppercase tracking-wider">Administrador</p>
                 </div>
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                   <Button
