@@ -10,7 +10,7 @@ interface MobileBottomBarProps {
 
 export function MobileBottomBar({ onOpenAi, onOpenChat, chatUnread = 0 }: MobileBottomBarProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <button
         onClick={onOpenChat}
         className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-muted-foreground hover:text-primary transition-colors relative"

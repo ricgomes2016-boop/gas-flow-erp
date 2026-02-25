@@ -174,21 +174,7 @@ export function ChatOperador({ externalOpen, onExternalClose, onUnreadChange }: 
 
   return (
     <>
-      {/* Desktop floating button */}
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-24 z-40 hidden md:flex h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 items-center justify-center"
-          title="Chat com Entregadores"
-        >
-          <MessageCircle className="h-6 w-6" />
-          {totalUnread > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold">
-              {totalUnread > 9 ? "9+" : totalUnread}
-            </span>
-          )}
-        </button>
-      )}
+      {/* Desktop floating button - hidden, now in bottom bar */}
 
       {/* Chat panel */}
       {open && (
