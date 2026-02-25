@@ -22,7 +22,7 @@ function MainLayoutContent({ children }: MainLayoutProps) {
       <main
         className={cn(
           "transition-all duration-300 ml-0 pb-14",
-          collapsed ? "md:ml-16" : "md:ml-64"
+          collapsed ? "md:ml-16" : "md:ml-[260px]"
         )}
       >
         {children}
