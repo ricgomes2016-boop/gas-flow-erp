@@ -30,7 +30,7 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
         query = query.gte("created_at", filtros.dataInicio + "T00:00:00-03:00");
       }
       if (filtros?.dataFim) {
-        query = query.lt("created_at", filtros.dataFim + "T23:59:59-03:00");
+        query = query.lte("created_at", filtros.dataFim + "T23:59:59-03:00");
       }
 
       const { data: pedidosData, error: pedidosError } = await query;
