@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -185,7 +185,7 @@ export default function EntregadorCombustivel() {
       const { error } = await (supabase as any).from("abastecimentos").insert({
         veiculo_id: form.veiculo_id,
         motorista: entregadorNome,
-        data: new Date().toISOString().split("T")[0],
+        data: getBrasiliaDateString(),
         km: Number(form.km) || 0,
         litros: Number(form.litros),
         tipo: form.tipo,

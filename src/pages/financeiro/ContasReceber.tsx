@@ -99,7 +99,7 @@ export default function ContasReceber() {
     try {
       const rows = valid.map(d => ({
         cliente: d.cliente, descricao: d.descricao, valor: d.valor,
-        vencimento: d.vencimento || new Date().toISOString().split("T")[0],
+        vencimento: d.vencimento || getBrasiliaDateString(),
         forma_pagamento: d.forma_pagamento || null, observacoes: d.observacoes || null,
         unidade_id: unidadeAtual?.id || null,
       }));

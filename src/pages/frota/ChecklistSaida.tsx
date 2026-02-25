@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,7 +109,7 @@ export default function ChecklistSaida() {
     }
   };
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = getBrasiliaDateString();
   const checklistsHoje = checklists.filter(c => c.data === hoje).length;
   const aprovadosHoje = checklists.filter(c => c.data === hoje && c.aprovado).length;
 

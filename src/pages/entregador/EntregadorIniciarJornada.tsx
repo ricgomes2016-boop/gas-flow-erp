@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { EntregadorLayout } from "@/components/entregador/EntregadorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,7 +118,7 @@ export default function EntregadorIniciarJornada() {
         }
 
         // Get today's schedule
-        const hoje = new Date().toISOString().split("T")[0];
+        const hoje = getBrasiliaDateString();
         const { data: escala } = await supabase
           .from("escalas_entregador")
           .select(`

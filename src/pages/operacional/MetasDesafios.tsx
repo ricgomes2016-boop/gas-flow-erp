@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,7 @@ const emptyForm: MetaForm = {
   tipo: "vendas",
   valor_objetivo: 5000,
   valor_atual: 0,
-  prazo: new Date().toISOString().split("T")[0],
+  prazo: getBrasiliaDateString(),
   status: "ativa",
   unidade_id: "",
 };

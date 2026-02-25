@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ export default function Combustivel() {
   const [form, setForm] = useState({
     veiculo_id: "",
     motorista: "",
-    data: new Date().toISOString().split("T")[0],
+    data: getBrasiliaDateString(),
     km: "",
     litros: "",
     tipo: "Gasolina",
@@ -191,7 +191,7 @@ export default function Combustivel() {
       if (error) throw error;
       toast.success("Abastecimento registrado!");
       setShowForm(false);
-      setForm({ veiculo_id: "", motorista: "", data: new Date().toISOString().split("T")[0], km: "", litros: "", tipo: "Gasolina", valor: "", posto: "", nota_fiscal: "" });
+      setForm({ veiculo_id: "", motorista: "", data: getBrasiliaDateString(), km: "", litros: "", tipo: "Gasolina", valor: "", posto: "", nota_fiscal: "" });
       fetchData();
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
@@ -238,7 +238,7 @@ export default function Combustivel() {
         `${parseLocalDate(a.data).toLocaleDateString("pt-BR")} | ${(a.veiculos as any)?.placa || "-"} | ${a.motorista} | ${Number(a.litros)}L ${a.tipo} | R$${Number(a.valor).toFixed(2)}${a.posto ? ` | ${a.posto}` : ""}${a.nota_fiscal ? ` | NF ${a.nota_fiscal}` : ""}`
       ).join("\n");
 
-      const hoje = new Date().toISOString().split("T")[0];
+      const hoje = getBrasiliaDateString();
 
       // Create conta a pagar
       const { error: cpError } = await supabase.from("contas_pagar").insert({

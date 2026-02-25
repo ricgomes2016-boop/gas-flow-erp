@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,7 @@ export default function MultasFrota() {
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({
-    veiculo_id: "", entregador_id: "", data_infracao: new Date().toISOString().split("T")[0],
+    veiculo_id: "", entregador_id: "", data_infracao: getBrasiliaDateString(),
     data_vencimento: "", descricao: "", valor: "", pontos: "0",
     status: "pendente", responsavel: "empresa", observacoes: "",
   });
@@ -116,7 +117,7 @@ export default function MultasFrota() {
   };
 
   const resetForm = () => setForm({
-    veiculo_id: "", entregador_id: "", data_infracao: new Date().toISOString().split("T")[0],
+    veiculo_id: "", entregador_id: "", data_infracao: getBrasiliaDateString(),
     data_vencimento: "", descricao: "", valor: "", pontos: "0",
     status: "pendente", responsavel: "empresa", observacoes: "",
   });

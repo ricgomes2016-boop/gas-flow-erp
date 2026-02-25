@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,7 +51,7 @@ export default function Manutencao() {
     tipo: "Preventiva",
     oficina: "",
     valor: "",
-    data: new Date().toISOString().split("T")[0],
+    data: getBrasiliaDateString(),
     status: "Agendada",
     observacoes: "",
   });
@@ -259,7 +259,7 @@ export default function Manutencao() {
       }
       setShowForm(false);
       setEditId(null);
-      setForm({ veiculo_id: "", descricao: "", tipo: "Preventiva", oficina: "", valor: "", data: new Date().toISOString().split("T")[0], status: "Agendada", observacoes: "" });
+      setForm({ veiculo_id: "", descricao: "", tipo: "Preventiva", oficina: "", valor: "", data: getBrasiliaDateString(), status: "Agendada", observacoes: "" });
       fetchData();
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
@@ -328,7 +328,7 @@ export default function Manutencao() {
         `${parseLocalDate(m.data).toLocaleDateString("pt-BR")} | ${(m.veiculos as any)?.placa || "-"} | ${m.tipo} | ${m.descricao} | R$${Number(m.valor).toFixed(2)} | ${m.oficina}`
       ).join("\n");
 
-      const hoje = new Date().toISOString().split("T")[0];
+      const hoje = getBrasiliaDateString();
 
       const { error: cpError } = await supabase.from("contas_pagar").insert({
         descricao,
@@ -547,7 +547,7 @@ export default function Manutencao() {
       </div>
 
       {/* Dialog: Nova Manutenção */}
-      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) { setEditId(null); setForm({ veiculo_id: "", descricao: "", tipo: "Preventiva", oficina: "", valor: "", data: new Date().toISOString().split("T")[0], status: "Agendada", observacoes: "" }); } }}>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) { setEditId(null); setForm({ veiculo_id: "", descricao: "", tipo: "Preventiva", oficina: "", valor: "", data: getBrasiliaDateString(), status: "Agendada", observacoes: "" }); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editId ? "Editar Manutenção" : "Nova Manutenção"}</DialogTitle></DialogHeader>
 

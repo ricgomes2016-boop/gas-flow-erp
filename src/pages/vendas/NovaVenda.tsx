@@ -25,7 +25,7 @@ import { generateReceiptPdf, EmpresaConfig } from "@/services/receiptPdfService"
 import { atualizarEstoqueVenda } from "@/services/estoqueService";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { useEmpresa } from "@/contexts/EmpresaContext";
-import { cn, getBrasiliaDate } from "@/lib/utils";
+import { cn, getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 import { CaixaBloqueadoBanner } from "@/components/caixa/CaixaBloqueadoBanner";
 
 import { CustomerSearch } from "@/components/vendas/CustomerSearch";
@@ -985,7 +985,7 @@ export default function NovaVenda() {
           <div className="space-y-4 pt-2">
             <div>
               <Label>Data da Entrega *</Label>
-              <Input type="date" value={dataAgendamento} onChange={e => setDataAgendamento(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+              <Input type="date" value={dataAgendamento} onChange={e => setDataAgendamento(e.target.value)} min={getBrasiliaDateString()} />
             </div>
             <div>
               <Label>Horário Previsto</Label>
