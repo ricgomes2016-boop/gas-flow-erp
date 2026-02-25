@@ -208,7 +208,8 @@ export default function ContasReceber() {
     setReceberDialogOpen(true);
   };
 
-  // Ao confirmar recebimento, cria movimentação bancária na conta principal da unidade
+  // Ao confirmar recebimento, roteia corretamente cada forma de pagamento:
+  // Dinheiro → Caixa da Loja | PIX → Conta Bancária | Cartão → Novo recebível
   const handleReceber = async () => {
     if (!receberConta) return;
     const totalRecebido = receberForm.formasPagamento.reduce((sum, f) => sum + (parseFloat(f.valor) || 0), 0);
@@ -222,6 +223,56 @@ export default function ContasReceber() {
       .map(f => `${f.forma}: R$ ${parseFloat(f.valor).toFixed(2)}`)
       .join(", ");
 
+    // Rotear cada forma de pagamento para o destino correto
+    const { data: { user } } = await supabase.auth.getUser();
+    for (const fp of receberForm.formasPagamento) {
+      const valor = parseFloat(fp.valor) || 0;
+      if (valor <= 0 || !fp.forma) continue;
+      const formaLower = fp.forma.toLowerCase();
+      const ref = receberConta.pedido_id?.slice(0, 8) || receberConta.id.slice(0, 8);
+
+      if (formaLower === "dinheiro") {
+        // Dinheiro → Caixa da Loja
+        await supabase.from("movimentacoes_caixa").insert({
+          tipo: "entrada",
+          descricao: `Pgto Fiado #${ref} - Dinheiro`,
+          valor,
+          categoria: "Recebimento Fiado",
+          status: "aprovada",
+          pedido_id: receberConta.pedido_id || null,
+          unidade_id: unidadeAtual?.id || null,
+        });
+      } else if (formaLower === "pix") {
+        // PIX → Conta Bancária
+        const contaId = await getContaPrincipal();
+        if (contaId) {
+          await criarMovimentacaoBancaria({
+            contaBancariaId: contaId,
+            valor,
+            descricao: `Pgto Fiado #${ref} - PIX`,
+            categoria: "recebimento_fiado",
+            unidadeId: unidadeAtual?.id,
+            userId: user?.id,
+            pedidoId: receberConta.pedido_id || undefined,
+          });
+        }
+      } else {
+        // Cartão/outros → Creditar direto na conta bancária
+        const contaId = await getContaPrincipal();
+        if (contaId) {
+          await criarMovimentacaoBancaria({
+            contaBancariaId: contaId,
+            valor,
+            descricao: `Pgto Fiado #${ref} - ${fp.forma}`,
+            categoria: "recebimento_fiado",
+            unidadeId: unidadeAtual?.id,
+            userId: user?.id,
+            pedidoId: receberConta.pedido_id || undefined,
+          });
+        }
+      }
+    }
+
     if (isParcial) {
       const restante = valorConta - totalRecebido;
       const obs = `${receberConta.observacoes || ""}\nRecebido parcial R$ ${totalRecebido.toFixed(2)} em ${format(new Date(), "dd/MM/yyyy")} (${formasStr})`.trim();
@@ -233,36 +284,17 @@ export default function ContasReceber() {
         status: "recebida", forma_pagamento: formasStr || receberConta.forma_pagamento,
       }).eq("id", receberConta.id);
       if (error) { toast.error("Erro ao confirmar"); return; }
-
-      // Tentar creditar na conta bancária principal da unidade
-      try {
-        const { data: contaPrincipal } = await supabase
-          .from("contas_bancarias")
-          .select("id")
-          .eq("ativo", true)
-          .eq("unidade_id", unidadeAtual?.id || "")
-          .limit(1)
-          .maybeSingle();
-
-        if (contaPrincipal) {
-          const { data: { user } } = await supabase.auth.getUser();
-          await criarMovimentacaoBancaria({
-            contaBancariaId: contaPrincipal.id,
-            valor: totalRecebido,
-            descricao: `Liquidação: ${receberConta.descricao}`,
-            categoria: "liquidacao_recebivel",
-            unidadeId: unidadeAtual?.id,
-            userId: user?.id,
-            pedidoId: receberConta.pedido_id || undefined,
-          });
-        }
-      } catch (e) {
-        console.error("Erro ao creditar banco:", e);
-      }
-      toast.success("Conta recebida e creditada no banco!");
+      toast.success("Conta recebida! Valores roteados para caixa/banco.");
     }
     setReceberDialogOpen(false);
     fetchContas();
+  };
+
+  // Helper para buscar conta principal
+  const getContaPrincipal = async () => {
+    const { data } = await supabase.from("contas_bancarias").select("id")
+      .eq("ativo", true).eq("unidade_id", unidadeAtual?.id || "").limit(1).maybeSingle();
+    return data?.id || null;
   };
 
   const addFormaPagamento = () => {

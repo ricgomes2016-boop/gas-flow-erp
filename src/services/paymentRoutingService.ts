@@ -37,6 +37,36 @@ async function getContaPrincipal(unidadeId?: string | null): Promise<string | nu
 }
 
 /**
+ * Busca operadora ativa da unidade e calcula taxa/prazo
+ */
+async function getOperadoraConfig(unidadeId: string | null, tipo: string) {
+  if (!unidadeId) return null;
+  const { data } = await supabase
+    .from("operadoras_cartao")
+    .select("id, nome, taxa_debito, taxa_credito_vista, taxa_credito_parcelado, prazo_debito, prazo_credito, taxa_pix, prazo_pix")
+    .or(`unidade_id.eq.${unidadeId},unidade_id.is.null`)
+    .eq("ativo", true)
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+
+  let taxa = 0;
+  let prazo = 0;
+  if (tipo === "pix_maquininha") {
+    taxa = Number((data as any).taxa_pix) || 0;
+    prazo = Number((data as any).prazo_pix) || 0;
+  } else if (tipo === "cartao_debito" || tipo === "debito") {
+    taxa = Number(data.taxa_debito) || 0;
+    prazo = Number(data.prazo_debito) || 1;
+  } else {
+    taxa = Number(data.taxa_credito_vista) || 0;
+    prazo = Number(data.prazo_credito) || 30;
+  }
+
+  return { id: data.id, nome: data.nome, taxa, prazo };
+}
+
+/**
  * Cria movimentação bancária e atualiza saldo da conta
  */
 export async function criarMovimentacaoBancaria(params: {
@@ -79,34 +109,19 @@ export async function criarMovimentacaoBancaria(params: {
 }
 
 /**
- * Cria notificação sobre movimentação financeira
- */
-async function criarNotificacaoFinanceira(params: {
-  titulo: string;
-  mensagem: string;
-  unidadeId?: string | null;
-  userId?: string;
-}) {
-  if (!params.userId) return;
-  await supabase.from("notificacoes").insert({
-    titulo: params.titulo,
-    mensagem: params.mensagem,
-    tipo: "info",
-    user_id: params.userId,
-  }).then(r => { if (r.error) console.error("Erro notificação:", r.error); });
-}
-
-/**
- * Roteia automaticamente os pagamentos de uma venda:
+ * Roteia automaticamente os pagamentos de uma venda.
  * 
- * - Dinheiro → movimentacoes_caixa APENAS (caixa físico). Depósito bancário é manual.
- * - PIX → movimentacoes_bancarias DIRETO (nunca entra no caixa físico)
- * - Cartão Débito → contas_receber (D+1). Entra no banco quando liquidado.
- * - Cartão Crédito → contas_receber (D+30). Entra no banco quando liquidado.
- * - Cheque → movimentacoes_caixa + tabela cheques. Entra no banco quando depositado.
- * - Fiado → contas_receber apenas
- * - Boleto → contas_receber apenas. Entra no banco quando baixado.
- * - Vale Gás → movimentacoes_caixa (depende da forma como será pago)
+ * Fluxo: Venda → Geração de título → Recebimento → Baixa → Conciliação
+ * 
+ * - Dinheiro → movimentacoes_caixa (caixa físico)
+ * - PIX → movimentacoes_bancarias DIRETO (conta principal)
+ * - Cartão Débito → contas_receber (operadora, taxa, D+1)
+ * - Cartão Crédito → contas_receber (operadora, taxa, D+30)
+ * - PIX Maquininha → contas_receber (operadora, taxa, D+0/D+1)
+ * - Cheque → movimentacoes_caixa + tabela cheques
+ * - Fiado → contas_receber vinculada ao cliente
+ * - Boleto → contas_receber
+ * - Vale Gás → movimentacoes_caixa
  */
 export async function rotearPagamentosVenda(params: RotearPagamentosParams): Promise<void> {
   const { pedidoId, clienteId, clienteNome, pagamentos, unidadeId, entregadorId } = params;
@@ -134,8 +149,6 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
 
     switch (pag.forma) {
       case "dinheiro": {
-        // Dinheiro entra APENAS no caixa físico da loja
-        // Depósito bancário é feito manualmente na tela "Caixa da Loja"
         promises.push(insertCaixa({
           tipo: "entrada",
           descricao: `Venda #${pedidoRef} - Dinheiro`,
@@ -150,7 +163,6 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "pix": {
-        // PIX vai DIRETO para conta bancária principal — nunca entra no caixa físico
         promises.push(
           getContaPrincipal(unidadeId).then(contaId => {
             if (contaId) {
@@ -170,66 +182,36 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "cartao_debito":
-      case "debito": {
-        // Cartão Débito → só contas a receber (D+1)
-        // Entra no banco automaticamente quando liquidado
-        promises.push(insertContasReceber({
-          cliente: clienteNome || "Operadora Cartão",
-          descricao: `Cartão Débito - Venda #${pedidoRef}`,
-          valor: pag.valor,
-          vencimento: format(addDays(new Date(), 1), "yyyy-MM-dd"),
-          status: "pendente",
-          forma_pagamento: "cartao_debito",
-          pedido_id: pedidoId,
-          unidade_id: unidadeId || null,
-        }));
-        break;
-      }
-
+      case "debito":
       case "cartao_credito":
-      case "credito": {
-        // Cartão Crédito → só contas a receber (D+30)
-        // Entra no banco automaticamente quando liquidado
-        promises.push(insertContasReceber({
-          cliente: clienteNome || "Operadora Cartão",
-          descricao: `Cartão Crédito - Venda #${pedidoRef}`,
-          valor: pag.valor,
-          vencimento: format(addDays(new Date(), 30), "yyyy-MM-dd"),
-          status: "pendente",
-          forma_pagamento: "cartao_credito",
-          pedido_id: pedidoId,
-          unidade_id: unidadeId || null,
-        }));
-        break;
-      }
-
+      case "credito":
       case "pix_maquininha": {
-        // PIX Maquininha → contas a receber (prazo configurável por operadora, D+0 ou D+1)
-        // Busca prazo da operadora configurada na unidade
+        // Cartões e PIX Maquininha → contas_receber com operadora + taxa + prazo
         promises.push(
           (async () => {
-            let prazoPix = 0; // default D+0
-            if (unidadeId) {
-              const { data: opData } = await supabase
-                .from("operadoras_cartao")
-                .select("prazo_pix, taxa_pix")
-                .or(`unidade_id.eq.${unidadeId},unidade_id.is.null`)
-                .eq("ativo", true)
-                .limit(1)
-                .maybeSingle();
-              if (opData) {
-                prazoPix = opData.prazo_pix || 0;
-              }
-            }
+            const op = await getOperadoraConfig(unidadeId || null, pag.forma);
+            const taxa = op ? op.taxa : 0;
+            const prazo = op ? op.prazo : (pag.forma.includes("debito") ? 1 : 30);
+            const valorTaxa = pag.valor * (taxa / 100);
+            const valorLiquido = pag.valor - valorTaxa;
+
+            const tipoLabel = pag.forma.includes("debito") || pag.forma === "debito"
+              ? "Débito" : pag.forma === "pix_maquininha" ? "PIX Maq." : "Crédito";
+
             await insertContasReceber({
-              cliente: clienteNome || "Operadora PIX Maquininha",
-              descricao: `PIX Maquininha - Venda #${pedidoRef}`,
+              cliente: op?.nome || clienteNome || "Operadora Cartão",
+              descricao: `${tipoLabel} - Venda #${pedidoRef}`,
               valor: pag.valor,
-              vencimento: format(addDays(new Date(), prazoPix), "yyyy-MM-dd"),
+              vencimento: format(addDays(new Date(), prazo), "yyyy-MM-dd"),
               status: "pendente",
-              forma_pagamento: "pix_maquininha",
+              forma_pagamento: pag.forma === "debito" ? "cartao_debito" : pag.forma === "credito" ? "cartao_credito" : pag.forma,
               pedido_id: pedidoId,
               unidade_id: unidadeId || null,
+              operadora_id: op?.id || null,
+              taxa_percentual: taxa,
+              valor_taxa: valorTaxa,
+              valor_liquido: valorLiquido,
+              cliente_id: clienteId || null,
             });
           })()
         );
@@ -237,8 +219,6 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "cheque": {
-        // Cheque entra no caixa como registro + tabela cheques
-        // Entra no banco quando for depositado manualmente
         promises.push(insertCaixa({
           tipo: "entrada",
           descricao: `Venda #${pedidoRef} - Cheque #${pag.cheque_numero || "s/n"}`,
@@ -268,7 +248,6 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "fiado": {
-        // Fiado → apenas contas a receber (sem caixa, sem banco)
         const vencimento = pag.data_vencimento_fiado || format(addDays(new Date(), 30), "yyyy-MM-dd");
         promises.push(insertContasReceber({
           cliente: clienteNome || "Cliente não identificado",
@@ -279,12 +258,12 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           forma_pagamento: "fiado",
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
+          cliente_id: clienteId || null,
         }));
         break;
       }
 
       case "boleto": {
-        // Boleto → apenas contas a receber. Entra no banco quando baixado.
         promises.push(insertContasReceber({
           cliente: clienteNome || "Cliente não identificado",
           descricao: `Boleto - Venda #${pedidoRef}`,
@@ -294,12 +273,12 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           forma_pagamento: "boleto",
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
+          cliente_id: clienteId || null,
         }));
         break;
       }
 
       case "vale_gas": {
-        // Vale Gás entra no caixa físico (depende da forma como será pago)
         promises.push(insertCaixa({
           tipo: "entrada",
           descricao: `Venda #${pedidoRef} - Vale Gás`,
@@ -321,11 +300,11 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
     console.error("Erros ao rotear pagamentos:", failures);
   }
 
-  // Notificação consolidada da venda
-  await criarNotificacaoFinanceira({
+  // Notificação consolidada
+  await supabase.from("notificacoes").insert({
     titulo: "💰 Nova venda registrada",
-    mensagem: `Venda #${pedidoId.slice(0, 8)} — R$ ${totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (${formasUsadas}). Movimentações financeiras criadas automaticamente.`,
-    unidadeId,
-    userId,
-  });
+    mensagem: `Venda #${pedidoId.slice(0, 8)} — R$ ${totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (${formasUsadas}). Títulos financeiros gerados automaticamente.`,
+    tipo: "info",
+    user_id: userId || "",
+  }).then(r => { if (r.error) console.error("Erro notificação:", r.error); });
 }

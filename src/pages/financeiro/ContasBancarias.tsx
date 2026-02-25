@@ -104,12 +104,11 @@ export default function ContasBancarias() {
 
   const editarConta = async () => {
     if (!editForm.nome || !editForm.banco) { toast.error("Nome e banco são obrigatórios"); return; }
-    const saldoInicial = parseFloat((editForm.saldo_inicial || "0").replace(",", ".")) || 0;
     const { error } = await supabase.from("contas_bancarias").update({
       nome: editForm.nome, banco: editForm.banco, agencia: editForm.agencia || null,
       conta: editForm.conta || null, tipo: editForm.tipo, chave_pix: editForm.chave_pix || null,
       unidade_id: editForm.unidade_id || unidadeAtual?.id || null,
-      saldo_atual: saldoInicial,
+      // saldo_atual NÃO é editável diretamente - muda apenas via movimentações
     }).eq("id", editForm.id);
     if (error) { toast.error("Erro ao editar conta"); console.error(error); return; }
     toast.success("Conta atualizada!");
@@ -194,7 +193,7 @@ export default function ContasBancarias() {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Chave PIX</Label><Input value={formData.chave_pix} onChange={e => setFormData({ ...formData, chave_pix: e.target.value })} /></div>
-        <div><Label>Saldo Inicial (R$)</Label><Input value={formData.saldo_inicial} onChange={e => setFormData({ ...formData, saldo_inicial: e.target.value })} placeholder="0,00" /></div>
+        {!formData.unidade_id && <div><Label>Saldo Inicial (R$)</Label><Input value={formData.saldo_inicial} onChange={e => setFormData({ ...formData, saldo_inicial: e.target.value })} placeholder="0,00" /><p className="text-xs text-muted-foreground mt-1">Só editável na criação. Após criada, saldo muda via movimentações.</p></div>}
       </div>
       <div><Label>Unidade / Filial</Label>
         <Select value={formData.unidade_id} onValueChange={v => setFormData({ ...formData, unidade_id: v })}>

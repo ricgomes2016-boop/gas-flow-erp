@@ -89,7 +89,7 @@ const Produtos = lazy(() => import("./pages/cadastros/Produtos"));
 // Financeiro
 const DashboardFinanceiro = lazy(() => import("./pages/financeiro/DashboardFinanceiro"));
 const AgingReport = lazy(() => import("./pages/financeiro/AgingReport"));
-const FluxoCaixaConsolidado = lazy(() => import("./pages/financeiro/FluxoCaixaConsolidado"));
+const FluxoCaixaConsolidado = lazy(() => import("./pages/financeiro/FluxoCaixaProjetado"));
 const ContasPagar = lazy(() => import("./pages/financeiro/ContasPagar"));
 const ContasReceber = lazy(() => import("./pages/financeiro/ContasReceber"));
 const AprovarDespesas = lazy(() => import("./pages/financeiro/AprovarDespesas"));
@@ -100,6 +100,7 @@ const ContadorCalendario = lazy(() => import("./pages/contador/ContadorCalendari
 const ContadorSolicitacoes = lazy(() => import("./pages/contador/ContadorSolicitacoes"));
 const ContadorComunicados = lazy(() => import("./pages/contador/ContadorComunicados"));
 const TerminaisCartao = lazy(() => import("./pages/financeiro/TerminaisCartao"));
+const GestaoCartoes = lazy(() => import("./pages/financeiro/GestaoCartoes"));
 const Cobrancas = lazy(() => import("./pages/financeiro/Cobrancas"));
 const CalendarioFinanceiro = lazy(() => import("./pages/financeiro/CalendarioFinanceiro"));
 const ValeGas = lazy(() => import("./pages/financeiro/ValeGas"));
@@ -631,6 +632,11 @@ const App = () => (
                   <Route path="/financeiro/terminais" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
                       <TerminaisCartao />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/cartoes" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <GestaoCartoes />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/cobrancas" element={
