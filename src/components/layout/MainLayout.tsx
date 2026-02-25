@@ -21,7 +21,7 @@ function MainLayoutContent({ children }: MainLayoutProps) {
       <Sidebar />
       <main
         className={cn(
-          "transition-all duration-300 ml-0 pb-14 md:pb-0",
+          "transition-all duration-300 ml-0 pb-14",
           collapsed ? "md:ml-16" : "md:ml-64"
         )}
       >

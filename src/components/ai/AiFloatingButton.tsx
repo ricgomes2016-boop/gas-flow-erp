@@ -27,15 +27,7 @@ export function AiFloatingButton({ externalOpen, onExternalClose }: AiFloatingBu
   return (
     <>
       {/* Desktop floating button */}
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-40 hidden md:flex h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 items-center justify-center"
-          title="Assistente IA"
-        >
-          <Bot className="h-6 w-6" />
-        </button>
-      )}
+      {/* Desktop floating button - hidden, now in bottom bar */}
 
       {/* Chat panel */}
       {open && (
