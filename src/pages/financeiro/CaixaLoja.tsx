@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight,
-  Plus, Banknote, AlertCircle, RefreshCw,
+  Plus, Banknote, AlertCircle, RefreshCw, Landmark, ArrowRightLeft,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -22,7 +22,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { criarMovimentacaoBancaria } from "@/services/paymentRoutingService";
+import { format, subDays } from "date-fns";
 import { getBrasiliaStartOfDay } from "@/lib/utils";
 
 interface Movimentacao {
@@ -34,12 +35,24 @@ interface Movimentacao {
   created_at: string;
 }
 
+interface ContaBancaria {
+  id: string;
+  nome: string;
+  banco: string;
+  saldo_atual: number;
+}
+
 export default function CaixaLoja() {
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { unidadeAtual } = useUnidade();
+  const [depositoOpen, setDepositoOpen] = useState(false);
+  const [transferenciaOpen, setTransferenciaOpen] = useState(false);
+  const [contas, setContas] = useState<ContaBancaria[]>([]);
+  const { unidadeAtual, unidades } = useUnidade();
   const [form, setForm] = useState({ tipo: "entrada", descricao: "", valor: "", categoria: "" });
+  const [depositoForm, setDepositoForm] = useState({ contaId: "", valor: "", descricao: "" });
+  const [transferenciaForm, setTransferenciaForm] = useState({ unidadeDestinoId: "", valor: "", descricao: "" });
   const [periodo, setPeriodo] = useState<"hoje" | "7dias" | "30dias">("hoje");
 
   const fetchMovs = async () => {
@@ -58,7 +71,14 @@ export default function CaixaLoja() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchMovs(); }, [unidadeAtual, periodo]);
+  const fetchContas = async () => {
+    let query = supabase.from("contas_bancarias").select("id, nome, banco, saldo_atual").eq("ativo", true);
+    if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+    const { data } = await query;
+    setContas((data as ContaBancaria[]) || []);
+  };
+
+  useEffect(() => { fetchMovs(); fetchContas(); }, [unidadeAtual, periodo]);
 
   const handleSubmit = async () => {
     if (!form.descricao || !form.valor) { toast.error("Preencha os campos obrigatórios"); return; }
@@ -74,6 +94,88 @@ export default function CaixaLoja() {
       setForm({ tipo: "entrada", descricao: "", valor: "", categoria: "" });
       fetchMovs();
     }
+  };
+
+  // DEPÓSITO: Sai do caixa → Entra na conta bancária
+  const handleDeposito = async () => {
+    const valor = parseFloat(depositoForm.valor);
+    if (!depositoForm.contaId || !valor || valor <= 0) {
+      toast.error("Selecione a conta e informe o valor"); return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const desc = depositoForm.descricao || "Depósito bancário do caixa";
+
+    // 1. Saída do caixa
+    const { error: errCaixa } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: "saida",
+      descricao: `💰→🏦 ${desc}`,
+      valor,
+      categoria: "Depósito Bancário",
+      unidade_id: unidadeAtual?.id || null,
+    });
+
+    if (errCaixa) { toast.error("Erro ao registrar saída do caixa"); return; }
+
+    // 2. Entrada na conta bancária
+    try {
+      await criarMovimentacaoBancaria({
+        contaBancariaId: depositoForm.contaId,
+        valor,
+        descricao: `Depósito do caixa - ${desc}`,
+        categoria: "deposito_caixa",
+        unidadeId: unidadeAtual?.id,
+        userId: user?.id,
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao creditar na conta bancária");
+      return;
+    }
+
+    toast.success("Depósito realizado! Saiu do caixa → Entrou na conta bancária.");
+    setDepositoOpen(false);
+    setDepositoForm({ contaId: "", valor: "", descricao: "" });
+    fetchMovs();
+    fetchContas();
+  };
+
+  // TRANSFERÊNCIA ENTRE CAIXAS: Sai de uma unidade → Entra em outra
+  const handleTransferencia = async () => {
+    const valor = parseFloat(transferenciaForm.valor);
+    if (!transferenciaForm.unidadeDestinoId || !valor || valor <= 0) {
+      toast.error("Selecione a unidade destino e informe o valor"); return;
+    }
+
+    const unidadeDestino = unidades.find(u => u.id === transferenciaForm.unidadeDestinoId);
+    const desc = transferenciaForm.descricao || `Transferência para ${unidadeDestino?.nome || "outra loja"}`;
+
+    // 1. Saída do caixa origem
+    const { error: err1 } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: "saida",
+      descricao: `🔄 Saída: ${desc}`,
+      valor,
+      categoria: "Transferência Caixa",
+      unidade_id: unidadeAtual?.id || null,
+    });
+
+    if (err1) { toast.error("Erro ao registrar saída"); return; }
+
+    // 2. Entrada no caixa destino
+    const { error: err2 } = await supabase.from("movimentacoes_caixa").insert({
+      tipo: "entrada",
+      descricao: `🔄 Entrada: Transferência de ${unidadeAtual?.nome || "outra loja"}`,
+      valor,
+      categoria: "Transferência Caixa",
+      unidade_id: transferenciaForm.unidadeDestinoId,
+    });
+
+    if (err2) { toast.error("Erro ao registrar entrada no destino"); return; }
+
+    toast.success(`Transferência de R$ ${valor.toFixed(2)} para ${unidadeDestino?.nome} realizada!`);
+    setTransferenciaOpen(false);
+    setTransferenciaForm({ unidadeDestinoId: "", valor: "", descricao: "" });
+    fetchMovs();
   };
 
   const hoje = new Date(getBrasiliaStartOfDay());
@@ -100,15 +202,14 @@ export default function CaixaLoja() {
     return Object.entries(days).map(([data, v]) => ({ data, ...v }));
   }, [movs, periodo]);
 
-  // Categorias específicas do caixa físico
   const categorias = [
-    "Venda Dinheiro", "Venda PIX", "Troco", "Sangria",
+    "Venda Dinheiro", "Troco", "Sangria",
     "Suprimento", "Vale Gás", "Despesa Operacional", "Outros",
   ];
 
   return (
     <MainLayout>
-      <Header title="Caixa da Loja" subtitle="Movimentações em dinheiro e espécie — separado das contas bancárias" />
+      <Header title="Caixa da Loja" subtitle="Dinheiro físico — depósitos bancários e transferências entre lojas" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -116,7 +217,7 @@ export default function CaixaLoja() {
             <Banknote className="h-5 w-5 text-primary" />
             <span className="text-sm text-muted-foreground font-medium">Dinheiro físico da loja</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={periodo} onValueChange={(v: "hoje" | "7dias" | "30dias") => setPeriodo(v)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -127,7 +228,73 @@ export default function CaixaLoja() {
                 <SelectItem value="30dias">30 dias</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" onClick={fetchMovs}><RefreshCw className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" onClick={() => { fetchMovs(); fetchContas(); }}><RefreshCw className="h-4 w-4" /></Button>
+
+            {/* Depósito Bancário */}
+            <Dialog open={depositoOpen} onOpenChange={setDepositoOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary"><Landmark className="h-4 w-4 mr-2" />Depositar no Banco</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle className="flex items-center gap-2"><Landmark className="h-5 w-5 text-primary" />Depositar Dinheiro no Banco</DialogTitle></DialogHeader>
+                <p className="text-sm text-muted-foreground">O valor sairá do <strong>Caixa da Loja</strong> e entrará na <strong>Conta Bancária</strong> selecionada.</p>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <Label>Conta Bancária Destino *</Label>
+                    <Select value={depositoForm.contaId} onValueChange={v => setDepositoForm({ ...depositoForm, contaId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                      <SelectContent>
+                        {contas.map(c => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.nome} ({c.banco}) — R$ {Number(c.saldo_atual).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Valor *</Label><Input type="number" step="0.01" value={depositoForm.valor} onChange={e => setDepositoForm({ ...depositoForm, valor: e.target.value })} placeholder="0.00" /></div>
+                  <div><Label>Descrição</Label><Input value={depositoForm.descricao} onChange={e => setDepositoForm({ ...depositoForm, descricao: e.target.value })} placeholder="Ex: Depósito diário" /></div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setDepositoOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleDeposito}><Landmark className="h-4 w-4 mr-2" />Confirmar Depósito</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Transferência entre Caixas */}
+            {unidades.length > 1 && (
+              <Dialog open={transferenciaOpen} onOpenChange={setTransferenciaOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline"><ArrowRightLeft className="h-4 w-4 mr-2" />Transferir Caixa</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle className="flex items-center gap-2"><ArrowRightLeft className="h-5 w-5 text-primary" />Transferência entre Caixas</DialogTitle></DialogHeader>
+                  <p className="text-sm text-muted-foreground">Transfere dinheiro físico do caixa de <strong>{unidadeAtual?.nome || "esta loja"}</strong> para outra unidade.</p>
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <Label>Unidade Destino *</Label>
+                      <Select value={transferenciaForm.unidadeDestinoId} onValueChange={v => setTransferenciaForm({ ...transferenciaForm, unidadeDestinoId: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a loja" /></SelectTrigger>
+                        <SelectContent>
+                          {unidades.filter(u => u.id !== unidadeAtual?.id).map(u => (
+                            <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div><Label>Valor *</Label><Input type="number" step="0.01" value={transferenciaForm.valor} onChange={e => setTransferenciaForm({ ...transferenciaForm, valor: e.target.value })} placeholder="0.00" /></div>
+                    <div><Label>Descrição</Label><Input value={transferenciaForm.descricao} onChange={e => setTransferenciaForm({ ...transferenciaForm, descricao: e.target.value })} placeholder="Ex: Troco para filial centro" /></div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setTransferenciaOpen(false)}>Cancelar</Button>
+                      <Button onClick={handleTransferencia}><ArrowRightLeft className="h-4 w-4 mr-2" />Transferir</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Nova Movimentação Manual */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" />Nova Movimentação</Button>
@@ -170,9 +337,10 @@ export default function CaixaLoja() {
         <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
           <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground">
-            <strong className="text-foreground">Caixa da Loja</strong> registra apenas movimentações em <strong>dinheiro físico</strong> (espécie).
-            Pagamentos via cartão e transferências bancárias vão direto para <strong>Contas Bancárias → Destinos</strong>.
-            As vendas finalizadas geram lançamentos automáticos aqui quando a forma de pagamento é <strong>Dinheiro</strong> ou <strong>PIX</strong>.
+            <strong className="text-foreground">Caixa da Loja</strong> controla apenas <strong>dinheiro físico</strong>.
+            <strong> PIX</strong> vai direto para a conta bancária configurada.
+            <strong> Cartões</strong> ficam em Contas a Receber até serem liquidados.
+            Use <strong>"Depositar no Banco"</strong> para mover dinheiro do caixa para uma conta bancária.
           </div>
         </div>
 

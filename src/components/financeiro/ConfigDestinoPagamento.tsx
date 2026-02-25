@@ -27,14 +27,14 @@ interface Props {
 }
 
 const FORMAS_PAGAMENTO = [
-  { value: "dinheiro", label: "💵 Dinheiro", desc: "Entrada imediata no caixa e conta bancária" },
-  { value: "pix", label: "📱 PIX", desc: "Entrada imediata na conta bancária configurada" },
-  { value: "cartao_debito", label: "💳 Cartão Débito", desc: "Depósito D+1 na conta configurada" },
-  { value: "cartao_credito", label: "💳 Cartão Crédito", desc: "Depósito D+30 na conta configurada" },
-  { value: "cheque", label: "📝 Cheque", desc: "Registrado para compensação futura" },
-  { value: "vale_gas", label: "🔥 Vale Gás", desc: "Entrada imediata no caixa" },
-  { value: "fiado", label: "📋 Fiado", desc: "Vai para Contas a Receber (sem movimentação bancária)" },
-  { value: "boleto", label: "📄 Boleto", desc: "Vai para Contas a Receber (sem movimentação bancária)" },
+  { value: "dinheiro", label: "💵 Dinheiro", desc: "Entra no Caixa da Loja. Depósito bancário é manual." },
+  { value: "pix", label: "📱 PIX", desc: "Entrada DIRETA na conta bancária (não passa pelo caixa)" },
+  { value: "cartao_debito", label: "💳 Cartão Débito", desc: "Contas a Receber (D+1). Entra no banco quando liquidado." },
+  { value: "cartao_credito", label: "💳 Cartão Crédito", desc: "Contas a Receber (D+30). Entra no banco quando liquidado." },
+  { value: "cheque", label: "📝 Cheque", desc: "Entra no caixa + tabela cheques. Banco quando depositado." },
+  { value: "vale_gas", label: "🔥 Vale Gás", desc: "Entra no Caixa da Loja (depende da forma de pagamento)" },
+  { value: "fiado", label: "📋 Fiado", desc: "Vai para Contas a Receber (sem caixa nem banco)" },
+  { value: "boleto", label: "📄 Boleto", desc: "Vai para Contas a Receber. Banco quando baixado." },
 ];
 
 export default function ConfigDestinoPagamento({ contas }: Props) {
