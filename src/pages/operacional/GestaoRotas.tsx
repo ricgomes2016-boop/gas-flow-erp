@@ -125,8 +125,8 @@ export default function GestaoRotas() {
     const { data } = await supabase
       .from("carregamentos_rota")
       .select("*, entregadores(nome), rotas_definidas(nome), unidades(nome)")
-      .gte("data_saida", `${filtroDataInicio}T00:00:00`)
-      .lte("data_saida", `${filtroDataFim}T23:59:59`)
+      .gte("data_saida", `${filtroDataInicio}T00:00:00-03:00`)
+      .lte("data_saida", `${filtroDataFim}T23:59:59-03:00`)
       .order("data_saida", { ascending: false }) as any;
 
     if (data) {
