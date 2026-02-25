@@ -120,7 +120,7 @@ export function DailyBriefingWidget() {
 
   const dismiss = () => {
     setDismissed(true);
-    localStorage.setItem(DISMISSED_KEY, new Date().toISOString().split("T")[0]);
+    localStorage.setItem(DISMISSED_KEY, getBrasiliaDateString());
   };
 
   // Always show the toggle row

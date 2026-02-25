@@ -20,7 +20,7 @@ import {
 import { FileText, Plus, AlertTriangle, CheckCircle2, Clock, XCircle, RotateCcw, Pencil, Camera, Search, Image as ImageIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format, isBefore, addDays } from "date-fns";
@@ -40,7 +40,7 @@ interface ChequeForm {
 
 const emptyForm: ChequeForm = {
   numero_cheque: "", banco_emitente: "", agencia: "", conta: "",
-  valor: "", data_emissao: new Date().toISOString().split("T")[0],
+  valor: "", data_emissao: getBrasiliaDateString(),
   data_vencimento: "", observacoes: "", cliente_id: null, foto_url: null,
 };
 
@@ -225,7 +225,7 @@ export default function ControleCheques() {
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
     const updates: any = { status: novoStatus };
-    if (novoStatus === "compensado") updates.data_compensacao = new Date().toISOString().split("T")[0];
+    if (novoStatus === "compensado") updates.data_compensacao = getBrasiliaDateString();
     const { error } = await supabase.from("cheques").update(updates).eq("id", id);
     if (error) { toast.error("Erro ao atualizar"); return; }
     toast.success(`Cheque marcado como ${novoStatus}`);

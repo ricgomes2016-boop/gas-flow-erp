@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { parseLocalDate } from "@/lib/utils";
+import { parseLocalDate, getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ export default function AnaliseConcorrencia() {
     if (!novoConcorrente || !novoProduto || !novoPreco) { toast.error("Preencha todos os campos"); return; }
     setRegistros(prev => [...prev, {
       id: Date.now().toString(), concorrente: novoConcorrente, produto: novoProduto,
-      preco: parseFloat(novoPreco), data: new Date().toISOString().split("T")[0], fonte: novaFonte,
+      preco: parseFloat(novoPreco), data: getBrasiliaDateString(), fonte: novaFonte,
     }]);
     setDialogOpen(false);
     setNovoConcorrente(""); setNovoProduto(""); setNovoPreco("");

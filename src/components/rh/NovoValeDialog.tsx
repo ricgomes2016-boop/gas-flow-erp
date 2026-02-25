@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ export function NovoValeDialog() {
   const [funcionarioId, setFuncionarioId] = useState("");
   const [tipo, setTipo] = useState("adiantamento");
   const [valor, setValor] = useState("");
-  const [data, setData] = useState(new Date().toISOString().split("T")[0]);
+  const [data, setData] = useState(getBrasiliaDateString());
   const [descontoReferencia, setDescontoReferencia] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const queryClient = useQueryClient();
@@ -66,7 +67,7 @@ export function NovoValeDialog() {
     setFuncionarioId("");
     setTipo("adiantamento");
     setValor("");
-    setData(new Date().toISOString().split("T")[0]);
+    setData(getBrasiliaDateString());
     setDescontoReferencia("");
     setObservacoes("");
   };

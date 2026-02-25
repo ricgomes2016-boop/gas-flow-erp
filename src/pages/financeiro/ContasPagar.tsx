@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -189,7 +190,7 @@ export default function ContasPagar() {
       fornecedor: d.fornecedor,
       descricao: d.descricao,
       valor: d.valor,
-      vencimento: d.vencimento || new Date().toISOString().split("T")[0],
+      vencimento: d.vencimento || getBrasiliaDateString(),
       categoria: d.categoria || null,
       observacoes: d.observacoes || null,
       unidade_id: unidadeAtual?.id || null,
@@ -588,7 +589,7 @@ export default function ContasPagar() {
       fornecedor: boletoData.fornecedor,
       descricao: boletoData.descricao,
       valor: boletoData.valor,
-      vencimento: boletoData.vencimento || new Date().toISOString().split("T")[0],
+      vencimento: boletoData.vencimento || getBrasiliaDateString(),
       categoria: boletoData.categoria || null,
       observacoes: boletoData.observacoes || null,
       boleto_url: boletoUrl,
@@ -631,7 +632,7 @@ export default function ContasPagar() {
     toast.success("Copiado!");
   };
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = getBrasiliaDateString();
 
   // Unique fornecedores and categorias for filter dropdowns
   const fornecedoresUnicos = [...new Set(contas.map(c => c.fornecedor))].sort();

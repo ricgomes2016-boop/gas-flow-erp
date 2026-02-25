@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getBrasiliaDateString } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -328,7 +329,7 @@ export default function RelatorioVendas() {
     const items = pedidos.map((p: any) => ({
       cliente_nome: p.cliente_nome || "",
       cliente_id: p.cliente_id || null,
-      data: p.data || new Date().toISOString().split("T")[0],
+      data: p.data || getBrasiliaDateString(),
       itens_desc: (p.itens || []).map((i: any) => `${i.quantidade}x ${i.nome}`).join(", "),
       itens_raw: p.itens || [],
       valor_total: p.valor_total || 0,
