@@ -1,0 +1,226 @@
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CreditCard, CheckCircle, Clock, Percent } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useUnidade } from "@/contexts/UnidadeContext";
+
+interface Operadora {
+  id: string;
+  nome: string;
+  bandeira: string;
+  taxa_debito: number;
+  taxa_credito_vista: number;
+  taxa_credito_parcelado: number;
+  prazo_debito: number;
+  prazo_credito: number;
+  taxa_pix: number | null;
+  prazo_pix: number | null;
+}
+
+interface CardOperatorSelectorModalProps {
+  open: boolean;
+  onClose: () => void;
+  valor: number;
+  tipoCartao: "debito" | "credito" | "pix_maquininha";
+  onSelect: (operadora: { id: string; nome: string; taxa: number; prazo: number; valorLiquido: number }) => void;
+}
+
+export function CardOperatorSelectorModal({
+  open,
+  onClose,
+  valor,
+  tipoCartao,
+  onSelect,
+}: CardOperatorSelectorModalProps) {
+  const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { unidadeAtual } = useUnidade();
+
+  useEffect(() => {
+    if (!open || !unidadeAtual?.id) return;
+    setLoading(true);
+    supabase
+      .from("operadoras_cartao")
+      .select("*")
+      .eq("unidade_id", unidadeAtual.id)
+      .eq("ativo", true)
+      .then(({ data }) => {
+        const items = (data || []) as Operadora[];
+        setOperadoras(items);
+        if (items.length === 1) setSelected(items[0].id);
+        else setSelected(null);
+        setLoading(false);
+      });
+  }, [open, unidadeAtual?.id]);
+
+  const getTaxaEPrazo = (op: Operadora) => {
+    switch (tipoCartao) {
+      case "debito":
+        return { taxa: Number(op.taxa_debito) || 0, prazo: op.prazo_debito || 0 };
+      case "credito":
+        return { taxa: Number(op.taxa_credito_vista) || 0, prazo: op.prazo_credito || 0 };
+      case "pix_maquininha":
+        return { taxa: Number(op.taxa_pix) || 0, prazo: op.prazo_pix || 0 };
+      default:
+        return { taxa: 0, prazo: 0 };
+    }
+  };
+
+  const tipoLabel = {
+    debito: "Débito",
+    credito: "Crédito",
+    pix_maquininha: "PIX Maquininha",
+  }[tipoCartao];
+
+  const selectedOp = operadoras.find((o) => o.id === selected);
+
+  const handleConfirm = () => {
+    if (!selectedOp) return;
+    const { taxa, prazo } = getTaxaEPrazo(selectedOp);
+    const valorLiquido = valor - valor * (taxa / 100);
+    onSelect({
+      id: selectedOp.id,
+      nome: selectedOp.nome,
+      taxa,
+      prazo,
+      valorLiquido,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            Selecionar Operadora — {tipoLabel}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Total */}
+          <div className="text-center p-3 bg-primary/10 rounded-lg">
+            <p className="text-xs text-muted-foreground">Valor Bruto</p>
+            <p className="text-2xl font-bold text-primary">
+              R$ {valor.toFixed(2)}
+            </p>
+          </div>
+
+          {loading ? (
+            <p className="text-center text-muted-foreground text-sm py-4">Carregando operadoras...</p>
+          ) : operadoras.length === 0 ? (
+            <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm text-center">
+              Nenhuma operadora cadastrada para esta unidade.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {operadoras.map((op) => {
+                const { taxa, prazo } = getTaxaEPrazo(op);
+                const liquido = valor - valor * (taxa / 100);
+                const isSelected = selected === op.id;
+
+                return (
+                  <button
+                    key={op.id}
+                    onClick={() => setSelected(op.id)}
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold text-sm">{op.nome}</span>
+                        {op.bandeira && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {op.bandeira}
+                          </Badge>
+                        )}
+                      </div>
+                      {isSelected && (
+                        <CheckCircle className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 bg-muted/50 rounded">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground mb-0.5">
+                          <Percent className="h-3 w-3" />
+                          <span className="text-[10px] uppercase">Taxa</span>
+                        </div>
+                        <p className="text-sm font-bold">{taxa.toFixed(2)}%</p>
+                      </div>
+                      <div className="p-2 bg-muted/50 rounded">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground mb-0.5">
+                          <Clock className="h-3 w-3" />
+                          <span className="text-[10px] uppercase">Prazo</span>
+                        </div>
+                        <p className="text-sm font-bold">D+{prazo}</p>
+                      </div>
+                      <div className="p-2 bg-success/10 rounded">
+                        <span className="text-[10px] uppercase text-muted-foreground">Líquido</span>
+                        <p className="text-sm font-bold text-success">
+                          R$ {liquido.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Resumo selecionado */}
+          {selectedOp && (
+            <div className="p-3 bg-muted/30 rounded-lg border border-dashed space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Resumo</p>
+              <div className="flex justify-between text-sm">
+                <span>Operadora</span>
+                <span className="font-semibold">{selectedOp.nome}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Taxa ({tipoLabel})</span>
+                <span className="font-semibold">{getTaxaEPrazo(selectedOp).taxa.toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Recebe em</span>
+                <span className="font-semibold">D+{getTaxaEPrazo(selectedOp).prazo}</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold pt-1 border-t">
+                <span>Valor Líquido</span>
+                <span className="text-success">
+                  R$ {(valor - valor * (getTaxaEPrazo(selectedOp).taxa / 100)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Botões */}
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1"
+              disabled={!selectedOp}
+              onClick={handleConfirm}
+            >
+              Confirmar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
