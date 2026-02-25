@@ -9,14 +9,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Banknote, CreditCard, Smartphone, Receipt } from "lucide-react";
-import { PixQRCode } from "@/components/pix/PixQRCode";
+import { PixKeySelectorModal } from "@/components/pagamento/PixKeySelectorModal";
+import { CardOperatorSelectorModal } from "@/components/pagamento/CardOperatorSelectorModal";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface PDVPaymentProps {
   open: boolean;
   onClose: () => void;
   total: number;
-  onConfirm: (formaPagamento: string, valorRecebido: number) => void;
+  onConfirm: (formaPagamento: string, valorRecebido: number, extras?: { operadora_id?: string; conta_bancaria_id?: string }) => void;
   isLoading: boolean;
 }
 
@@ -33,128 +34,163 @@ const formasPagamento = [
 export function PDVPayment({ open, onClose, total, onConfirm, isLoading }: PDVPaymentProps) {
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
   const [valorRecebido, setValorRecebido] = useState("");
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [selectedExtras, setSelectedExtras] = useState<{ operadora_id?: string; conta_bancaria_id?: string }>({});
+  const [selectedInfo, setSelectedInfo] = useState<string | null>(null);
   const { unidadeAtual } = useUnidade();
-
-  const chavePix = (unidadeAtual as any)?.chave_pix as string | null;
 
   const valorRecebidoNum = parseFloat(valorRecebido.replace(",", ".")) || 0;
   const troco = formaPagamento === "dinheiro" ? Math.max(0, valorRecebidoNum - total) : 0;
   const canFinalize = formaPagamento !== "dinheiro" || valorRecebidoNum >= total;
 
+  const handleSelectForma = (value: string) => {
+    setFormaPagamento(value);
+    setSelectedExtras({});
+    setSelectedInfo(null);
+
+    // Open selector modals for PIX / Card
+    if (value === "pix") {
+      setPixModalOpen(true);
+    } else if (value === "credito" || value === "debito" || value === "pix_maquininha") {
+      setCardModalOpen(true);
+    }
+  };
+
   const handleConfirm = () => {
-    onConfirm(formaPagamento, valorRecebidoNum);
+    onConfirm(formaPagamento, valorRecebidoNum, selectedExtras);
   };
 
   const setQuickValue = (value: number) => {
     setValorRecebido(value.toFixed(2).replace(".", ","));
   };
 
+  const cardTipo = formaPagamento === "credito" ? "credito" : formaPagamento === "pix_maquininha" ? "pix_maquininha" : "debito";
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Receipt className="h-5 w-5" />
-            Finalizar Venda
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Finalizar Venda
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Total */}
-          <div className="text-center p-4 bg-primary/10 rounded-lg">
-            <p className="text-sm text-muted-foreground">Total a Pagar</p>
-            <p className="text-4xl font-bold text-primary">
-              R$ {total.toFixed(2)}
-            </p>
-          </div>
-
-          {/* Forma de Pagamento */}
-          <div className="space-y-2">
-            <Label>Forma de Pagamento</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {formasPagamento.map((forma) => {
-                const Icon = forma.icon;
-                return (
-                  <Button
-                    key={forma.value}
-                    variant={formaPagamento === forma.value ? "default" : "outline"}
-                    className="h-14 flex-col gap-1"
-                    onClick={() => setFormaPagamento(forma.value)}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-xs">{forma.label}</span>
-                  </Button>
-                );
-              })}
+          <div className="space-y-6">
+            {/* Total */}
+            <div className="text-center p-4 bg-primary/10 rounded-lg">
+              <p className="text-sm text-muted-foreground">Total a Pagar</p>
+              <p className="text-4xl font-bold text-primary">
+                R$ {total.toFixed(2)}
+              </p>
             </div>
-          </div>
 
-          {/* PIX QR Code */}
-          {formaPagamento === "pix" && chavePix && (
-            <PixQRCode
-              chavePix={chavePix}
-              valor={total}
-              beneficiario={unidadeAtual?.nome}
-            />
-          )}
-
-          {formaPagamento === "pix" && !chavePix && (
-            <div className="p-3 rounded-lg bg-warning/10 text-warning text-sm text-center">
-              Chave PIX não configurada para esta unidade. Configure em Configurações → Unidades.
-            </div>
-          )}
-
-          {/* Valor Recebido (só para dinheiro) */}
-          {formaPagamento === "dinheiro" && (
+            {/* Forma de Pagamento */}
             <div className="space-y-2">
-              <Label>Valor Recebido</Label>
-              <Input
-                type="text"
-                placeholder="0,00"
-                value={valorRecebido}
-                onChange={(e) => setValorRecebido(e.target.value)}
-                className="text-lg text-center font-mono"
-              />
-              <div className="flex gap-2">
-                {[50, 100, 150, 200].map((value) => (
-                  <Button
-                    key={value}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setQuickValue(value)}
-                  >
-                    R$ {value}
-                  </Button>
-                ))}
+              <Label>Forma de Pagamento</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {formasPagamento.map((forma) => {
+                  const Icon = forma.icon;
+                  return (
+                    <Button
+                      key={forma.value}
+                      variant={formaPagamento === forma.value ? "default" : "outline"}
+                      className="h-14 flex-col gap-1"
+                      onClick={() => handleSelectForma(forma.value)}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-xs">{forma.label}</span>
+                    </Button>
+                  );
+                })}
               </div>
-
-              {valorRecebidoNum > 0 && (
-                <div className="text-center p-3 bg-success/10 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Troco</p>
-                  <p className="text-2xl font-bold text-success">
-                    R$ {troco.toFixed(2)}
-                  </p>
-                </div>
-              )}
             </div>
-          )}
 
-          {/* Botões */}
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1"
-              disabled={!canFinalize || isLoading}
-              onClick={handleConfirm}
-            >
-              {isLoading ? "Processando..." : "Confirmar"}
-            </Button>
+            {/* Info da seleção (operadora ou chave) */}
+            {selectedInfo && (
+              <div className="p-3 rounded-lg bg-success/10 text-success text-sm text-center font-medium">
+                {selectedInfo}
+              </div>
+            )}
+
+            {/* Valor Recebido (só para dinheiro) */}
+            {formaPagamento === "dinheiro" && (
+              <div className="space-y-2">
+                <Label>Valor Recebido</Label>
+                <Input
+                  type="text"
+                  placeholder="0,00"
+                  value={valorRecebido}
+                  onChange={(e) => setValorRecebido(e.target.value)}
+                  className="text-lg text-center font-mono"
+                />
+                <div className="flex gap-2">
+                  {[50, 100, 150, 200].map((value) => (
+                    <Button
+                      key={value}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setQuickValue(value)}
+                    >
+                      R$ {value}
+                    </Button>
+                  ))}
+                </div>
+
+                {valorRecebidoNum > 0 && (
+                  <div className="text-center p-3 bg-success/10 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Troco</p>
+                    <p className="text-2xl font-bold text-success">
+                      R$ {troco.toFixed(2)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Botões */}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!canFinalize || isLoading}
+                onClick={handleConfirm}
+              >
+                {isLoading ? "Processando..." : "Confirmar"}
+              </Button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* PIX Key Selector */}
+      <PixKeySelectorModal
+        open={pixModalOpen}
+        onClose={() => setPixModalOpen(false)}
+        valor={total}
+        beneficiario={unidadeAtual?.nome}
+        onSelect={(chavePix, contaBancariaId) => {
+          setSelectedExtras({ conta_bancaria_id: contaBancariaId });
+          setSelectedInfo(`PIX via conta selecionada`);
+        }}
+      />
+
+      {/* Card Operator Selector */}
+      <CardOperatorSelectorModal
+        open={cardModalOpen}
+        onClose={() => setCardModalOpen(false)}
+        valor={total}
+        tipoCartao={cardTipo}
+        onSelect={(op) => {
+          setSelectedExtras({ operadora_id: op.id });
+          setSelectedInfo(`${op.nome} • Taxa ${op.taxa.toFixed(2)}% • D+${op.prazo} • Líq. R$ ${op.valorLiquido.toFixed(2)}`);
+        }}
+      />
+    </>
   );
 }
