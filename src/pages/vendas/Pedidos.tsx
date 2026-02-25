@@ -29,6 +29,7 @@ import {
   User, RefreshCw, MoreHorizontal, Edit, ArrowRightLeft, Printer,
   Share2, DollarSign, Trash2, Lock, MessageCircle, CreditCard,
   ChevronLeft, ChevronRight, CheckSquare, Building2, Pencil, MoveRight, Map as MapIcon,
+  Download,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
@@ -44,6 +45,32 @@ import { SmartImportButtons } from "@/components/import/SmartImportButtons";
 import { ImportReviewDialog } from "@/components/import/ImportReviewDialog";
 import { toast as sonnerToast } from "sonner";
 import { getBrasiliaDate } from "@/lib/utils";
+import { format as fnsFormat } from "date-fns";
+
+function exportarPedidosCSV(pedidos: PedidoFormatado[]) {
+  const header = ["ID", "Data", "Cliente", "Endereço", "Produtos", "Valor (R$)", "Status", "Pagamento", "Entregador", "Canal"];
+  const rows = pedidos.map(p => [
+    p.id.substring(0, 8).toUpperCase(),
+    p.data,
+    p.cliente,
+    (p.endereco || "").replace(/,/g, " "),
+    (p.produtos || "").replace(/,/g, " |"),
+    p.valor.toFixed(2),
+    p.status,
+    p.forma_pagamento || "",
+    p.entregador || "",
+    p.canal_venda || "",
+  ]);
+  const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const d = getBrasiliaDate();
+  a.download = `pedidos_${fnsFormat(d, "yyyyMMdd_HHmm")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface Entregador {
   id: string;
@@ -437,6 +464,10 @@ export default function Pedidos() {
         {/* Top action */}
         <div className="flex items-center justify-end gap-2 flex-wrap">
           <SmartImportButtons edgeFunctionName="parse-orders-history" onDataExtracted={handleImportData} />
+          <Button variant="outline" onClick={() => { exportarPedidosCSV(pedidosFiltrados); sonnerToast.success(`CSV exportado com ${pedidosFiltrados.length} pedido(s)`); }}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
           <Button variant="outline" onClick={() => navigate("/operacional/centro")}>
             <MapIcon className="h-4 w-4 mr-2" />
             Mapa Operacional
