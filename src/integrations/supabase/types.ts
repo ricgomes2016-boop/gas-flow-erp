@@ -1922,6 +1922,51 @@ export type Database = {
           },
         ]
       }
+      config_destino_pagamento: {
+        Row: {
+          ativo: boolean
+          conta_bancaria_id: string | null
+          created_at: string
+          forma_pagamento: string
+          id: string
+          unidade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          conta_bancaria_id?: string | null
+          created_at?: string
+          forma_pagamento: string
+          id?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          conta_bancaria_id?: string | null
+          created_at?: string
+          forma_pagamento?: string
+          id?: string
+          unidade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_destino_pagamento_conta_bancaria_id_fkey"
+            columns: ["conta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "config_destino_pagamento_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracoes_empresa: {
         Row: {
           cnpj: string | null

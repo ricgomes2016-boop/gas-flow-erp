@@ -22,14 +22,92 @@ interface RotearPagamentosParams {
 }
 
 /**
+ * Busca a conta bancária configurada para uma forma de pagamento na unidade
+ */
+async function getContaDestino(formaPagamento: string, unidadeId?: string | null): Promise<string | null> {
+  if (!unidadeId) return null;
+  const { data } = await supabase
+    .from("config_destino_pagamento")
+    .select("conta_bancaria_id")
+    .eq("forma_pagamento", formaPagamento)
+    .eq("unidade_id", unidadeId)
+    .eq("ativo", true)
+    .maybeSingle();
+  return data?.conta_bancaria_id || null;
+}
+
+/**
+ * Cria movimentação bancária e atualiza saldo da conta
+ */
+async function criarMovimentacaoBancaria(params: {
+  contaBancariaId: string;
+  valor: number;
+  descricao: string;
+  categoria: string;
+  unidadeId?: string | null;
+  userId?: string;
+  pedidoId?: string;
+}) {
+  // Buscar saldo atual
+  const { data: conta } = await supabase
+    .from("contas_bancarias")
+    .select("saldo_atual")
+    .eq("id", params.contaBancariaId)
+    .single();
+
+  if (!conta) return;
+
+  const novoSaldo = Number(conta.saldo_atual) + params.valor;
+
+  // Inserir movimentação
+  await supabase.from("movimentacoes_bancarias").insert({
+    conta_bancaria_id: params.contaBancariaId,
+    data: getBrasiliaDateString(),
+    tipo: params.valor >= 0 ? "entrada" : "saida",
+    categoria: params.categoria,
+    descricao: params.descricao,
+    valor: params.valor,
+    saldo_apos: novoSaldo,
+    referencia_id: params.pedidoId || null,
+    referencia_tipo: params.pedidoId ? "pedido" : null,
+    user_id: params.userId || null,
+    unidade_id: params.unidadeId || null,
+  });
+
+  // Atualizar saldo
+  await supabase
+    .from("contas_bancarias")
+    .update({ saldo_atual: novoSaldo })
+    .eq("id", params.contaBancariaId);
+}
+
+/**
+ * Cria notificação sobre movimentação financeira
+ */
+async function criarNotificacaoFinanceira(params: {
+  titulo: string;
+  mensagem: string;
+  unidadeId?: string | null;
+  userId?: string;
+}) {
+  if (!params.userId) return;
+  await supabase.from("notificacoes").insert({
+    titulo: params.titulo,
+    mensagem: params.mensagem,
+    tipo: "info",
+    user_id: params.userId,
+  }).then(r => { if (r.error) console.error("Erro notificação:", r.error); });
+}
+
+/**
  * Roteia automaticamente os pagamentos de uma venda para os destinos financeiros corretos:
- * - Dinheiro / PIX → movimentacoes_caixa (entrada)
- * - Cartão Débito → movimentacoes_caixa (entrada) + contas_receber (D+1)
- * - Cartão Crédito → movimentacoes_caixa (entrada) + contas_receber (D+30)
- * - Cheque → movimentacoes_caixa (entrada) + tabela cheques
+ * - Dinheiro / PIX → movimentacoes_caixa + movimentacoes_bancarias (se conta configurada)
+ * - Cartão Débito → movimentacoes_caixa + contas_receber (D+1) + movimentacoes_bancarias futura
+ * - Cartão Crédito → movimentacoes_caixa + contas_receber (D+30) + movimentacoes_bancarias futura
+ * - Cheque → movimentacoes_caixa + tabela cheques
  * - Fiado → contas_receber (sem entrada no caixa)
  * - Boleto → contas_receber (sem entrada no caixa)
- * - Vale Gás → movimentacoes_caixa (entrada)
+ * - Vale Gás → movimentacoes_caixa + movimentacoes_bancarias (se conta configurada)
  */
 export async function rotearPagamentosVenda(params: RotearPagamentosParams): Promise<void> {
   const { pedidoId, clienteId, clienteNome, pagamentos, unidadeId, entregadorId } = params;
@@ -49,6 +127,9 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
   const insertCheque = (data: any) =>
     supabase.from("cheques").insert(data).select("id").then(r => { if (r.error) throw r.error; });
 
+  const totalVenda = pagamentos.reduce((acc, p) => acc + p.valor, 0);
+  const formasUsadas = pagamentos.map(p => p.forma).join(", ");
+
   for (const pag of pagamentos) {
     const pedidoRef = pedidoId.slice(0, 8);
 
@@ -64,6 +145,22 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           unidade_id: unidadeId || null,
           entregador_id: entregadorId || null,
         }));
+        // Movimentação bancária automática
+        promises.push(
+          getContaDestino("dinheiro", unidadeId).then(contaId => {
+            if (contaId) {
+              return criarMovimentacaoBancaria({
+                contaBancariaId: contaId,
+                valor: pag.valor,
+                descricao: `Venda #${pedidoRef} - Dinheiro`,
+                categoria: "venda",
+                unidadeId,
+                userId,
+                pedidoId,
+              });
+            }
+          })
+        );
         break;
       }
 
@@ -78,6 +175,21 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           unidade_id: unidadeId || null,
           entregador_id: entregadorId || null,
         }));
+        promises.push(
+          getContaDestino("pix", unidadeId).then(contaId => {
+            if (contaId) {
+              return criarMovimentacaoBancaria({
+                contaBancariaId: contaId,
+                valor: pag.valor,
+                descricao: `Venda #${pedidoRef} - PIX`,
+                categoria: "venda",
+                unidadeId,
+                userId,
+                pedidoId,
+              });
+            }
+          })
+        );
         break;
       }
 
@@ -103,6 +215,7 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
         }));
+        // Nota: movimentação bancária será criada quando o contas_receber for liquidado
         break;
       }
 
@@ -200,6 +313,21 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
           unidade_id: unidadeId || null,
           entregador_id: entregadorId || null,
         }));
+        promises.push(
+          getContaDestino("vale_gas", unidadeId).then(contaId => {
+            if (contaId) {
+              return criarMovimentacaoBancaria({
+                contaBancariaId: contaId,
+                valor: pag.valor,
+                descricao: `Venda #${pedidoRef} - Vale Gás`,
+                categoria: "venda",
+                unidadeId,
+                userId,
+                pedidoId,
+              });
+            }
+          })
+        );
         break;
       }
     }
@@ -210,4 +338,12 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
   if (failures.length > 0) {
     console.error("Erros ao rotear pagamentos:", failures);
   }
+
+  // Notificação consolidada da venda
+  await criarNotificacaoFinanceira({
+    titulo: "💰 Nova venda registrada",
+    mensagem: `Venda #${pedidoId.slice(0, 8)} — R$ ${totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (${formasUsadas}). Movimentações financeiras criadas automaticamente.`,
+    unidadeId,
+    userId,
+  });
 }
