@@ -33,6 +33,7 @@ function MainLayoutContent({ children }: MainLayoutProps) {
         onOpenAi={() => setAiOpen(true)}
         onOpenChat={() => setChatOpen(true)}
         chatUnread={chatUnread}
+        sidebarCollapsed={collapsed}
       />
     </div>
   );
