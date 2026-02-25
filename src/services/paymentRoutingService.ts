@@ -279,15 +279,18 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
       }
 
       case "vale_gas": {
-        promises.push(insertCaixa({
-          tipo: "entrada",
-          descricao: `Venda #${pedidoRef} - Vale Gás`,
+        // Vale Gás NÃO entra no caixa físico — é um voucher do parceiro.
+        // Gera título em Contas a Receber vinculado ao parceiro.
+        promises.push(insertContasReceber({
+          cliente: "Parceiro Vale Gás",
+          descricao: `Vale Gás - Venda #${pedidoRef}`,
           valor: pag.valor,
-          categoria: "Vale Gás",
-          status: "aprovada",
+          vencimento: hoje,
+          status: "pendente",
+          forma_pagamento: "vale_gas",
           pedido_id: pedidoId,
           unidade_id: unidadeId || null,
-          entregador_id: entregadorId || null,
+          cliente_id: clienteId || null,
         }));
         break;
       }
