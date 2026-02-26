@@ -22,36 +22,73 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Gather business data
-    const unidadeFilter = unidade_id ? `AND unidade_id = '${unidade_id}'` : "";
+    // Get authenticated user's empresa_id
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("empresa_id")
+      .eq("user_id", user.id)
+      .single();
+
+    const empresaId = profile?.empresa_id;
+    if (!empresaId) {
+      return new Response(JSON.stringify({ insights: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get unidade IDs belonging to this empresa
+    const { data: unidades } = await supabase
+      .from("unidades")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .eq("ativo", true);
+    const unidadeIds = (unidades || []).map((u: any) => u.id);
+
+    if (unidadeIds.length === 0) {
+      return new Response(JSON.stringify({ insights: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Build empresa-scoped filter
+    const unidadeList = unidadeIds.map((id: string) => `'${id}'`).join(",");
+    const unidadeFilter = unidade_id
+      ? `AND unidade_id = '${unidade_id}'`
+      : `AND unidade_id IN (${unidadeList})`;
 
     const queries = [
-      // Vendas hoje vs ontem
       `SELECT 
         COALESCE(SUM(CASE WHEN created_at::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date THEN valor_total ELSE 0 END), 0) as vendas_hoje,
         COALESCE(SUM(CASE WHEN created_at::date = ((NOW() AT TIME ZONE 'America/Sao_Paulo') - interval '1 day')::date THEN valor_total ELSE 0 END), 0) as vendas_ontem,
         COUNT(CASE WHEN created_at::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date AND status = 'pendente' THEN 1 END) as pendentes_hoje
       FROM pedidos WHERE status != 'cancelado' ${unidadeFilter}
         AND created_at >= (NOW() AT TIME ZONE 'America/Sao_Paulo' - interval '2 days')`,
-      // Estoque crítico
       `SELECT nome, estoque, estoque_minimo FROM produtos WHERE ativo = true AND estoque <= estoque_minimo ${unidadeFilter} LIMIT 5`,
-      // Top 5 produtos da semana
       `SELECT pi.produto_nome, SUM(pi.quantidade) as qtd FROM pedido_itens pi
         JOIN pedidos p ON p.id = pi.pedido_id
-        WHERE p.status != 'cancelado' ${unidadeFilter}
+        WHERE p.status != 'cancelado' ${unidadeFilter.replace('unidade_id', 'p.unidade_id')}
         AND p.created_at >= date_trunc('week', NOW() AT TIME ZONE 'America/Sao_Paulo')
         GROUP BY pi.produto_nome ORDER BY qtd DESC LIMIT 5`,
-      // Contas vencendo em 3 dias
       `SELECT COUNT(*) as qtd, COALESCE(SUM(valor), 0) as total FROM contas_pagar 
         WHERE status = 'pendente' ${unidadeFilter}
         AND vencimento <= (NOW() AT TIME ZONE 'America/Sao_Paulo' + interval '3 days')::date`,
-      // Clientes inativos (sem pedido há 30+ dias)
       `SELECT COUNT(DISTINCT c.id) as inativos FROM clientes c
-        WHERE c.ativo = true AND NOT EXISTS (
+        WHERE c.ativo = true AND c.empresa_id = '${empresaId}' AND NOT EXISTS (
           SELECT 1 FROM pedidos p WHERE p.cliente_id = c.id AND p.created_at >= NOW() - interval '30 days'
         )`,
     ];
