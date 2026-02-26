@@ -4768,6 +4768,127 @@ export type Database = {
           },
         ]
       }
+      pagamentos_cartao: {
+        Row: {
+          autorizacao: string | null
+          bandeira: string | null
+          conta_receber_id: string | null
+          created_at: string
+          data_liquidacao: string | null
+          data_prevista_liquidacao: string | null
+          empresa_id: string | null
+          entregador_id: string | null
+          id: string
+          liquidado: boolean
+          loja_id: string | null
+          maquininha_serial: string | null
+          nsu: string | null
+          parcelas: number
+          pedido_id: string | null
+          status: string
+          tipo: string
+          transaction_id: string
+          unidade_id: string | null
+          updated_at: string
+          valor_bruto: number
+          valor_liquido: number | null
+          valor_taxa: number | null
+        }
+        Insert: {
+          autorizacao?: string | null
+          bandeira?: string | null
+          conta_receber_id?: string | null
+          created_at?: string
+          data_liquidacao?: string | null
+          data_prevista_liquidacao?: string | null
+          empresa_id?: string | null
+          entregador_id?: string | null
+          id?: string
+          liquidado?: boolean
+          loja_id?: string | null
+          maquininha_serial?: string | null
+          nsu?: string | null
+          parcelas?: number
+          pedido_id?: string | null
+          status?: string
+          tipo: string
+          transaction_id: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_bruto: number
+          valor_liquido?: number | null
+          valor_taxa?: number | null
+        }
+        Update: {
+          autorizacao?: string | null
+          bandeira?: string | null
+          conta_receber_id?: string | null
+          created_at?: string
+          data_liquidacao?: string | null
+          data_prevista_liquidacao?: string | null
+          empresa_id?: string | null
+          entregador_id?: string | null
+          id?: string
+          liquidado?: boolean
+          loja_id?: string | null
+          maquininha_serial?: string | null
+          nsu?: string | null
+          parcelas?: number
+          pedido_id?: string | null
+          status?: string
+          tipo?: string
+          transaction_id?: string
+          unidade_id?: string | null
+          updated_at?: string
+          valor_bruto?: number
+          valor_liquido?: number | null
+          valor_taxa?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamentos_cartao_conta_receber_id_fkey"
+            columns: ["conta_receber_id"]
+            isOneToOne: false
+            referencedRelation: "contas_receber"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_cartao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_cartao_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_cartao_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_cartao_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_cartao_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedido_itens: {
         Row: {
           created_at: string
