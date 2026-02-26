@@ -5,12 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Users, Search, Shield } from "lucide-react";
 
 interface AdminUser {
   user_id: string;
@@ -20,10 +26,7 @@ interface AdminUser {
   empresa_nome?: string;
 }
 
-interface EmpresaOption {
-  id: string;
-  nome: string;
-}
+interface EmpresaOption { id: string; nome: string; }
 
 export default function AdminAdmins() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -31,6 +34,7 @@ export default function AdminAdmins() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
 
   const [nomeAdmin, setNomeAdmin] = useState("");
   const [emailAdmin, setEmailAdmin] = useState("");
@@ -56,63 +60,57 @@ export default function AdminAdmins() {
         ...p,
         empresa_nome: empresasRes.data?.find((e) => e.id === p.empresa_id)?.nome || "Sem empresa",
       }));
-
       setAdmins(adminList);
     }
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleCreate = async () => {
     if (!nomeAdmin.trim() || !emailAdmin.trim() || !senhaAdmin.trim() || !empresaId) {
-      toast.error("Preencha todos os campos");
-      return;
+      toast.error("Preencha todos os campos"); return;
     }
-
     setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke("manage-users", {
         body: {
-          action: "create",
-          email: emailAdmin,
-          password: senhaAdmin,
-          full_name: nomeAdmin,
-          role: "admin",
-          empresa_id: empresaId,
+          action: "create", email: emailAdmin, password: senhaAdmin,
+          full_name: nomeAdmin, role: "admin", empresa_id: empresaId,
         },
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       toast.success("Admin criado e vinculado à empresa!");
       setDialogOpen(false);
-      setNomeAdmin("");
-      setEmailAdmin("");
-      setSenhaAdmin("");
-      setEmpresaId("");
+      setNomeAdmin(""); setEmailAdmin(""); setSenhaAdmin(""); setEmpresaId("");
       fetchData();
-    } catch (error: any) {
-      toast.error("Erro: " + error.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (error: any) { toast.error("Erro: " + error.message); }
+    finally { setSaving(false); }
   };
+
+  const filtered = admins.filter((a) =>
+    a.full_name.toLowerCase().includes(search.toLowerCase()) ||
+    a.email.toLowerCase().includes(search.toLowerCase()) ||
+    (a.empresa_nome || "").toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Administradores</h1>
-            <p className="text-muted-foreground">Crie e gerencie admins das empresas.</p>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary" />
+              Administradores
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {admins.length} {admins.length === 1 ? "administrador" : "administradores"} vinculados a empresas.
+            </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity">
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Admin
               </Button>
@@ -120,19 +118,18 @@ export default function AdminAdmins() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Criar Admin de Empresa</DialogTitle>
+                <DialogDescription>
+                  Este usuário terá acesso administrativo completo à empresa selecionada.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Empresa *</Label>
                   <Select value={empresaId} onValueChange={setEmpresaId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a empresa" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                     <SelectContent>
                       {empresas.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.nome}
-                        </SelectItem>
+                        <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -147,7 +144,7 @@ export default function AdminAdmins() {
                 </div>
                 <div className="space-y-2">
                   <Label>Senha *</Label>
-                  <Input value={senhaAdmin} onChange={(e) => setSenhaAdmin(e.target.value)} type="password" />
+                  <Input value={senhaAdmin} onChange={(e) => setSenhaAdmin(e.target.value)} type="password" placeholder="Mínimo 6 caracteres" />
                 </div>
                 <Button onClick={handleCreate} disabled={saving} className="w-full">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -158,36 +155,56 @@ export default function AdminAdmins() {
           </Dialog>
         </div>
 
-        <Card>
+        {/* Search */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar por nome, email ou empresa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card/80" />
+        </div>
+
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Empresa</TableHead>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-semibold">Administrador</TableHead>
+                  <TableHead className="font-semibold">Email</TableHead>
+                  <TableHead className="font-semibold">Empresa</TableHead>
+                  <TableHead className="font-semibold">Perfil</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                    <TableCell colSpan={4} className="text-center py-12">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
-                ) : admins.length === 0 ? (
+                ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                      Nenhum admin cadastrado.
+                    <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                      {search ? "Nenhum admin encontrado." : "Nenhum admin cadastrado."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  admins.map((a) => (
-                    <TableRow key={a.user_id}>
-                      <TableCell className="font-medium">{a.full_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{a.email}</TableCell>
+                  filtered.map((a) => (
+                    <TableRow key={a.user_id} className="hover:bg-muted/20">
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0">
+                            {a.full_name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()}
+                          </div>
+                          {a.full_name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{a.email}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{a.empresa_nome}</Badge>
+                        <Badge variant="secondary" className="text-xs">{a.empresa_nome}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          <Shield className="h-3 w-3 mr-1" />
+                          Admin
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))
