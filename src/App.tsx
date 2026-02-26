@@ -109,6 +109,7 @@ const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"))
 const ControleCheques = lazy(() => import("./pages/financeiro/ControleCheques"));
 const VendaAntecipada = lazy(() => import("./pages/financeiro/VendaAntecipada"));
 const BalancoPatrimonial = lazy(() => import("./pages/financeiro/BalancoPatrimonial"));
+const PagamentosCartao = lazy(() => import("./pages/financeiro/PagamentosCartao"));
 
 
 // Frota
@@ -632,6 +633,11 @@ const App = () => (
                   <Route path="/financeiro/cartoes" element={
                     <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
                       <GestaoCartoes />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/financeiro/pagamentos-cartao" element={
+                    <ProtectedRoute allowedRoles={["admin", "gestor", "financeiro"]}>
+                      <PagamentosCartao />
                     </ProtectedRoute>
                   } />
                   <Route path="/financeiro/cobrancas" element={

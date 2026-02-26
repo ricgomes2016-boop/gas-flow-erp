@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.marketing-ai]
 verify_jwt = false
+
+[functions.pagamento-iniciar]
+verify_jwt = false
+
+[functions.pagamento-confirmar]
+verify_jwt = false
