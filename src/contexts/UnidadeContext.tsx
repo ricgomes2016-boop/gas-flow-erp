@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 
 export interface Unidade {
   id: string;
@@ -35,6 +36,7 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
   const [unidadeAtual, setUnidadeAtualState] = useState<Unidade | null>(null);
   const [loading, setLoading] = useState(true);
   const { user, roles, loading: authLoading } = useAuth();
+  const { empresa, loading: empresaLoading } = useEmpresa();
 
   const isAdminOrGestor = roles.includes("admin") || roles.includes("gestor");
 
@@ -48,13 +50,20 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
 
     try {
       if (isAdminOrGestor) {
-        // Admin/gestor sees all active unidades
-        const { data, error } = await supabase
+        // Admin/gestor sees all active unidades of their empresa
+        let query = supabase
           .from("unidades")
           .select("*")
           .eq("ativo", true)
           .order("tipo", { ascending: true })
           .order("nome");
+
+        // Filter by empresa_id if available
+        if (empresa?.id) {
+          query = query.eq("empresa_id", empresa.id);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error("Error fetching unidades:", error);
@@ -141,10 +150,10 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && !empresaLoading) {
       fetchUnidades();
     }
-  }, [user, roles, authLoading]);
+  }, [user, roles, authLoading, empresa, empresaLoading]);
 
   const setUnidadeAtual = (unidade: Unidade) => {
     setUnidadeAtualState(unidade);
