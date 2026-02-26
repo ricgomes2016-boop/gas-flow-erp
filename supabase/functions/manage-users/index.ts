@@ -56,16 +56,31 @@ Deno.serve(async (req) => {
 
     // LIST users
     if (action === "list") {
-      const { data: profiles, error } = await supabaseAdmin
+      // Determine caller's empresa_id
+      const { data: callerProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("empresa_id")
+        .eq("user_id", caller.id)
+        .single();
+
+      let profilesQuery = supabaseAdmin
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
+      // Super admins see all users; regular admins see only their empresa
+      if (!isSuperAdmin && callerProfile?.empresa_id) {
+        profilesQuery = profilesQuery.eq("empresa_id", callerProfile.empresa_id);
+      }
+
+      const { data: profiles, error } = await profilesQuery;
       if (error) throw error;
 
+      const userIds = profiles?.map((p: any) => p.user_id) || [];
+
       const [{ data: roles }, { data: userUnidades }] = await Promise.all([
-        supabaseAdmin.from("user_roles").select("*"),
-        supabaseAdmin.from("user_unidades").select("*"),
+        supabaseAdmin.from("user_roles").select("*").in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]),
+        supabaseAdmin.from("user_unidades").select("*").in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]),
       ]);
 
       const usersWithRoles = profiles?.map((p: any) => ({
