@@ -394,7 +394,7 @@ export default function ContasBancarias() {
           </TabsContent>
 
           <TabsContent value="conciliacao" className="mt-4">
-            <Conciliacao embedded />
+            <Conciliacao embedded contas={contas.map(c => ({ id: c.id, nome: c.nome, banco: c.banco, tipo: c.tipo, saldo_atual: c.saldo_atual }))} />
           </TabsContent>
         </Tabs>
 
