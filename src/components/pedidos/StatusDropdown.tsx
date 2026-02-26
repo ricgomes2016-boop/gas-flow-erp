@@ -5,9 +5,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Clock, Truck, CheckCircle, XCircle } from "lucide-react";
-
-type PedidoStatus = "pendente" | "em_rota" | "entregue" | "cancelado" | "finalizado";
+import { Clock, Truck, CheckCircle, XCircle, CreditCard, Loader2, Ban } from "lucide-react";
+import { PedidoStatus } from "@/types/pedido";
 
 interface StatusDropdownProps {
   status: PedidoStatus | string;
@@ -21,6 +20,10 @@ const statusConfig: Record<string, { label: string; variant: "secondary" | "defa
   entregue: { label: "Entregue", variant: "outline", icon: CheckCircle },
   finalizado: { label: "Finalizado", variant: "outline", icon: CheckCircle },
   cancelado: { label: "Cancelado", variant: "destructive", icon: XCircle },
+  aguardando_pagamento_cartao: { label: "Aguard. Cartão", variant: "secondary", icon: CreditCard },
+  pagamento_em_processamento: { label: "Processando", variant: "default", icon: Loader2 },
+  pago_cartao: { label: "Pago (Cartão)", variant: "outline", icon: CreditCard },
+  pagamento_negado: { label: "Pgto Negado", variant: "destructive", icon: Ban },
 };
 
 const defaultConfig = { label: "Desconhecido", variant: "secondary" as const, icon: Clock };
@@ -31,8 +34,9 @@ export function StatusDropdown({ status, onStatusChange, disabled }: StatusDropd
   const config = statusConfig[status] || defaultConfig;
   const StatusIcon = config.icon;
 
-  // Status já finalizados não podem ser alterados
-  const isEditable = status !== "cancelado" && status !== "entregue" && status !== "finalizado" && !disabled;
+  // Status já finalizados ou de pagamento não podem ser alterados
+  const readonlyStatuses = ["cancelado", "entregue", "finalizado", "pago_cartao", "aguardando_pagamento_cartao", "pagamento_em_processamento"];
+  const isEditable = !readonlyStatuses.includes(status) && !disabled;
 
   if (!isEditable) {
     return (
