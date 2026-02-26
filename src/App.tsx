@@ -161,6 +161,7 @@ const Integracoes = lazy(() => import("./pages/config/Integracoes"));
 const PersonalizacaoVisual = lazy(() => import("./pages/config/PersonalizacaoVisual"));
 const MinhaEmpresa = lazy(() => import("./pages/config/MinhaEmpresa"));
 const OnboardingEmpresa = lazy(() => import("./pages/onboarding/OnboardingEmpresa"));
+const OnboardingSetup = lazy(() => import("./pages/onboarding/OnboardingSetup"));
 
 // Super Admin
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -268,6 +269,11 @@ const App = () => (
                   <Route path="/onboarding" element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <OnboardingEmpresa />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/onboarding/setup" element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <OnboardingSetup />
                     </ProtectedRoute>
                   } />
 
