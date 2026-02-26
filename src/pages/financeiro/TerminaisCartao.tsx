@@ -53,12 +53,15 @@ export default function TerminaisCartao() {
     queryFn: async () => {
       let query = supabase
         .from("terminais_cartao")
-        .select("*")
+        .select("*, operadoras_cartao(nome)")
         .order("nome");
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
       const { data, error } = await query;
       if (error) throw error;
-      return data as Terminal[];
+      return (data || []).map((t: any) => ({
+        ...t,
+        operadora_display: t.operadoras_cartao?.nome || t.operadora || "—",
+      })) as (Terminal & { operadora_display: string })[];
     },
   });
 
@@ -267,7 +270,7 @@ export default function TerminaisCartao() {
                     <TableCell className="font-medium">{t.nome}</TableCell>
                     <TableCell className="font-mono text-sm">{t.numero_serie || "—"}</TableCell>
                     <TableCell>{t.modelo || "—"}</TableCell>
-                    <TableCell><Badge variant="outline">{t.operadora}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{(t as any).operadora_display}</Badge></TableCell>
                     <TableCell>{entregadorNome(t.entregador_id)}</TableCell>
                     <TableCell>
                       <Badge variant={t.status === "ativo" ? "default" : t.status === "inativo" ? "secondary" : "destructive"}>

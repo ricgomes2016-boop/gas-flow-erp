@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   CreditCard, Plus, CheckCircle2, AlertCircle, Clock, Settings, Trash2, Search,
-  DollarSign, TrendingDown, Filter, X, FileUp, Loader2,
+  DollarSign, TrendingDown, Filter, X, FileUp, Loader2, Smartphone,
 } from "lucide-react";
 import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +68,14 @@ interface ConferenciaItem {
 
 const BANDEIRAS = ["Visa", "Mastercard", "Elo", "Hipercard", "Amex", "Outras"];
 
+interface TerminalItem {
+  id?: string;
+  nome: string;
+  numero_serie: string;
+  modelo: string;
+  isNew?: boolean;
+}
+
 export function ConferenciaCartao() {
   const { unidadeAtual } = useUnidade();
   const [activeTab, setActiveTab] = useState("conferencia");
@@ -82,6 +90,10 @@ export function ConferenciaCartao() {
     taxa_pix: "", prazo_pix: "0",
   });
   const [opDeleteId, setOpDeleteId] = useState<string | null>(null);
+
+  // Terminais por operadora
+  const [opTerminais, setOpTerminais] = useState<TerminalItem[]>([]);
+  const [allTerminais, setAllTerminais] = useState<Record<string, TerminalItem[]>>({});
 
   // Conferencia
   const [itens, setItens] = useState<ConferenciaItem[]>([]);
@@ -112,7 +124,22 @@ export function ConferenciaCartao() {
     let query = supabase.from("operadoras_cartao").select("*").eq("ativo", true);
     if (unidadeAtual?.id) query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
     const { data } = await query;
-    setOperadoras((data as Operadora[]) || []);
+    const ops = (data as Operadora[]) || [];
+    setOperadoras(ops);
+
+    // Fetch terminais for all operadoras
+    if (ops.length > 0) {
+      const { data: termsData } = await supabase
+        .from("terminais_cartao")
+        .select("id, nome, numero_serie, modelo, operadora_id")
+        .in("operadora_id", ops.map(o => o.id));
+      const grouped: Record<string, TerminalItem[]> = {};
+      (termsData || []).forEach((t: any) => {
+        if (!grouped[t.operadora_id]) grouped[t.operadora_id] = [];
+        grouped[t.operadora_id].push({ id: t.id, nome: t.nome, numero_serie: t.numero_serie || "", modelo: t.modelo || "" });
+      });
+      setAllTerminais(grouped);
+    }
   };
 
   const fetchItens = async () => {
@@ -135,11 +162,26 @@ export function ConferenciaCartao() {
   useEffect(() => { fetchOperadoras(); fetchItens(); }, [unidadeAtual]);
 
   // --- Operadoras CRUD ---
-  const resetOpForm = () => setOpForm({
-    nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
-    taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
-    taxa_pix: "", prazo_pix: "0",
-  });
+  const resetOpForm = () => {
+    setOpForm({
+      nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
+      taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+      taxa_pix: "", prazo_pix: "0",
+    });
+    setOpTerminais([]);
+  };
+
+  const addTerminalRow = () => {
+    setOpTerminais(prev => [...prev, { nome: "", numero_serie: "", modelo: "", isNew: true }]);
+  };
+
+  const removeTerminalRow = (idx: number) => {
+    setOpTerminais(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateTerminalRow = (idx: number, field: keyof TerminalItem, value: string) => {
+    setOpTerminais(prev => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t));
+  };
 
   const handleOpSubmit = async () => {
     if (!opForm.nome) { toast.error("Nome obrigatório"); return; }
@@ -155,15 +197,55 @@ export function ConferenciaCartao() {
       prazo_pix: parseInt(opForm.prazo_pix) || 0,
       unidade_id: unidadeAtual?.id || null,
     };
+
+    let operadoraId = opEditId;
+
     if (opEditId) {
       const { error } = await supabase.from("operadoras_cartao").update(payload).eq("id", opEditId);
       if (error) { toast.error("Erro ao atualizar"); return; }
-      toast.success("Operadora atualizada!");
     } else {
-      const { error } = await supabase.from("operadoras_cartao").insert(payload);
+      const { data, error } = await supabase.from("operadoras_cartao").insert(payload).select("id").single();
       if (error) { toast.error("Erro ao criar"); return; }
-      toast.success("Operadora cadastrada!");
+      operadoraId = data.id;
     }
+
+    // Save terminais
+    if (operadoraId) {
+      // Delete removed terminals (those in allTerminais but not in opTerminais)
+      const existingIds = (allTerminais[operadoraId] || []).map(t => t.id).filter(Boolean);
+      const keepIds = opTerminais.filter(t => t.id).map(t => t.id);
+      const toDelete = existingIds.filter(id => !keepIds.includes(id));
+      if (toDelete.length > 0) {
+        await supabase.from("terminais_cartao").delete().in("id", toDelete as string[]);
+      }
+
+      // Insert new terminals
+      const newTerminals = opTerminais.filter(t => t.isNew && t.nome.trim());
+      if (newTerminals.length > 0) {
+        const rows = newTerminals.map(t => ({
+          nome: t.nome,
+          numero_serie: t.numero_serie || null,
+          modelo: t.modelo || null,
+          operadora: opForm.nome,
+          operadora_id: operadoraId,
+          unidade_id: unidadeAtual?.id || null,
+          status: "ativo",
+        }));
+        await supabase.from("terminais_cartao").insert(rows);
+      }
+
+      // Update existing terminals
+      const existing = opTerminais.filter(t => t.id && !t.isNew);
+      for (const t of existing) {
+        await supabase.from("terminais_cartao").update({
+          nome: t.nome,
+          numero_serie: t.numero_serie || null,
+          modelo: t.modelo || null,
+        }).eq("id", t.id!);
+      }
+    }
+
+    toast.success(opEditId ? "Operadora atualizada!" : "Operadora cadastrada!");
     setOpDialogOpen(false); setOpEditId(null); resetOpForm(); fetchOperadoras();
   };
 
@@ -616,7 +698,15 @@ export function ConferenciaCartao() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-sm">{op.nome}</p>
-                        {op.bandeira && <Badge variant="outline" className="text-[10px] mt-0.5">{op.bandeira}</Badge>}
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {op.bandeira && <Badge variant="outline" className="text-[10px]">{op.bandeira}</Badge>}
+                          {(allTerminais[op.id]?.length || 0) > 0 && (
+                            <Badge variant="secondary" className="text-[10px] gap-0.5">
+                              <Smartphone className="h-2.5 w-2.5" />
+                              {allTerminais[op.id].length} terminal(is)
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
@@ -628,6 +718,7 @@ export function ConferenciaCartao() {
                             prazo_debito: String(op.prazo_debito), prazo_credito: String(op.prazo_credito),
                             taxa_pix: String((op as any).taxa_pix || 0), prazo_pix: String((op as any).prazo_pix || 0),
                           });
+                          setOpTerminais((allTerminais[op.id] || []).map(t => ({ ...t })));
                           setOpDialogOpen(true);
                         }}>
                           <Settings className="h-3.5 w-3.5" />
@@ -782,7 +873,7 @@ export function ConferenciaCartao() {
 
       {/* Dialog: Operadora */}
       <Dialog open={opDialogOpen} onOpenChange={v => { setOpDialogOpen(v); if (!v) { setOpEditId(null); resetOpForm(); } }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{opEditId ? "Editar Operadora" : "Nova Operadora"}</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-3">
@@ -811,6 +902,55 @@ export function ConferenciaCartao() {
               <div><Label>Taxa PIX Maquininha (%)</Label><Input type="number" step="0.01" min="0" value={opForm.taxa_pix} onChange={e => setOpForm({ ...opForm, taxa_pix: e.target.value })} placeholder="0.00" /></div>
               <div><Label>Prazo PIX Maq. (D+)</Label><Input type="number" min="0" value={opForm.prazo_pix} onChange={e => setOpForm({ ...opForm, prazo_pix: e.target.value })} placeholder="0" /></div>
             </div>
+
+            {/* Terminais / Máquinas */}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <Smartphone className="h-4 w-4" />
+                  Terminais / Máquinas
+                </Label>
+                <Button type="button" variant="outline" size="sm" onClick={addTerminalRow} className="gap-1 text-xs">
+                  <Plus className="h-3 w-3" />Terminal
+                </Button>
+              </div>
+              {opTerminais.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Nenhum terminal cadastrado. Clique em "+ Terminal" para adicionar.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {opTerminais.map((t, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border/50">
+                      <div className="flex-1 grid grid-cols-3 gap-2">
+                        <Input
+                          placeholder="Nome/Apelido *"
+                          className="h-8 text-xs"
+                          value={t.nome}
+                          onChange={e => updateTerminalRow(idx, "nome", e.target.value)}
+                        />
+                        <Input
+                          placeholder="Nº Série/Terminal"
+                          className="h-8 text-xs font-mono"
+                          value={t.numero_serie}
+                          onChange={e => updateTerminalRow(idx, "numero_serie", e.target.value)}
+                        />
+                        <Input
+                          placeholder="Modelo"
+                          className="h-8 text-xs"
+                          value={t.modelo}
+                          onChange={e => updateTerminalRow(idx, "modelo", e.target.value)}
+                        />
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={() => removeTerminalRow(idx)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => { setOpDialogOpen(false); setOpEditId(null); resetOpForm(); }}>Cancelar</Button>
               <Button onClick={handleOpSubmit}>{opEditId ? "Atualizar" : "Salvar"}</Button>

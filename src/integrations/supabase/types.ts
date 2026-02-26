@@ -5594,6 +5594,7 @@ export type Database = {
           numero_serie: string | null
           observacoes: string | null
           operadora: string
+          operadora_id: string | null
           status: string
           unidade_id: string | null
           updated_at: string
@@ -5607,6 +5608,7 @@ export type Database = {
           numero_serie?: string | null
           observacoes?: string | null
           operadora?: string
+          operadora_id?: string | null
           status?: string
           unidade_id?: string | null
           updated_at?: string
@@ -5620,6 +5622,7 @@ export type Database = {
           numero_serie?: string | null
           observacoes?: string | null
           operadora?: string
+          operadora_id?: string | null
           status?: string
           unidade_id?: string | null
           updated_at?: string
@@ -5630,6 +5633,13 @@ export type Database = {
             columns: ["entregador_id"]
             isOneToOne: false
             referencedRelation: "entregadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "terminais_cartao_operadora_id_fkey"
+            columns: ["operadora_id"]
+            isOneToOne: false
+            referencedRelation: "operadoras_cartao"
             referencedColumns: ["id"]
           },
           {
