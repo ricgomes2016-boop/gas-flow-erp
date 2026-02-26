@@ -86,7 +86,7 @@ export function ConferenciaCartao() {
   const [opEditId, setOpEditId] = useState<string | null>(null);
   const [opForm, setOpForm] = useState({
     nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
-    taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+    taxa_credito_parcelado: "", prazo_debito: "0", prazo_credito: "0",
     taxa_pix: "", prazo_pix: "0",
   });
   const [opDeleteId, setOpDeleteId] = useState<string | null>(null);
@@ -165,7 +165,7 @@ export function ConferenciaCartao() {
   const resetOpForm = () => {
     setOpForm({
       nome: "", bandeira: "", taxa_debito: "", taxa_credito_vista: "",
-      taxa_credito_parcelado: "", prazo_debito: "1", prazo_credito: "30",
+      taxa_credito_parcelado: "", prazo_debito: "0", prazo_credito: "0",
       taxa_pix: "", prazo_pix: "0",
     });
     setOpTerminais([]);
@@ -191,8 +191,8 @@ export function ConferenciaCartao() {
       taxa_debito: parseFloat(opForm.taxa_debito) || 0,
       taxa_credito_vista: parseFloat(opForm.taxa_credito_vista) || 0,
       taxa_credito_parcelado: parseFloat(opForm.taxa_credito_parcelado) || 0,
-      prazo_debito: parseInt(opForm.prazo_debito) || 1,
-      prazo_credito: parseInt(opForm.prazo_credito) || 30,
+      prazo_debito: parseInt(opForm.prazo_debito) || 0,
+      prazo_credito: parseInt(opForm.prazo_credito) || 0,
       taxa_pix: parseFloat(opForm.taxa_pix) || 0,
       prazo_pix: parseInt(opForm.prazo_pix) || 0,
       unidade_id: unidadeAtual?.id || null,
@@ -276,7 +276,7 @@ export function ConferenciaCartao() {
 
     const prazo = operadora
       ? (confForm.tipo === "pix_maquininha" ? ((operadora as any).prazo_pix || 0) : confForm.tipo === "debito" ? operadora.prazo_debito : operadora.prazo_credito)
-      : (confForm.tipo === "pix_maquininha" ? 0 : confForm.tipo === "debito" ? 1 : 30);
+      : (confForm.tipo === "pix_maquininha" ? 0 : confForm.tipo === "debito" ? 0 : 0);
     const dataPrevista = addDays(new Date(confForm.data_venda), prazo);
 
     const payload = {
@@ -895,8 +895,8 @@ export function ConferenciaCartao() {
               <div><Label>Taxa Créd. Parc. (%)</Label><Input type="number" step="0.01" value={opForm.taxa_credito_parcelado} onChange={e => setOpForm({ ...opForm, taxa_credito_parcelado: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Prazo Débito (D+)</Label><Input type="number" min="0" value={opForm.prazo_debito} onChange={e => setOpForm({ ...opForm, prazo_debito: e.target.value })} /></div>
-              <div><Label>Prazo Crédito (D+)</Label><Input type="number" min="0" value={opForm.prazo_credito} onChange={e => setOpForm({ ...opForm, prazo_credito: e.target.value })} /></div>
+              <div><Label>Prazo Débito (D+)</Label><Input type="number" min="0" value={opForm.prazo_debito} onChange={e => setOpForm({ ...opForm, prazo_debito: e.target.value })} placeholder="0" /></div>
+              <div><Label>Prazo Crédito (D+)</Label><Input type="number" min="0" value={opForm.prazo_credito} onChange={e => setOpForm({ ...opForm, prazo_credito: e.target.value })} placeholder="0" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Taxa PIX Maquininha (%)</Label><Input type="number" step="0.01" min="0" value={opForm.taxa_pix} onChange={e => setOpForm({ ...opForm, taxa_pix: e.target.value })} placeholder="0.00" /></div>
