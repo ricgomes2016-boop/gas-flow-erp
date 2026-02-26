@@ -46,6 +46,7 @@ serve(async (req) => {
 
     const empresaId = profile?.empresa_id;
     if (!empresaId) {
+      console.warn("User has no empresa_id, returning empty insights");
       return new Response(JSON.stringify({ insights: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
