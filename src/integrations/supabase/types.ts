@@ -1844,6 +1844,7 @@ export type Database = {
           pedido_id: string | null
           status: string
           taxa_percentual: number
+          terminal_id: string | null
           tipo: string
           unidade_id: string | null
           updated_at: string
@@ -1867,6 +1868,7 @@ export type Database = {
           pedido_id?: string | null
           status?: string
           taxa_percentual?: number
+          terminal_id?: string | null
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
@@ -1890,6 +1892,7 @@ export type Database = {
           pedido_id?: string | null
           status?: string
           taxa_percentual?: number
+          terminal_id?: string | null
           tipo?: string
           unidade_id?: string | null
           updated_at?: string
@@ -1911,6 +1914,13 @@ export type Database = {
             columns: ["pedido_id"]
             isOneToOne: false
             referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conferencia_cartao_terminal_id_fkey"
+            columns: ["terminal_id"]
+            isOneToOne: false
+            referencedRelation: "terminais_cartao"
             referencedColumns: ["id"]
           },
           {
