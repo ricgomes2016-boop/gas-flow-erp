@@ -136,7 +136,19 @@ export function DailyBriefingWidget() {
     );
   }
 
-  if (dismissed) return null;
+  if (dismissed) {
+    return (
+      <div className="flex items-center justify-between px-1 py-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Bot className="h-4 w-4" />
+          <span>Briefing minimizado</span>
+        </div>
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setDismissed(false); localStorage.removeItem(DISMISSED_KEY); }}>
+          Reabrir
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-background to-accent/5">
