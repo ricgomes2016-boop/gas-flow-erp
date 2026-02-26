@@ -120,7 +120,7 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // First get the user's empresa_id from their profile
+      // Fetch empresa by user's profile empresa_id (v2)
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("empresa_id")
