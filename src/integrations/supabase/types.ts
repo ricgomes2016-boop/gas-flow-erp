@@ -1971,6 +1971,7 @@ export type Database = {
         Row: {
           cnpj: string | null
           created_at: string
+          empresa_id: string | null
           endereco: string | null
           id: string
           mensagem_cupom: string | null
@@ -1982,6 +1983,7 @@ export type Database = {
         Insert: {
           cnpj?: string | null
           created_at?: string
+          empresa_id?: string | null
           endereco?: string | null
           id?: string
           mensagem_cupom?: string | null
@@ -1993,6 +1995,7 @@ export type Database = {
         Update: {
           cnpj?: string | null
           created_at?: string
+          empresa_id?: string | null
           endereco?: string | null
           id?: string
           mensagem_cupom?: string | null
@@ -2001,7 +2004,15 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_empresa_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       configuracoes_visuais: {
         Row: {
@@ -3416,6 +3427,7 @@ export type Database = {
           contato_nome: string | null
           created_at: string
           email: string | null
+          empresa_id: string | null
           endereco: string | null
           estado: string | null
           id: string
@@ -3435,6 +3447,7 @@ export type Database = {
           contato_nome?: string | null
           created_at?: string
           email?: string | null
+          empresa_id?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
@@ -3454,6 +3467,7 @@ export type Database = {
           contato_nome?: string | null
           created_at?: string
           email?: string | null
+          empresa_id?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
@@ -3464,7 +3478,15 @@ export type Database = {
           tipo?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funcionarios: {
         Row: {
