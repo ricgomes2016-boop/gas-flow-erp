@@ -6534,6 +6534,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      unidade_belongs_to_user_empresa: {
+        Args: { _unidade_id: string }
+        Returns: boolean
+      }
       user_belongs_to_empresa: {
         Args: { _empresa_id: string; _user_id: string }
         Returns: boolean
