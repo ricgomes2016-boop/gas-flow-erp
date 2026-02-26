@@ -10,6 +10,7 @@ export function StockOverview() {
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["stock-overview", unidadeAtual?.id],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       let query = supabase
         .from("produtos")

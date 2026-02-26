@@ -13,6 +13,7 @@ export function DailySalesGoal() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["daily-goal", unidadeAtual?.id],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       // Get active daily goal
       let metaQuery = supabase

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { getBrasiliaDate } from "@/lib/utils";
 import { Loader2, TrendingDown, TrendingUp, UserMinus, UserPlus, AlertTriangle } from "lucide-react";
 
@@ -15,12 +16,13 @@ interface ChurnData {
 }
 
 export function ChurnAnalysis() {
+  const { empresa } = useEmpresa();
   const [data, setData] = useState<ChurnData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchChurnData();
-  }, []);
+    if (empresa?.id) fetchChurnData();
+  }, [empresa?.id]);
 
   const fetchChurnData = async () => {
     setLoading(true);
@@ -28,20 +30,27 @@ export function ChurnAnalysis() {
       const now = getBrasiliaDate();
       const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Fetch all clients counts
+      // Fetch all clients counts filtered by empresa
+      const baseQ = () => {
+        let q = supabase.from("clientes").select("id", { count: "exact", head: true });
+        if (empresa?.id) q = q.eq("empresa_id", empresa.id);
+        return q;
+      };
       const [ativosRes, inativosRes, novosRes, inativadosRes] = await Promise.all([
-        supabase.from("clientes").select("id", { count: "exact", head: true }).eq("ativo", true),
-        supabase.from("clientes").select("id", { count: "exact", head: true }).eq("ativo", false),
-        supabase.from("clientes").select("id", { count: "exact", head: true }).eq("ativo", true).gte("created_at", d30),
-        supabase.from("clientes").select("id", { count: "exact", head: true }).eq("ativo", false).gte("updated_at", d30),
+        baseQ().eq("ativo", true),
+        baseQ().eq("ativo", false),
+        baseQ().eq("ativo", true).gte("created_at", d30),
+        baseQ().eq("ativo", false).gte("updated_at", d30),
       ]);
 
       // Clientes em risco: ativos mas sem pedidos há mais de 45 dias
-      const { data: clientesAtivos } = await supabase
+      let riskQ = supabase
         .from("clientes")
         .select("id, nome, telefone, bairro")
         .eq("ativo", true)
         .limit(500);
+      if (empresa?.id) riskQ = riskQ.eq("empresa_id", empresa.id);
+      const { data: clientesAtivos } = await riskQ;
 
       let clientesRisco: ChurnData["clientesRisco"] = [];
 

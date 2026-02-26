@@ -10,6 +10,7 @@ export function StockAlerts() {
 
   const { data: lowStockProducts = [] } = useQuery({
     queryKey: ["low-stock-alerts", unidadeAtual?.id],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       let query = supabase
         .from("produtos")

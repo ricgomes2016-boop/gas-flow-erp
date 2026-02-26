@@ -4,12 +4,14 @@ import { DollarSign, Package, Users, Target, Calendar, Loader2 } from "lucide-re
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { getBrasiliaDate } from "@/lib/utils";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
 
 export default function ExecutivoContent() {
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const [loading, setLoading] = useState(true);
   const [faturamento, setFaturamento] = useState(0);
   const [totalVendas, setTotalVendas] = useState(0);
@@ -35,7 +37,9 @@ export default function ExecutivoContent() {
       setTotalVendas(pedidos?.length || 0);
       setTicketMedio(pedidos?.length ? totalFat / pedidos.length : 0);
 
-      const { count: cliCount } = await supabase.from("clientes").select("id", { count: "exact" }).eq("ativo", true);
+      let cliQuery = supabase.from("clientes").select("id", { count: "exact" }).eq("ativo", true);
+      if (empresa?.id) cliQuery = cliQuery.eq("empresa_id", empresa.id);
+      const { count: cliCount } = await cliQuery;
       setClientesAtivos(cliCount || 0);
 
       const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
