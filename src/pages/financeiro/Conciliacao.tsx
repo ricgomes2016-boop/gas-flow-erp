@@ -22,6 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Link2, Loader2, Zap, Search, Unlink } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -83,7 +87,15 @@ function parseCSV(text: string): Array<{ data: string; descricao: string; valor:
 
 // --- Component ---
 
-export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
+interface ContaBancariaSimple {
+  id: string;
+  nome: string;
+  banco: string;
+  tipo: string;
+  saldo_atual: number;
+}
+
+export default function Conciliacao({ embedded, contas = [] }: { embedded?: boolean; contas?: ContaBancariaSimple[] } = {}) {
   const { unidadeAtual } = useUnidade();
   const queryClient = useQueryClient();
   const ofxInputRef = useRef<HTMLInputElement>(null);
@@ -93,16 +105,21 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
   const [vinculoDialogOpen, setVinculoDialogOpen] = useState(false);
   const [selectedLancamento, setSelectedLancamento] = useState<any>(null);
   const [pedidoSearch, setPedidoSearch] = useState("");
+  const [contaImportId, setContaImportId] = useState<string>("");
+
+  // Filter state for extrato by conta
+  const [filtroContaId, setFiltroContaId] = useState<string>("todas");
 
   // Fetch extrato
   const { data: extrato = [], isLoading } = useQuery({
-    queryKey: ["extrato_bancario", unidadeAtual?.id],
+    queryKey: ["extrato_bancario", unidadeAtual?.id, filtroContaId],
     queryFn: async () => {
       let query = supabase
         .from("extrato_bancario")
-        .select("*, pedidos(id, valor_total, cliente_id, created_at, clientes(nome))")
+        .select("*, pedidos(id, valor_total, cliente_id, created_at, clientes(nome)), contas_bancarias(id,nome,banco,tipo)")
         .order("data", { ascending: false });
       if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
+      if (filtroContaId && filtroContaId !== "todas") query = query.eq("conta_bancaria_id", filtroContaId);
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
@@ -282,6 +299,10 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
 
   // File import handler
   const handleFileImport = async (file: File, type: "ofx" | "csv") => {
+    if (contas.length > 0 && !contaImportId) {
+      toast.error("Selecione a conta bancária para importar o extrato.");
+      return;
+    }
     setImporting(true);
     try {
       const text = await file.text();
@@ -297,11 +318,13 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
         tipo: t.tipo,
         conciliado: false,
         ...(unidadeAtual?.id ? { unidade_id: unidadeAtual.id } : {}),
+        ...(contaImportId ? { conta_bancaria_id: contaImportId } : {}),
       }));
       const { error } = await supabase.from("extrato_bancario").insert(rows);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["extrato_bancario"] });
-      toast.success(`${transactions.length} lançamentos importados com sucesso!`);
+      const contaNome = contas.find(c => c.id === contaImportId)?.nome || "";
+      toast.success(`${transactions.length} lançamentos importados${contaNome ? ` para ${contaNome}` : ""}!`);
     } catch (err: any) {
       toast.error("Erro ao importar: " + (err.message || "erro desconhecido"));
     } finally {
@@ -337,8 +360,23 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileImport(f, "csv"); e.target.value = ""; }}
         />
 
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-end gap-3 flex-wrap">
+            {contas.length > 0 && (
+              <div className="min-w-[220px]">
+                <Label className="text-xs font-medium">Conta para Importação *</Label>
+                <Select value={contaImportId} onValueChange={setContaImportId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                  <SelectContent>
+                    {contas.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome} ({c.banco}) — {c.tipo === "corrente" ? "CC" : c.tipo === "poupanca" ? "Poup." : c.tipo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button variant="outline" className="gap-2" onClick={() => ofxInputRef.current?.click()} disabled={importing}>
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Importar OFX
@@ -352,6 +390,22 @@ export default function Conciliacao({ embedded }: { embedded?: boolean } = {}) {
               Reconciliar Automaticamente
             </Button>
           </div>
+          {contas.length > 0 && (
+            <div className="min-w-[220px] max-w-xs">
+              <Label className="text-xs font-medium">Filtrar Extrato por Conta</Label>
+              <Select value={filtroContaId} onValueChange={setFiltroContaId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as contas</SelectItem>
+                  {contas.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nome} ({c.banco})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Stats cards */}

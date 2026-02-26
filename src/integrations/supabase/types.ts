@@ -3012,6 +3012,7 @@ export type Database = {
       extrato_bancario: {
         Row: {
           conciliado: boolean
+          conta_bancaria_id: string | null
           created_at: string
           data: string
           descricao: string
@@ -3024,6 +3025,7 @@ export type Database = {
         }
         Insert: {
           conciliado?: boolean
+          conta_bancaria_id?: string | null
           created_at?: string
           data?: string
           descricao: string
@@ -3036,6 +3038,7 @@ export type Database = {
         }
         Update: {
           conciliado?: boolean
+          conta_bancaria_id?: string | null
           created_at?: string
           data?: string
           descricao?: string
@@ -3047,6 +3050,13 @@ export type Database = {
           valor?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "extrato_bancario_conta_bancaria_id_fkey"
+            columns: ["conta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "extrato_bancario_pedido_id_fkey"
             columns: ["pedido_id"]
