@@ -26,6 +26,7 @@ import { PixKeySelectorModal } from "@/components/pagamento/PixKeySelectorModal"
 import { CardOperatorSelectorModal } from "@/components/pagamento/CardOperatorSelectorModal";
 import { format, addDays } from "date-fns";
 import { toast as sonnerToast } from "sonner";
+import { CardPaymentModal } from "@/components/entregador/CardPaymentModal";
 
 const formasPagamento = [
   "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás", "Cheque", "Fiado",
@@ -96,6 +97,8 @@ export default function FinalizarEntrega() {
   const [cardModalTipo, setCardModalTipo] = useState<"credito" | "debito" | "pix_maquininha">("credito");
   const [selectedPaymentInfo, setSelectedPaymentInfo] = useState<string | null>(null);
   const [selectedPaymentExtras, setSelectedPaymentExtras] = useState<{ operadora_id?: string; conta_bancaria_id?: string }>({});
+  const [cardPaymentOpen, setCardPaymentOpen] = useState(false);
+  const [entregadorIdLocal, setEntregadorIdLocal] = useState<string | null>(null);
   const chequePhotoRef = useRef<HTMLInputElement>(null);
   const chequeCameraRef = useRef<HTMLInputElement>(null);
 
@@ -138,6 +141,15 @@ export default function FinalizarEntrega() {
             setChavePix((unidadeData as any).chave_pix || null);
             setNomeUnidade(unidadeData.nome || null);
           }
+        }
+        // Fetch entregador_id for the current pedido
+        const { data: pedidoEnt } = await supabase
+          .from("pedidos")
+          .select("entregador_id")
+          .eq("id", id)
+          .maybeSingle();
+        if (pedidoEnt?.entregador_id) {
+          setEntregadorIdLocal(pedidoEnt.entregador_id);
         }
       }
       setIsLoading(false);
@@ -677,6 +689,17 @@ export default function FinalizarEntrega() {
           </CardContent>
         </Card>
 
+        {/* Botão Receber no Cartão */}
+        <Button
+          variant="outline"
+          onClick={() => setCardPaymentOpen(true)}
+          className="w-full h-12 text-base border-primary text-primary hover:bg-primary/10"
+          disabled={totalItens <= 0}
+        >
+          <CreditCard className="h-5 w-5 mr-2" />
+          Receber no Cartão (Maquininha)
+        </Button>
+
         {/* Botão Finalizar */}
         <Button
           onClick={finalizarEntrega}
@@ -712,6 +735,19 @@ export default function FinalizarEntrega() {
         onSelect={(op) => {
           setSelectedPaymentExtras({ operadora_id: op.id });
           setSelectedPaymentInfo(`${op.nome} • Taxa ${op.taxa.toFixed(2)}% • D+${op.prazo} • Líq. R$ ${op.valorLiquido.toFixed(2)}`);
+        }}
+      />
+
+      {/* Card Payment Modal (Maquininha) */}
+      <CardPaymentModal
+        open={cardPaymentOpen}
+        onClose={() => setCardPaymentOpen(false)}
+        pedidoId={id || ""}
+        entregadorId={entregadorIdLocal}
+        valor={diferenca > 0 ? diferenca : totalItens}
+        onSuccess={() => {
+          toast({ title: "Pagamento aprovado!", description: "O pedido foi marcado como pago." });
+          navigate("/entregador/entregas");
         }}
       />
     </EntregadorLayout>

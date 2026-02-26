@@ -41,6 +41,7 @@ const menuItems = [
   { path: "/entregador/entregas", icon: Package, label: "Entregas" },
   { path: "/entregador/produtividade", icon: TrendingUp, label: "Produtividade" },
   { path: "/entregador/vendas", icon: ShoppingBag, label: "Qtd Vendida" },
+  { path: "/entregador/financeiro", icon: Receipt, label: "Financeiro" },
   { path: "/entregador/treinamento", icon: GraduationCap, label: "Treinamento" },
   { path: "/entregador/nova-venda", icon: PlusCircle, label: "Nova Venda" },
   { path: "/entregador/estoque", icon: BoxesIcon, label: "Estoque" },
