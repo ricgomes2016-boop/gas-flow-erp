@@ -18,6 +18,7 @@ export function RecentSales() {
 
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ["recent-sales", unidadeAtual?.id],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       let query = supabase
         .from("pedidos")

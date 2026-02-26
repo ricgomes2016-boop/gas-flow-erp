@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { subDays, startOfWeek, startOfMonth, startOfDay, endOfDay } from "date-fns";
 import { getBrasiliaDate, getBrasiliaStartOfDay, getBrasiliaEndOfDay } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ type Period = "hoje" | "semana" | "mes";
 
 export default function Dashboard() {
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const [period, setPeriod] = useState<Period>("hoje");
   const today = getBrasiliaDate();
 
@@ -43,7 +45,8 @@ export default function Dashboard() {
   };
 
   const { data: stats } = useQuery({
-    queryKey: ["dashboard-stats", unidadeAtual?.id, period],
+    queryKey: ["dashboard-stats", unidadeAtual?.id, empresa?.id, period],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       const { start, end } = getRange(period);
 
@@ -89,8 +92,10 @@ export default function Dashboard() {
         }
       }
 
-      const { count: clientesAtivos } = await supabase
+      let clientesQuery = supabase
         .from("clientes").select("id", { count: "exact", head: true }).eq("ativo", true);
+      if (empresa?.id) clientesQuery = clientesQuery.eq("empresa_id", empresa.id);
+      const { count: clientesAtivos } = await clientesQuery;
 
       return {
         vendasPeriodo,

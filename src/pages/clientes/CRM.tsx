@@ -14,6 +14,7 @@ import {
   UserCheck, Filter, ChevronRight, Crown, Zap, AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { ClienteHeatMap } from "@/components/clientes/ClienteHeatMap";
 import { ChurnAnalysis } from "@/components/clientes/ChurnAnalysis";
 import { ReguaRelacionamento } from "@/components/clientes/ReguaRelacionamento";
@@ -62,6 +63,7 @@ const tierConfig = {
 type Etapa = { id: string; label: string; cor: string; clientes: ClienteComScore[] };
 
 export default function CRM() {
+  const { empresa } = useEmpresa();
   const [loading, setLoading] = useState(true);
   const [clientes, setClientes] = useState<ClienteComScore[]>([]);
   const [busca, setBusca] = useState("");
@@ -72,8 +74,10 @@ export default function CRM() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        let clientesQ = supabase.from("clientes").select("*").eq("ativo", true).order("nome").limit(200);
+        if (empresa?.id) clientesQ = clientesQ.eq("empresa_id", empresa.id);
         const [{ data: clientesData }, { data: pedidosData }] = await Promise.all([
-          supabase.from("clientes").select("*").eq("ativo", true).order("nome").limit(200),
+          clientesQ,
           supabase.from("pedidos").select("id, cliente_id, valor_total, created_at").eq("status", "entregue").limit(1000),
         ]);
         const scored = (clientesData || []).map(c => calcularScore(c, pedidosData || []));

@@ -26,12 +26,14 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { getBrasiliaDate } from "@/lib/utils";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
 
 export default function DashboardExecutivo() {
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const [loading, setLoading] = useState(true);
   const [faturamento, setFaturamento] = useState(0);
   const [totalVendas, setTotalVendas] = useState(0);
@@ -68,6 +70,7 @@ export default function DashboardExecutivo() {
 
       // Clientes ativos
       let clientesQuery = supabase.from("clientes").select("id", { count: "exact" }).eq("ativo", true);
+      if (empresa?.id) clientesQuery = clientesQuery.eq("empresa_id", empresa.id);
       const { count: cliCount } = await clientesQuery;
       setClientesAtivos(cliCount || 0);
 

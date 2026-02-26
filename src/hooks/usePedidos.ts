@@ -13,6 +13,7 @@ export function usePedidos(filtros?: { dataInicio?: string; dataFim?: string }) 
 
   const { data: pedidos = [], isLoading, error } = useQuery({
     queryKey: ["pedidos", unidadeAtual?.id, filtros?.dataInicio, filtros?.dataFim],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       let query = supabase
         .from("pedidos")

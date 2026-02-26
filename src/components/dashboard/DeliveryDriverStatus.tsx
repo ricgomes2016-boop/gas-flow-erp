@@ -10,6 +10,7 @@ export function DeliveryDriverStatus() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["driver-status", unidadeAtual?.id],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       let query = supabase
         .from("entregadores")

@@ -13,6 +13,7 @@ export function SalesChart() {
 
   const { data: chartData = [], isLoading } = useQuery({
     queryKey: ["sales-by-hour", unidadeAtual?.id],
+    enabled: !!unidadeAtual?.id,
     queryFn: async () => {
       const dayStart = getBrasiliaStartOfDay(today);
       const dayEnd = getBrasiliaEndOfDay(today);
