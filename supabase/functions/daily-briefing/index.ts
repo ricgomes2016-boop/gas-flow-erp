@@ -16,9 +16,87 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
+    // Get the authenticated user's empresa_id from their profile
+    const authHeader = req.headers.get("authorization");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader || "" } },
+    });
+
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get empresa_id from profile
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("empresa_id")
+      .eq("user_id", user.id)
+      .single();
+
+    const empresaId = profile?.empresa_id;
+
+    // Get unidade IDs belonging to this empresa for filtering
+    let unidadeIds: string[] = [];
+    if (empresaId) {
+      const { data: unidades } = await sb
+        .from("unidades")
+        .select("id")
+        .eq("empresa_id", empresaId)
+        .eq("ativo", true);
+      unidadeIds = (unidades || []).map((u: any) => u.id);
+    }
+
     // Use Brasília timezone (UTC-3)
     const nowBrasilia = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const today = nowBrasilia.toISOString().split("T")[0];
+
+    // Build filtered queries
+    const buildPedidosHoje = () => {
+      let q = sb.from("pedidos").select("id, valor_total, status").gte("created_at", `${today}T00:00:00`);
+      if (unidade_id) q = q.eq("unidade_id", unidade_id);
+      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      return q;
+    };
+
+    const buildEstoqueBaixo = () => {
+      let q = sb.from("produtos").select("id, nome, estoque_atual, estoque_minimo").filter("estoque_atual", "lte", "estoque_minimo");
+      if (unidade_id) q = q.eq("unidade_id", unidade_id);
+      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      return q;
+    };
+
+    const buildManutencoes = () => {
+      let q = sb.from("manutencoes").select("id, veiculo_id, tipo, descricao, veiculos(placa)").eq("status", "pendente").limit(5);
+      if (unidade_id) q = q.eq("unidade_id", unidade_id);
+      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      return q;
+    };
+
+    const buildContasPagar = () => {
+      let q = sb.from("contas_pagar").select("id, descricao, valor, vencimento").eq("status", "pendente").lte("vencimento", today).limit(5);
+      if (unidade_id) q = q.eq("unidade_id", unidade_id);
+      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      return q;
+    };
+
+    const buildAlertasJornada = () => {
+      let q = sb.from("alertas_jornada").select("id, tipo, descricao, funcionarios(nome)").eq("resolvido", false).limit(5);
+      if (unidade_id) q = q.eq("unidade_id", unidade_id);
+      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      return q;
+    };
+
+    const buildPedidosPendentes = () => {
+      let q = sb.from("pedidos").select("id").in("status", ["pendente", "em_preparo"]);
+      if (unidade_id) q = q.eq("unidade_id", unidade_id);
+      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      return q;
+    };
 
     // Gather data in parallel
     const [
@@ -29,12 +107,12 @@ serve(async (req) => {
       { data: alertasJornada },
       { data: pedidosPendentes },
     ] = await Promise.all([
-      sb.from("pedidos").select("id, valor_total, status").gte("created_at", `${today}T00:00:00`),
-      sb.from("produtos").select("id, nome, estoque_atual, estoque_minimo").filter("estoque_atual", "lte", "estoque_minimo"),
-      sb.from("manutencoes").select("id, veiculo_id, tipo, descricao, veiculos(placa)").eq("status", "pendente").limit(5),
-      sb.from("contas_pagar").select("id, descricao, valor, vencimento").eq("status", "pendente").lte("vencimento", today).limit(5),
-      sb.from("alertas_jornada").select("id, tipo, descricao, funcionarios(nome)").eq("resolvido", false).limit(5),
-      sb.from("pedidos").select("id").in("status", ["pendente", "em_preparo"]),
+      buildPedidosHoje(),
+      buildEstoqueBaixo(),
+      buildManutencoes(),
+      buildContasPagar(),
+      buildAlertasJornada(),
+      buildPedidosPendentes(),
     ]);
 
     const totalVendasHoje = (pedidosHoje || [])
