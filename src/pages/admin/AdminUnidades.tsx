@@ -14,9 +14,13 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Loader2, MapPin, Search } from "lucide-react";
+import { Plus, Loader2, MapPin, Search, ArrowRightLeft, Building2, AlertTriangle } from "lucide-react";
 
 interface Unidade {
   id: string;
@@ -39,12 +43,22 @@ export default function AdminUnidades() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
 
+  // New unit form
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("filial");
   const [empresaId, setEmpresaId] = useState("");
   const [endereco, setEndereco] = useState("");
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
+
+  // Migration
+  const [migrateDialogOpen, setMigrateDialogOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [migratingUnidade, setMigratingUnidade] = useState<Unidade | null>(null);
+  const [migrateNome, setMigrateNome] = useState("");
+  const [migrateCnpj, setMigrateCnpj] = useState("");
+  const [migrateEmail, setMigrateEmail] = useState("");
+  const [migrating, setMigrating] = useState(false);
 
   const fetchData = async () => {
     const [unidadesRes, empresasRes] = await Promise.all([
@@ -75,6 +89,55 @@ export default function AdminUnidades() {
       fetchData();
     } catch (error: any) { toast.error("Erro: " + error.message); }
     finally { setSaving(false); }
+  };
+
+  const openMigrate = (u: Unidade) => {
+    setMigratingUnidade(u);
+    setMigrateNome(u.nome + " Distribuidora");
+    setMigrateCnpj("");
+    setMigrateEmail("");
+    setMigrateDialogOpen(true);
+  };
+
+  const handleMigrateConfirm = () => {
+    if (!migrateNome.trim()) { toast.error("Nome da nova empresa é obrigatório"); return; }
+    setMigrateDialogOpen(false);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleMigrateExecute = async () => {
+    if (!migratingUnidade) return;
+    setMigrating(true);
+    setConfirmDialogOpen(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão expirada");
+
+      const res = await supabase.functions.invoke("migrate-unidade", {
+        body: {
+          unidade_id: migratingUnidade.id,
+          nova_empresa_nome: migrateNome,
+          nova_empresa_cnpj: migrateCnpj || undefined,
+          nova_empresa_email: migrateEmail || undefined,
+        },
+      });
+
+      if (res.error) throw new Error(res.error.message);
+      if (res.data?.error) throw new Error(res.data.error);
+
+      const s = res.data.summary;
+      toast.success(
+        `Migração concluída! "${s.unidade_migrada}" agora é empresa independente "${s.nova_empresa_nome}". ` +
+        `${s.clientes_migrados} cliente(s) e ${s.usuarios_migrados} usuário(s) migrados.`
+      );
+      fetchData();
+    } catch (err: any) {
+      toast.error("Erro na migração: " + err.message);
+    } finally {
+      setMigrating(false);
+      setMigratingUnidade(null);
+    }
   };
 
   const filtered = unidades.filter((u) =>
@@ -174,18 +237,19 @@ export default function AdminUnidades() {
                   <TableHead className="font-semibold">Tipo</TableHead>
                   <TableHead className="font-semibold">Cidade/UF</TableHead>
                   <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="text-right font-semibold">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                       {search ? "Nenhuma unidade encontrada." : "Nenhuma unidade cadastrada."}
                     </TableCell>
                   </TableRow>
@@ -214,6 +278,18 @@ export default function AdminUnidades() {
                           {u.ativo ? "Ativo" : "Inativo"}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openMigrate(u)}
+                          title="Promover a empresa independente"
+                          className="text-xs gap-1"
+                        >
+                          <ArrowRightLeft className="h-3.5 w-3.5" />
+                          Migrar
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -222,6 +298,113 @@ export default function AdminUnidades() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Migration Dialog - Step 1: Form */}
+      <Dialog open={migrateDialogOpen} onOpenChange={setMigrateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              Migrar para Empresa Independente
+            </DialogTitle>
+            <DialogDescription>
+              A unidade <strong>"{migratingUnidade?.nome}"</strong> será transformada em uma empresa independente com todo o histórico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm text-amber-700 dark:text-amber-400 flex gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div>
+                <strong>Atenção:</strong> Esta operação é irreversível. Pedidos, clientes exclusivos e usuários vinculados apenas a esta unidade serão migrados.
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Nome da Nova Empresa *</Label>
+              <Input
+                value={migrateNome}
+                onChange={(e) => setMigrateNome(e.target.value)}
+                placeholder="Nome da nova empresa"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>CNPJ</Label>
+                <Input
+                  value={migrateCnpj}
+                  onChange={(e) => setMigrateCnpj(e.target.value)}
+                  placeholder="00.000.000/0000-00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  value={migrateEmail}
+                  onChange={(e) => setMigrateEmail(e.target.value)}
+                  placeholder="contato@empresa.com"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+              <p>📋 <strong>O que será migrado:</strong></p>
+              <ul className="list-disc list-inside space-y-0.5 ml-2">
+                <li>A unidade vira <strong>matriz</strong> da nova empresa</li>
+                <li>Todos os pedidos, estoque e dados financeiros (vinculados via unidade_id)</li>
+                <li>Clientes exclusivos desta unidade</li>
+                <li>Usuários vinculados apenas a esta unidade</li>
+              </ul>
+              <p className="mt-2">🔒 Clientes e usuários compartilhados com outras unidades permanecem na empresa original.</p>
+            </div>
+
+            <Button onClick={handleMigrateConfirm} className="w-full" disabled={!migrateNome.trim()}>
+              Continuar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Migration Dialog - Step 2: Confirmation */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Confirmar Migração Irreversível
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Você está prestes a migrar a unidade <strong>"{migratingUnidade?.nome}"</strong> da empresa{" "}
+                <strong>"{migratingUnidade ? getEmpresaNome(migratingUnidade.empresa_id) : ""}"</strong> para uma nova empresa independente chamada{" "}
+                <strong>"{migrateNome}"</strong>.
+              </p>
+              <p className="font-semibold text-destructive">Esta ação NÃO pode ser desfeita.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleMigrateExecute}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={migrating}
+            >
+              {migrating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Confirmar Migração
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Global loading overlay */}
+      {migrating && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-sm font-medium">Migrando unidade...</p>
+            <p className="text-xs text-muted-foreground">Isso pode levar alguns segundos</p>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
