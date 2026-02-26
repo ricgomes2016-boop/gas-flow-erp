@@ -81,17 +81,12 @@ export default function AdminAdmins() {
           password: senhaAdmin,
           full_name: nomeAdmin,
           role: "admin",
+          empresa_id: empresaId,
         },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
-      const newUserId = data?.user?.id;
-      if (newUserId) {
-        // Link to empresa
-        await supabase.from("profiles").update({ empresa_id: empresaId }).eq("user_id", newUserId);
-      }
 
       toast.success("Admin criado e vinculado à empresa!");
       setDialogOpen(false);

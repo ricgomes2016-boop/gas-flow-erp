@@ -120,11 +120,37 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // First get the user's empresa_id from their profile
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("empresa_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        if (isStaff && roles.includes("admin")) {
+          setNeedsOnboarding(true);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (!profile?.empresa_id) {
+        // No empresa linked to profile
+        if (isStaff && roles.includes("admin")) {
+          setNeedsOnboarding(true);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Now fetch the specific empresa by id
       const { data, error } = await supabase
         .from("empresas")
         .select("*")
-        .limit(1)
-        .maybeSingle();
+        .eq("id", profile.empresa_id)
+        .single();
 
       if (error) {
         console.error("Error fetching empresa:", error);
