@@ -63,7 +63,9 @@ interface ConferenciaItem {
   observacoes: string | null;
   operadora_id: string | null;
   pedido_id: string | null;
+  terminal_id: string | null;
   operadora_nome?: string;
+  terminal_nome?: string;
 }
 
 const BANDEIRAS = ["Visa", "Mastercard", "Elo", "Hipercard", "Amex", "Outras"];
@@ -102,7 +104,7 @@ export function ConferenciaCartao() {
   const [confForm, setConfForm] = useState({
     tipo: "credito", bandeira: "", valor_bruto: "", operadora_id: "",
     nsu: "", autorizacao: "", parcelas: "1", data_venda: getBrasiliaDateString(),
-    observacoes: "",
+    observacoes: "", terminal_id: "",
   });
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [valorRecebido, setValorRecebido] = useState("");
@@ -110,6 +112,7 @@ export function ConferenciaCartao() {
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [filtroBandeira, setFiltroBandeira] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroTerminal, setFiltroTerminal] = useState("todos");
   const [deleteConfId, setDeleteConfId] = useState<string | null>(null);
 
   // PDF import
@@ -145,7 +148,7 @@ export function ConferenciaCartao() {
   const fetchItens = async () => {
     setLoading(true);
     let query = supabase.from("conferencia_cartao")
-      .select("*, operadoras_cartao(nome)")
+      .select("*, operadoras_cartao(nome), terminais_cartao(nome)")
       .order("data_venda", { ascending: false });
     if (unidadeAtual?.id) query = query.eq("unidade_id", unidadeAtual.id);
     const { data, error } = await query;
@@ -154,6 +157,7 @@ export function ConferenciaCartao() {
       setItens((data || []).map((d: any) => ({
         ...d,
         operadora_nome: d.operadoras_cartao?.nome || "—",
+        terminal_nome: d.terminais_cartao?.nome || null,
       })));
     }
     setLoading(false);
@@ -292,6 +296,7 @@ export function ConferenciaCartao() {
       autorizacao: confForm.autorizacao || null,
       parcelas: parseInt(confForm.parcelas) || 1,
       operadora_id: confForm.operadora_id || null,
+      terminal_id: confForm.terminal_id || null,
       observacoes: confForm.observacoes || null,
       unidade_id: unidadeAtual?.id || null,
     };
@@ -303,7 +308,7 @@ export function ConferenciaCartao() {
     setConfForm({
       tipo: "credito", bandeira: "", valor_bruto: "", operadora_id: "",
       nsu: "", autorizacao: "", parcelas: "1", data_venda: getBrasiliaDateString(),
-      observacoes: "",
+      observacoes: "", terminal_id: "",
     });
     fetchItens();
   };
@@ -460,6 +465,7 @@ export function ConferenciaCartao() {
     if (filtroStatus !== "todos" && i.status !== filtroStatus) return false;
     if (filtroBandeira !== "todos" && i.bandeira !== filtroBandeira) return false;
     if (filtroTipo !== "todos" && i.tipo !== filtroTipo) return false;
+    if (filtroTerminal !== "todos" && i.terminal_id !== filtroTerminal) return false;
     return true;
   });
 
@@ -577,6 +583,15 @@ export function ConferenciaCartao() {
               <SelectContent>
                 <SelectItem value="todos">Todas Bandeiras</SelectItem>
                 {BANDEIRAS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filtroTerminal} onValueChange={setFiltroTerminal}>
+              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas Maquininhas</SelectItem>
+                {Object.values(allTerminais).flat().map(t => (
+                  <SelectItem key={t.id} value={t.id!}>{t.nome}{t.numero_serie ? ` (${t.numero_serie})` : ""}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -801,6 +816,19 @@ export function ConferenciaCartao() {
                 </Select>
               </div>
             </div>
+            {confForm.operadora_id && (allTerminais[confForm.operadora_id]?.length || 0) > 0 && (
+              <div>
+                <Label>Maquininha (Terminal)</Label>
+                <Select value={confForm.terminal_id} onValueChange={v => setConfForm({ ...confForm, terminal_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a maquininha" /></SelectTrigger>
+                  <SelectContent>
+                    {(allTerminais[confForm.operadora_id] || []).map(t => (
+                      <SelectItem key={t.id} value={t.id!}>{t.nome}{t.numero_serie ? ` (${t.numero_serie})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {confForm.operadora_id && confForm.valor_bruto && (() => {
               const op = operadoras.find(o => o.id === confForm.operadora_id);
               if (!op) return null;
