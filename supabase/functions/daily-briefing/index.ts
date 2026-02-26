@@ -40,61 +40,73 @@ serve(async (req) => {
 
     const empresaId = profile?.empresa_id;
 
+    if (!empresaId) {
+      return new Response(JSON.stringify({ briefing: "Nenhuma empresa vinculada ao seu perfil.", context: {} }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Get unidade IDs belonging to this empresa for filtering
-    let unidadeIds: string[] = [];
-    if (empresaId) {
-      const { data: unidades } = await sb
-        .from("unidades")
-        .select("id")
-        .eq("empresa_id", empresaId)
-        .eq("ativo", true);
-      unidadeIds = (unidades || []).map((u: any) => u.id);
+    const { data: unidades } = await sb
+      .from("unidades")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .eq("ativo", true);
+    const unidadeIds = (unidades || []).map((u: any) => u.id);
+
+    if (unidadeIds.length === 0) {
+      return new Response(JSON.stringify({ briefing: "Nenhuma unidade ativa encontrada.", context: {} }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Use Brasília timezone (UTC-3)
     const nowBrasilia = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const today = nowBrasilia.toISOString().split("T")[0];
 
+    // Validate that the provided unidade_id belongs to this empresa
+    const safeUnidadeId = unidade_id && unidadeIds.includes(unidade_id) ? unidade_id : null;
+
     // Build filtered queries
     const buildPedidosHoje = () => {
       let q = sb.from("pedidos").select("id, valor_total, status").gte("created_at", `${today}T00:00:00`);
-      if (unidade_id) q = q.eq("unidade_id", unidade_id);
-      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      if (safeUnidadeId) q = q.eq("unidade_id", safeUnidadeId);
+      else q = q.in("unidade_id", unidadeIds);
       return q;
     };
 
     const buildEstoqueBaixo = () => {
       let q = sb.from("produtos").select("id, nome, estoque_atual, estoque_minimo").filter("estoque_atual", "lte", "estoque_minimo");
-      if (unidade_id) q = q.eq("unidade_id", unidade_id);
-      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      if (safeUnidadeId) q = q.eq("unidade_id", safeUnidadeId);
+      else q = q.in("unidade_id", unidadeIds);
       return q;
     };
 
     const buildManutencoes = () => {
       let q = sb.from("manutencoes").select("id, veiculo_id, tipo, descricao, veiculos(placa)").eq("status", "pendente").limit(5);
-      if (unidade_id) q = q.eq("unidade_id", unidade_id);
-      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      if (safeUnidadeId) q = q.eq("unidade_id", safeUnidadeId);
+      else q = q.in("unidade_id", unidadeIds);
       return q;
     };
 
     const buildContasPagar = () => {
       let q = sb.from("contas_pagar").select("id, descricao, valor, vencimento").eq("status", "pendente").lte("vencimento", today).limit(5);
-      if (unidade_id) q = q.eq("unidade_id", unidade_id);
-      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      if (safeUnidadeId) q = q.eq("unidade_id", safeUnidadeId);
+      else q = q.in("unidade_id", unidadeIds);
       return q;
     };
 
     const buildAlertasJornada = () => {
       let q = sb.from("alertas_jornada").select("id, tipo, descricao, funcionarios(nome)").eq("resolvido", false).limit(5);
-      if (unidade_id) q = q.eq("unidade_id", unidade_id);
-      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      if (safeUnidadeId) q = q.eq("unidade_id", safeUnidadeId);
+      else q = q.in("unidade_id", unidadeIds);
       return q;
     };
 
     const buildPedidosPendentes = () => {
       let q = sb.from("pedidos").select("id").in("status", ["pendente", "em_preparo"]);
-      if (unidade_id) q = q.eq("unidade_id", unidade_id);
-      else if (unidadeIds.length > 0) q = q.in("unidade_id", unidadeIds);
+      if (safeUnidadeId) q = q.eq("unidade_id", safeUnidadeId);
+      else q = q.in("unidade_id", unidadeIds);
       return q;
     };
 
