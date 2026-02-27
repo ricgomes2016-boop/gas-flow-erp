@@ -304,11 +304,19 @@ export default function EntregadorIniciarJornada() {
               {rotaAtivaKmInicial !== null && (
                 <Badge variant="outline">KM Inicial: {rotaAtivaKmInicial.toLocaleString("pt-BR")}</Badge>
               )}
-              <Button onClick={() => navigate("/entregador/entregas")} className="w-full">
+          <Button onClick={() => navigate("/entregador/entregas")} className="w-full">
                 Ver Entregas
               </Button>
             </CardContent>
           </Card>
+
+          {/* Maquininha - disponível também durante jornada ativa */}
+          <TerminalQRScanner
+            entregadorId={entregadorId!}
+            terminalFixoNome={terminalFixoNome}
+            terminalAtivoNome={terminalAtivoNome}
+            onTerminalVinculado={fetchData}
+          />
 
           {/* Encerrar Jornada */}
           <Card className="border-none shadow-md border-l-4 border-l-destructive">
