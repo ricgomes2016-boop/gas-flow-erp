@@ -32,17 +32,34 @@ export function TerminalQRScanner({
         : decodedText;
 
       // Validate it's a real terminal
-      const { data: terminal, error: fetchError } = await supabase
-        .from("terminais_cartao")
-        .select("id, nome, numero_serie")
-        .eq("id", terminalId)
-        .maybeSingle();
+      const { data: terminal } = await (supabase.from("terminais_cartao" as any).select("id, nome, numero_serie").eq("id", terminalId).maybeSingle() as any);
 
-      if (fetchError || !terminal) {
+      if (!terminal) {
         toast.error("QR Code inválido. Não foi possível identificar a maquininha.");
         setShowScanner(false);
         setIsProcessing(false);
         return;
+      }
+
+      // Check if another entregador already has this terminal active (conflict detection)
+      const { data: conflito } = await supabase
+        .from("entregadores")
+        .select("id, nome")
+        .eq("terminal_ativo_id", terminalId)
+        .neq("id", entregadorId)
+        .maybeSingle();
+
+      if (conflito) {
+        const confirmar = window.confirm(
+          `⚠️ A maquininha "${terminal.nome}" está vinculada ao entregador "${conflito.nome}". Deseja desvincular e usar para você?`
+        );
+        if (!confirmar) {
+          setShowScanner(false);
+          setIsProcessing(false);
+          return;
+        }
+        // Remove from other entregador
+        await supabase.from("entregadores").update({ terminal_ativo_id: null }).eq("id", conflito.id);
       }
 
       // Update entregador with active terminal

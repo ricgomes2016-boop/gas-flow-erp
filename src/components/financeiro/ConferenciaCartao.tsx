@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   CreditCard, Plus, CheckCircle2, AlertCircle, Clock, Settings, Trash2, Search,
-  DollarSign, TrendingDown, Filter, X, FileUp, Loader2, Smartphone, Banknote,
+  DollarSign, TrendingDown, Filter, X, FileUp, Loader2, Smartphone, Banknote, QrCode,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -32,7 +32,7 @@ import { getBrasiliaDateString } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { format, addDays } from "date-fns";
-
+import { TerminalQRCodeDialog } from "./TerminalQRCodeDialog";
 interface Operadora {
   id: string;
   nome: string;
@@ -93,6 +93,7 @@ export function ConferenciaCartao() {
     taxa_pix: "", prazo_pix: "0",
   });
   const [opDeleteId, setOpDeleteId] = useState<string | null>(null);
+  const [qrTerminalId, setQrTerminalId] = useState<string | null>(null);
 
   // Terminais por operadora
   const [opTerminais, setOpTerminais] = useState<TerminalItem[]>([]);
@@ -1042,9 +1043,22 @@ export function ConferenciaCartao() {
                           onChange={e => updateTerminalRow(idx, "modelo", e.target.value)}
                         />
                       </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={() => removeTerminalRow(idx)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex gap-1 shrink-0">
+                        {t.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Gerar QR Code"
+                            onClick={() => setQrTerminalId(t.id!)}
+                          >
+                            <QrCode className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={() => removeTerminalRow(idx)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1156,6 +1170,15 @@ export function ConferenciaCartao() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Terminal QR Code Dialog */}
+      {qrTerminalId && (
+        <TerminalQRCodeDialog
+          open={!!qrTerminalId}
+          onClose={() => setQrTerminalId(null)}
+          terminalId={qrTerminalId}
+        />
+      )}
     </div>
   );
 }

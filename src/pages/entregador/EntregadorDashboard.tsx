@@ -16,6 +16,8 @@ import {
   BellRing,
   DollarSign,
   Wallet,
+  CreditCard,
+  QrCode,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useDeliveryNotifications } from "@/contexts/DeliveryNotificationContext";
@@ -38,6 +40,7 @@ export default function EntregadorDashboard() {
     ganhosMes: 0,
   });
   const [entregasPendentes, setEntregasPendentes] = useState<any[]>([]);
+  const [terminalNome, setTerminalNome] = useState<string | null>(null);
 
   const nomeEntregador = profile?.full_name || user?.user_metadata?.full_name || "Entregador";
 
@@ -47,11 +50,18 @@ export default function EntregadorDashboard() {
       
       const { data: entregador } = await supabase
         .from("entregadores")
-        .select("id")
+        .select("id, terminal_id, terminal_ativo_id")
         .eq("user_id", user.id)
         .maybeSingle();
       
       if (!entregador) return;
+
+      // Fetch terminal name
+      const activeTerminalId = entregador.terminal_ativo_id || entregador.terminal_id;
+      if (activeTerminalId) {
+        const { data: t } = await (supabase.from("terminais_cartao" as any).select("nome").eq("id", activeTerminalId).maybeSingle() as any);
+        if (t) setTerminalNome(t.nome);
+      }
 
       const hoje = getBrasiliaDateString();
       const bd = getBrasiliaDate();
@@ -158,6 +168,36 @@ export default function EntregadorDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Maquininha vinculada */}
+        <Card className="border-none shadow-md">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                </div>
+                {terminalNome ? (
+                  <div>
+                    <p className="text-sm font-medium">{terminalNome}</p>
+                    <p className="text-xs text-muted-foreground">Maquininha ativa</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nenhuma maquininha</p>
+                    <p className="text-xs text-muted-foreground">Vincule na jornada</p>
+                  </div>
+                )}
+              </div>
+              <Link to="/entregador/jornada">
+                <Button size="sm" variant="outline" className="gap-1">
+                  <QrCode className="h-3.5 w-3.5" />
+                  {terminalNome ? "Trocar" : "Vincular"}
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Resumo financeiro do dia */}
         <Card className="border-none shadow-md bg-gradient-to-r from-success/5 to-success/10 border-l-4 border-l-success">
