@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { TerminalQRScanner } from "@/components/entregador/TerminalQRScanner";
 
 interface Veiculo {
   id: string;
@@ -69,6 +70,8 @@ export default function EntregadorIniciarJornada() {
   const [escalaHoje, setEscalaHoje] = useState<Escala | null>(null);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [entregadorId, setEntregadorId] = useState<string | null>(null);
+  const [terminalFixoNome, setTerminalFixoNome] = useState<string | null>(null);
+  const [terminalAtivoNome, setTerminalAtivoNome] = useState<string | null>(null);
   
   const [veiculoSelecionado, setVeiculoSelecionado] = useState("");
   const [kmInicial, setKmInicial] = useState("");
@@ -93,15 +96,25 @@ export default function EntregadorIniciarJornada() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Get entregador
+      // Get entregador with terminal info
       const { data: entregador } = await supabase
         .from("entregadores")
-        .select("id")
+        .select("id, terminal_id, terminal_ativo_id")
         .eq("user_id", user!.id)
         .maybeSingle();
 
       if (entregador) {
         setEntregadorId(entregador.id);
+
+        // Fetch terminal names
+        if (entregador.terminal_id) {
+          const { data: tf } = await (supabase.from("terminais_cartao" as any).select("nome").eq("id", entregador.terminal_id).maybeSingle() as any);
+          if (tf) setTerminalFixoNome(tf.nome);
+        }
+        if (entregador.terminal_ativo_id) {
+          const { data: ta } = await (supabase.from("terminais_cartao" as any).select("nome").eq("id", entregador.terminal_ativo_id).maybeSingle() as any);
+          if (ta) setTerminalAtivoNome(ta.nome);
+        }
 
         // Check if already has active route today
         const { data: rotaAtual } = await supabase
@@ -453,6 +466,14 @@ export default function EntregadorIniciarJornada() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Maquininha */}
+        <TerminalQRScanner
+          entregadorId={entregadorId!}
+          terminalFixoNome={terminalFixoNome}
+          terminalAtivoNome={terminalAtivoNome}
+          onTerminalVinculado={fetchData}
+        />
 
         {/* Rota */}
         <Card className="border-none shadow-md">
