@@ -2898,6 +2898,8 @@ export type Database = {
           nome: string
           status: string | null
           telefone: string | null
+          terminal_ativo_id: string | null
+          terminal_id: string | null
           unidade_id: string | null
           updated_at: string
           user_id: string | null
@@ -2916,6 +2918,8 @@ export type Database = {
           nome: string
           status?: string | null
           telefone?: string | null
+          terminal_ativo_id?: string | null
+          terminal_id?: string | null
           unidade_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2934,6 +2938,8 @@ export type Database = {
           nome?: string
           status?: string | null
           telefone?: string | null
+          terminal_ativo_id?: string | null
+          terminal_id?: string | null
           unidade_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2944,6 +2950,20 @@ export type Database = {
             columns: ["funcionario_id"]
             isOneToOne: false
             referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregadores_terminal_ativo_id_fkey"
+            columns: ["terminal_ativo_id"]
+            isOneToOne: false
+            referencedRelation: "terminais_cartao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregadores_terminal_id_fkey"
+            columns: ["terminal_id"]
+            isOneToOne: false
+            referencedRelation: "terminais_cartao"
             referencedColumns: ["id"]
           },
           {

@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Truck, Plus, Search, Edit, Trash2, Phone, LinkIcon, UserCheck } from "lucide-react";
+import { Truck, Plus, Search, Edit, Trash2, Phone, LinkIcon, UserCheck, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -31,6 +31,13 @@ interface Entregador {
   ativo: boolean | null;
   user_id: string | null;
   funcionario_id: string | null;
+  terminal_id: string | null;
+}
+
+interface TerminalOption {
+  id: string;
+  nome: string;
+  numero_serie: string | null;
 }
 
 interface FuncionarioOption {
@@ -54,9 +61,10 @@ export default function Entregadores() {
   const [editId, setEditId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [funcionarios, setFuncionarios] = useState<FuncionarioOption[]>([]);
+  const [terminais, setTerminais] = useState<TerminalOption[]>([]);
   const { unidadeAtual } = useUnidade();
   const [form, setForm] = useState({
-    nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "",
+    nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "", terminal_id: "",
   });
 
   const fetchEntregadores = async () => {
@@ -110,10 +118,16 @@ export default function Entregadores() {
     setFuncionarios(data || []);
   };
 
+  const fetchTerminais = async () => {
+    const { data } = await (supabase.from("terminais_cartao" as any).select("id, nome, numero_serie") as any);
+    setTerminais((data || []) as TerminalOption[]);
+  };
+
   useEffect(() => { 
     fetchEntregadores(); 
     fetchUsers();
     fetchFuncionarios();
+    fetchTerminais();
   }, [unidadeAtual?.id]);
 
   const handleSave = async () => {
@@ -127,6 +141,7 @@ export default function Entregadores() {
       email: form.email || null,
       user_id: form.user_id || null,
       funcionario_id: form.funcionario_id || null,
+      terminal_id: form.terminal_id || null,
     };
     if (unidadeAtual?.id) {
       payload.unidade_id = unidadeAtual.id;
@@ -144,7 +159,7 @@ export default function Entregadores() {
 
     setOpen(false);
     setEditId(null);
-    setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "" });
+    setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "", terminal_id: "" });
     fetchEntregadores();
   };
 
@@ -154,6 +169,7 @@ export default function Entregadores() {
       nome: e.nome, cpf: e.cpf || "", cnh: e.cnh || "",
       telefone: e.telefone || "", email: e.email || "",
       user_id: e.user_id || "", funcionario_id: e.funcionario_id || "",
+      terminal_id: e.terminal_id || "",
     });
     setOpen(true);
   };
@@ -194,7 +210,7 @@ export default function Entregadores() {
       <Header title="Entregadores" subtitle="Cadastro de entregadores" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center justify-between">
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "" }); } }}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ nome: "", cpf: "", cnh: "", telefone: "", email: "", user_id: "", funcionario_id: "", terminal_id: "" }); } }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" />Novo Entregador</Button>
             </DialogTrigger>
@@ -279,6 +295,29 @@ export default function Entregadores() {
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     Vincule a um usuário com perfil "entregador" para acesso ao app.
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-1">
+                    <CreditCard className="h-3.5 w-3.5" />
+                    Maquininha Fixa
+                  </Label>
+                  <Select value={form.terminal_id} onValueChange={(v) => setForm({...form, terminal_id: v === "none" ? "" : v})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma maquininha (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {terminais.map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.nome}{t.numero_serie ? ` (${t.numero_serie})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Maquininha padrão do entregador. Pode ser trocada via QR Code no app.
                   </p>
                 </div>
 
