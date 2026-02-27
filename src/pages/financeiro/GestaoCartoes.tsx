@@ -11,9 +11,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   CreditCard, DollarSign, Clock, CheckCircle2, AlertCircle,
-  TrendingDown, Calendar, Settings, RefreshCw, Banknote,
+  TrendingDown, Calendar, Settings, RefreshCw, Banknote, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -48,6 +49,8 @@ export default function GestaoCartoes() {
   const [recebiveis, setRecebiveis] = useState<RecebiveisCartao[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState<"7dias" | "30dias" | "60dias">("30dias");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [liquidandoLote, setLiquidandoLote] = useState(false);
   const hoje = getBrasiliaDateString();
 
   const fetchRecebiveis = async () => {
@@ -127,6 +130,42 @@ export default function GestaoCartoes() {
     fetchRecebiveis();
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const visible = pendentes.slice(0, 50);
+    if (selectedIds.size === visible.length && visible.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visible.map(r => r.id)));
+    }
+  };
+
+  const handleLiquidarLote = async () => {
+    if (selectedIds.size === 0) return;
+    setLiquidandoLote(true);
+    let ok = 0;
+    let fail = 0;
+    for (const id of selectedIds) {
+      const rec = recebiveis.find(r => r.id === id);
+      if (!rec) { fail++; continue; }
+      try {
+        await handleLiquidar(rec);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setSelectedIds(new Set());
+    setLiquidandoLote(false);
+  };
+
   const getFormaLabel = (f: string | null) => {
     if (!f) return "—";
     const map: Record<string, string> = {
@@ -193,9 +232,22 @@ export default function GestaoCartoes() {
             {/* Tabela de recebíveis pendentes */}
             <Card>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-base">Recebíveis Pendentes</CardTitle>
-                  <Button variant="ghost" size="icon" onClick={fetchRecebiveis}><RefreshCw className="h-4 w-4" /></Button>
+                  <div className="flex items-center gap-2">
+                    {selectedIds.size > 0 && (
+                      <Button
+                        size="sm"
+                        onClick={handleLiquidarLote}
+                        disabled={liquidandoLote}
+                        className="gap-1.5"
+                      >
+                        {liquidandoLote ? <Loader2 className="h-3 w-3 animate-spin" /> : <Banknote className="h-3 w-3" />}
+                        Liquidar {selectedIds.size} selecionado(s)
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={fetchRecebiveis}><RefreshCw className="h-4 w-4" /></Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -205,6 +257,12 @@ export default function GestaoCartoes() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-10">
+                              <Checkbox
+                                checked={selectedIds.size === pendentes.slice(0, 50).length && pendentes.length > 0}
+                                onCheckedChange={toggleSelectAll}
+                              />
+                            </TableHead>
                             <TableHead>Tipo</TableHead>
                             <TableHead>Operadora</TableHead>
                             <TableHead className="hidden md:table-cell">Descrição</TableHead>
@@ -221,6 +279,12 @@ export default function GestaoCartoes() {
                             const vencido = r.vencimento < hoje;
                             return (
                               <TableRow key={r.id} className={vencido ? "bg-destructive/5" : ""}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedIds.has(r.id)}
+                                    onCheckedChange={() => toggleSelect(r.id)}
+                                  />
+                                </TableCell>
                                 <TableCell><Badge variant="outline" className="text-xs">{getFormaLabel(r.forma_pagamento)}</Badge></TableCell>
                                 <TableCell className="text-sm">{r.operadora_nome}</TableCell>
                                 <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{r.descricao}</TableCell>
