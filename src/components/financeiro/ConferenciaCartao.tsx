@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/tabs";
 import {
   CreditCard, Plus, CheckCircle2, AlertCircle, Clock, Settings, Trash2, Search,
-  DollarSign, TrendingDown, Filter, X, FileUp, Loader2, Smartphone,
+  DollarSign, TrendingDown, Filter, X, FileUp, Loader2, Smartphone, Banknote,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrasiliaDateString } from "@/lib/utils";
@@ -115,6 +116,9 @@ export function ConferenciaCartao() {
   const [filtroTerminal, setFiltroTerminal] = useState("todos");
   const [deleteConfId, setDeleteConfId] = useState<string | null>(null);
 
+  // Batch conciliation
+  const [selectedConfIds, setSelectedConfIds] = useState<Set<string>>(new Set());
+  const [conciliandoLote, setConciliandoLote] = useState(false);
   // PDF import
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -342,6 +346,15 @@ export function ConferenciaCartao() {
     else { toast.success("Registro excluído!"); fetchItens(); }
     setDeleteConfId(null);
   };
+
+  const toggleConfSelect = (id: string) => {
+    setSelectedConfIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   // PDF Import
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -479,6 +492,39 @@ export function ConferenciaCartao() {
   const aReceberHoje = itens.filter(i => i.data_prevista_deposito === hoje && i.status === "pendente")
     .reduce((a, i) => a + Number(i.valor_liquido_esperado), 0);
 
+  const pendentesConf = filtered.filter(i => i.status === "pendente");
+
+  const toggleConfSelectAll = () => {
+    if (selectedConfIds.size === pendentesConf.length && pendentesConf.length > 0) {
+      setSelectedConfIds(new Set());
+    } else {
+      setSelectedConfIds(new Set(pendentesConf.map(i => i.id)));
+    }
+  };
+
+  const handleConciliarLote = async () => {
+    if (selectedConfIds.size === 0) return;
+    setConciliandoLote(true);
+    let ok = 0;
+    let fail = 0;
+    for (const id of selectedConfIds) {
+      const item = itens.find(i => i.id === id);
+      if (!item || item.status !== "pendente") { fail++; continue; }
+      const { error } = await supabase.from("conferencia_cartao").update({
+        valor_liquido_recebido: item.valor_liquido_esperado,
+        data_deposito_real: item.data_prevista_deposito || getBrasiliaDateString(),
+        status: "confirmado",
+      }).eq("id", id);
+      if (error) fail++;
+      else ok++;
+    }
+    setSelectedConfIds(new Set());
+    setConciliandoLote(false);
+    if (ok > 0) toast.success(`${ok} registro(s) conciliado(s) em lote!`);
+    if (fail > 0) toast.error(`${fail} erro(s) na conciliação`);
+    fetchItens();
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -497,7 +543,7 @@ export function ConferenciaCartao() {
         {/* === CONFERÊNCIA === */}
         <TabsContent value="conferencia" className="space-y-4">
           <div className="flex items-center gap-2 justify-between flex-wrap">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button size="sm" className="gap-2" onClick={() => setConfDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Registrar Venda Cartão</span>
@@ -509,6 +555,18 @@ export function ConferenciaCartao() {
                 <span className="sm:hidden">PDF</span>
               </Button>
               <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} />
+              {selectedConfIds.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1.5"
+                  onClick={handleConciliarLote}
+                  disabled={conciliandoLote}
+                >
+                  {conciliandoLote ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Conciliar {selectedConfIds.size} em lote
+                </Button>
+              )}
             </div>
           </div>
 
@@ -608,6 +666,12 @@ export function ConferenciaCartao() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={selectedConfIds.size === pendentesConf.length && pendentesConf.length > 0}
+                            onCheckedChange={toggleConfSelectAll}
+                          />
+                        </TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead className="hidden sm:table-cell">Bandeira</TableHead>
@@ -623,6 +687,14 @@ export function ConferenciaCartao() {
                     <TableBody>
                       {filtered.map(item => (
                         <TableRow key={item.id}>
+                          <TableCell>
+                            {item.status === "pendente" ? (
+                              <Checkbox
+                                checked={selectedConfIds.has(item.id)}
+                                onCheckedChange={() => toggleConfSelect(item.id)}
+                              />
+                            ) : <span className="w-4" />}
+                          </TableCell>
                           <TableCell className="text-xs sm:text-sm whitespace-nowrap">
                             {format(new Date(item.data_venda + "T12:00:00"), "dd/MM/yy")}
                           </TableCell>
