@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   CreditCard, DollarSign, Clock, CheckCircle2, AlertCircle,
   TrendingDown, Calendar, Settings, RefreshCw, Banknote, Loader2,
+  Smartphone, BarChart3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import { ptBR } from "date-fns/locale";
 import { getBrasiliaDateString } from "@/lib/utils";
 import { ConferenciaCartao } from "@/components/financeiro/ConferenciaCartao";
 import { criarMovimentacaoBancaria } from "@/services/paymentRoutingService";
+import PagamentosCartaoRelatorio from "@/pages/financeiro/PagamentosCartao";
 
 interface RecebiveisCartao {
   id: string;
@@ -182,7 +184,7 @@ export default function GestaoCartoes() {
     <MainLayout>
       <Header title="Gestão de Cartões" subtitle="Recebíveis de cartão, conciliação e operadoras" />
       <div className="p-3 sm:p-4 md:p-6 space-y-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedIds(new Set()); }}>
           <TabsList className="w-full flex-wrap h-auto gap-1">
             <TabsTrigger value="dashboard" className="gap-1.5">
               <CreditCard className="h-4 w-4" />Dashboard
@@ -192,6 +194,9 @@ export default function GestaoCartoes() {
             </TabsTrigger>
             <TabsTrigger value="conferencia" className="gap-1.5">
               <CheckCircle2 className="h-4 w-4" />Conciliação
+            </TabsTrigger>
+            <TabsTrigger value="relatorio" className="gap-1.5">
+              <BarChart3 className="h-4 w-4" />Relatório
             </TabsTrigger>
             <TabsTrigger value="operadoras" className="gap-1.5">
               <Settings className="h-4 w-4" />Operadoras
@@ -385,6 +390,11 @@ export default function GestaoCartoes() {
           {/* === CONCILIAÇÃO (reusa componente existente) === */}
           <TabsContent value="conferencia">
             <ConferenciaCartao />
+          </TabsContent>
+
+          {/* === RELATÓRIO === */}
+          <TabsContent value="relatorio">
+            <PagamentosCartaoRelatorio />
           </TabsContent>
 
           {/* === OPERADORAS (reusa aba do componente existente) === */}
