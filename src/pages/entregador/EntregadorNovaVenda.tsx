@@ -139,13 +139,22 @@ export default function EntregadorNovaVenda() {
     if (user) {
       const { data: entregador } = await supabase
         .from("entregadores")
-        .select("id, unidade_id")
+        .select("id, unidade_id, terminal_id, terminal_ativo_id")
         .eq("user_id", user.id)
         .maybeSingle();
       if (entregador) {
         setEntregadorId(entregador.id);
         unidadeId = entregador.unidade_id;
         setEntregadorUnidadeId(entregador.unidade_id);
+        
+        // Auto-detect active terminal's operadora for card payments
+        const activeTerminalId = entregador.terminal_ativo_id || entregador.terminal_id;
+        if (activeTerminalId) {
+          const { data: terminal } = await (supabase.from("terminais_cartao" as any).select("operadora_id").eq("id", activeTerminalId).maybeSingle() as any);
+          if (terminal?.operadora_id) {
+            setSelectedPaymentExtras(prev => ({ ...prev, operadora_id: terminal.operadora_id }));
+          }
+        }
       }
     }
 
