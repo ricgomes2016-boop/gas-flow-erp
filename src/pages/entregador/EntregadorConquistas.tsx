@@ -260,8 +260,8 @@ export default function EntregadorConquistas() {
                   {r.posicao}
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-sm">
-                    {r.nome} {r.isMe && <Badge className="ml-1 text-[10px]">Você</Badge>}
+                <p className="font-medium text-sm">
+                    {r.isMe ? r.nome : `Entregador #${r.posicao}`} {r.isMe && <Badge className="ml-1 text-[10px]">Você</Badge>}
                   </p>
                   <p className="text-xs text-muted-foreground">{r.entregas} entregas</p>
                 </div>
