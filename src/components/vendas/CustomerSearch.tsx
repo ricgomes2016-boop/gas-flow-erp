@@ -80,7 +80,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Função de busca principal
+  // Função de busca principal - somente por telefone e nome
   const executeSearch = useCallback(async (term: string, field: string) => {
     if (term.length < 2) {
       setSearchResults([]);
@@ -92,34 +92,36 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     setActiveField(field);
     setIsSearching(true);
 
-    const cleanTerm = field === "telefone" ? term.replace(/\D/g, "") : term;
-
-    if (field === "telefone" && cleanTerm.length < 2) {
-      setSearchResults([]);
-      setShowResults(false);
-      setIsSearching(false);
-      return;
-    }
-
     try {
-      // Filter by unidade clients if available
       const filterByUnidade = unidadeClienteIds && unidadeClienteIds.length > 0;
 
-      let query = supabase
-        .from("clientes")
-        .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
-        .eq("ativo", true)
-        .limit(filterByUnidade ? 50 : 8);
-
-      if (filterByUnidade) {
-        query = query.in("id", unidadeClienteIds);
-      }
-
       if (field === "telefone") {
-        query = query.ilike("telefone", `%${cleanTerm}%`);
+        const cleanTerm = term.replace(/\D/g, "");
+        if (cleanTerm.length < 2) {
+          setSearchResults([]);
+          setShowResults(false);
+          setIsSearching(false);
+          return;
+        }
+
+        let query = supabase
+          .from("clientes")
+          .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
+          .eq("ativo", true)
+          .ilike("telefone", `%${cleanTerm}%`)
+          .limit(8);
+
+        if (filterByUnidade) {
+          query = query.in("id", unidadeClienteIds);
+        }
+
+        const { data, error } = await query;
+        if (!error && data) {
+          setSearchResults(data);
+          setShowResults(data.length > 0);
+        }
       } else if (field === "nome") {
-        query = query.ilike("nome", `%${term}%`);
-      } else if (field === "endereco") {
+        // Nome busca em nome, endereco, bairro, cidade
         const terms = term.trim().split(/\s+/).filter(t => t.length >= 2);
         if (terms.length === 0) {
           setSearchResults([]);
@@ -128,46 +130,39 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           return;
         }
 
-        let addrQuery = supabase
+        let query = supabase
           .from("clientes")
           .select("id, nome, telefone, endereco, numero, bairro, cep, cidade")
           .eq("ativo", true)
           .limit(50);
 
         if (filterByUnidade) {
-          addrQuery = addrQuery.in("id", unidadeClienteIds);
+          query = query.in("id", unidadeClienteIds);
         }
 
-        const { data, error } = await addrQuery;
-
+        const { data, error } = await query;
         if (!error && data) {
           const filtered = data.filter(cliente => {
-            const fullAddress = [
+            const searchable = [
+              cliente.nome || "",
               cliente.endereco || "",
               cliente.bairro || "",
-              cliente.cidade || ""
+              cliente.cidade || "",
+              cliente.numero || "",
             ].join(" ").toLowerCase();
-            return terms.every(t => fullAddress.includes(t.toLowerCase()));
+            return terms.every(t => searchable.includes(t.toLowerCase()));
           }).slice(0, 8);
 
           setSearchResults(filtered);
           setShowResults(filtered.length > 0);
         }
-        setIsSearching(false);
-        return;
-      }
-
-      const { data, error } = await query;
-      if (!error && data) {
-        setSearchResults(data);
-        setShowResults(data.length > 0);
       }
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [unidadeClienteIds]);
 
   const searchClientes = useCallback((term: string, field: string) => {
     if (debounceRef.current) {
@@ -333,19 +328,21 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
 
         {/* Autocomplete Results */}
         {showResults && searchResults.length > 0 && (
-          <div className="absolute z-50 w-full max-w-md bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
-            {searchResults.map((cliente) => (
-              <button
-                key={cliente.id}
-                className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b border-border last:border-0"
-                onClick={() => selectCliente(cliente)}
-              >
-                <p className="font-medium text-sm">{cliente.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {cliente.telefone} • {cliente.endereco}
-                </p>
-              </button>
-            ))}
+          <div className="relative z-50">
+            <div className="absolute top-0 left-0 right-0 max-w-md bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+              {searchResults.map((cliente) => (
+                <button
+                  key={cliente.id}
+                  className="w-full px-4 py-3 text-left hover:bg-accent transition-colors border-b border-border last:border-0"
+                  onClick={() => selectCliente(cliente)}
+                >
+                  <p className="font-medium text-sm">{cliente.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {cliente.telefone} • {[cliente.endereco, cliente.numero, cliente.bairro].filter(Boolean).join(", ")}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -361,7 +358,6 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
                   value={value.endereco}
                   onChange={(e) => {
                     handleFieldChange("endereco", e.target.value);
-                    searchClientes(e.target.value, "endereco");
                   }}
                   onBlur={handleAddressBlur}
                   className="pl-10"
