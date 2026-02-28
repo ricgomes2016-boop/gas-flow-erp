@@ -27,6 +27,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getBrasiliaDate, getBrasiliaDateString } from "@/lib/utils";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { toast } from "sonner";
 import { formatCurrency, parseCurrency, formatCNPJ } from "@/hooks/useInputMasks";
 import { atualizarEstoqueCompra } from "@/services/estoqueService";
@@ -68,6 +69,7 @@ interface ItemCompra {
 
 export default function Compras() {
   const { unidadeAtual } = useUnidade();
+  const { empresa } = useEmpresa();
   const [compras, setCompras] = useState<Compra[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -75,6 +77,8 @@ export default function Compras() {
   const [open, setOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+  const [quickFornOpen, setQuickFornOpen] = useState(false);
+  const [quickFornForm, setQuickFornForm] = useState({ razao_social: "", nome_fantasia: "", cnpj: "", tipo: "gas", telefone: "", email: "", cidade: "" });
   const xmlInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -178,6 +182,7 @@ export default function Compras() {
         cidade: form.fornecedor_novo.cidade || null,
         estado: form.fornecedor_novo.estado || null,
         telefone: form.fornecedor_novo.telefone || null,
+        empresa_id: empresa?.id,
         ativo: true,
       }).select("id").single();
 
@@ -582,6 +587,27 @@ export default function Compras() {
 
   const getProdutoNome = (id: string) => produtos.find(p => p.id === id)?.nome || "Produto";
 
+  const handleQuickFornSave = async () => {
+    if (!quickFornForm.razao_social.trim()) { toast.error("Razão Social é obrigatória"); return; }
+    const { data, error } = await supabase.from("fornecedores").insert({
+      razao_social: quickFornForm.razao_social,
+      nome_fantasia: quickFornForm.nome_fantasia || null,
+      cnpj: quickFornForm.cnpj || null,
+      tipo: quickFornForm.tipo || null,
+      telefone: quickFornForm.telefone || null,
+      email: quickFornForm.email || null,
+      cidade: quickFornForm.cidade || null,
+      empresa_id: empresa?.id,
+      ativo: true,
+    }).select("id").single();
+    if (error) { toast.error("Erro: " + error.message); return; }
+    toast.success("Fornecedor cadastrado!");
+    setQuickFornOpen(false);
+    setQuickFornForm({ razao_social: "", nome_fantasia: "", cnpj: "", tipo: "gas", telefone: "", email: "", cidade: "" });
+    await fetchFornecedores();
+    if (data) setForm(prev => ({ ...prev, fornecedor_id: data.id }));
+  };
+
   return (
     <MainLayout>
       <Header title="Compras" subtitle="Gestão de compras e pedidos" />
@@ -634,14 +660,19 @@ export default function Compras() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Fornecedor *</Label>
-                      <Select value={form.fornecedor_id} onValueChange={v => setForm({ ...form, fornecedor_id: v })}>
-                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {fornecedores.map(f => (
-                            <SelectItem key={f.id} value={f.id}>{f.razao_social}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-1">
+                        <Select value={form.fornecedor_id} onValueChange={v => setForm({ ...form, fornecedor_id: v })}>
+                          <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {fornecedores.map(f => (
+                              <SelectItem key={f.id} value={f.id}>{f.razao_social}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setQuickFornOpen(true)} title="Cadastrar fornecedor">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label>Nº Nota Fiscal</Label>
@@ -965,6 +996,50 @@ export default function Compras() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Add Fornecedor Modal */}
+      <Dialog open={quickFornOpen} onOpenChange={setQuickFornOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Fornecedor</DialogTitle>
+            <DialogDescription>Preencha os dados do fornecedor</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="col-span-2 space-y-2">
+              <Label>Razão Social *</Label>
+              <Input value={quickFornForm.razao_social} onChange={e => setQuickFornForm({ ...quickFornForm, razao_social: e.target.value })} placeholder="Nome da empresa" />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome Fantasia</Label>
+              <Input value={quickFornForm.nome_fantasia} onChange={e => setQuickFornForm({ ...quickFornForm, nome_fantasia: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>CNPJ</Label>
+              <Input value={quickFornForm.cnpj} onChange={e => setQuickFornForm({ ...quickFornForm, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Input value={quickFornForm.tipo} onChange={e => setQuickFornForm({ ...quickFornForm, tipo: e.target.value })} placeholder="Gás, Água..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Telefone</Label>
+              <Input value={quickFornForm.telefone} onChange={e => setQuickFornForm({ ...quickFornForm, telefone: e.target.value })} placeholder="(00) 0000-0000" />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input value={quickFornForm.email} onChange={e => setQuickFornForm({ ...quickFornForm, email: e.target.value })} type="email" />
+            </div>
+            <div className="space-y-2">
+              <Label>Cidade</Label>
+              <Input value={quickFornForm.cidade} onChange={e => setQuickFornForm({ ...quickFornForm, cidade: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setQuickFornOpen(false)}>Cancelar</Button>
+            <Button onClick={handleQuickFornSave}>Salvar Fornecedor</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

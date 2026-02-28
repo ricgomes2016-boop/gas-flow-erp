@@ -14,6 +14,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Building2, Plus, Search, Edit, Trash2, Phone, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useEmpresa } from "@/contexts/EmpresaContext";
 import { toast } from "sonner";
 
 interface Fornecedor {
@@ -30,6 +31,7 @@ interface Fornecedor {
 }
 
 export default function Fornecedores() {
+  const { empresa } = useEmpresa();
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -66,6 +68,7 @@ export default function Fornecedores() {
       cidade: form.cidade || null,
       contato_nome: form.contato_nome || null,
       contato_cargo: form.contato_cargo || null,
+      empresa_id: empresa?.id,
     });
     if (error) { toast.error("Erro ao salvar: " + error.message); return; }
     toast.success("Fornecedor cadastrado!");
