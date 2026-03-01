@@ -294,6 +294,23 @@ export async function rotearPagamentosVenda(params: RotearPagamentosParams): Pro
         }));
         break;
       }
+
+      case "gas_do_povo": {
+        // Gás do Povo → programa social com prazo de repasse governamental
+        // Gera título em Contas a Receber como "A Receber - Gás do Povo"
+        promises.push(insertContasReceber({
+          cliente: "Programa Gás do Povo",
+          descricao: `Gás do Povo - Venda #${pedidoRef}`,
+          valor: pag.valor,
+          vencimento: format(addDays(new Date(), 30), "yyyy-MM-dd"),
+          status: "pendente",
+          forma_pagamento: "gas_do_povo",
+          pedido_id: pedidoId,
+          unidade_id: unidadeId || null,
+          cliente_id: clienteId || null,
+        }));
+        break;
+      }
     }
   }
 

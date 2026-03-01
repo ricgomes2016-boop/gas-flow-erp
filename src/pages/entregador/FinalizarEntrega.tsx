@@ -40,6 +40,8 @@ interface Pagamento {
   cheque_banco?: string;
   cheque_foto_url?: string;
   data_vencimento_fiado?: string;
+  comprovante_url?: string;
+  codigo_voucher?: string;
 }
 
 interface PedidoItem {
@@ -101,6 +103,11 @@ export default function FinalizarEntrega() {
   const [entregadorIdLocal, setEntregadorIdLocal] = useState<string | null>(null);
   const chequePhotoRef = useRef<HTMLInputElement>(null);
   const chequeCameraRef = useRef<HTMLInputElement>(null);
+  const comprovantePhotoRef = useRef<HTMLInputElement>(null);
+  const comprovanteCameraRef = useRef<HTMLInputElement>(null);
+  const [comprovanteUrl, setComprovanteUrl] = useState<string | null>(null);
+  const [isUploadingComprovante, setIsUploadingComprovante] = useState(false);
+  const [codigoVoucherGasPovo, setCodigoVoucherGasPovo] = useState("");
 
   // Fetch real pedido data
   useEffect(() => {
@@ -175,6 +182,16 @@ export default function FinalizarEntrega() {
         toast({ title: "Preencha número e banco do cheque", variant: "destructive" });
         return;
       }
+      // Validate card comprovante
+      if ((novoPagamentoForma === "Cartão Crédito" || novoPagamentoForma === "Cartão Débito") && !comprovanteUrl) {
+        toast({ title: "Tire a foto do comprovante da maquininha", description: "Obrigatório para pagamentos por cartão.", variant: "destructive" });
+        return;
+      }
+      // Validate Gás do Povo voucher
+      if (novoPagamentoForma === "Gás do Povo" && !codigoVoucherGasPovo.trim()) {
+        toast({ title: "Informe o código do voucher Gás do Povo", variant: "destructive" });
+        return;
+      }
       const pag: Pagamento = { forma: novoPagamentoForma, valor: Number(novoPagamentoValor) };
       if (novoPagamentoForma === "Cheque") {
         pag.cheque_numero = chequeNumero;
@@ -184,6 +201,12 @@ export default function FinalizarEntrega() {
       if (novoPagamentoForma === "Fiado") {
         pag.data_vencimento_fiado = dataVencimentoFiado || format(addDays(new Date(), 30), "yyyy-MM-dd");
       }
+      if (novoPagamentoForma === "Cartão Crédito" || novoPagamentoForma === "Cartão Débito") {
+        pag.comprovante_url = comprovanteUrl || undefined;
+      }
+      if (novoPagamentoForma === "Gás do Povo") {
+        pag.codigo_voucher = codigoVoucherGasPovo;
+      }
       setPagamentos((prev) => [...prev, pag]);
       setNovoPagamentoForma("");
       setNovoPagamentoValor("");
@@ -191,7 +214,27 @@ export default function FinalizarEntrega() {
       setChequeBanco("");
       setChequeFotoUrl(null);
       setDataVencimentoFiado("");
+      setComprovanteUrl(null);
+      setCodigoVoucherGasPovo("");
       setDialogPagamentoAberto(false);
+    }
+  };
+
+  const handleComprovanteFoto = async (file: File) => {
+    setIsUploadingComprovante(true);
+    try {
+      const compressed = await compressImage(file);
+      const blob = await (await fetch(compressed)).blob();
+      const fileName = `comprovantes/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      const { error } = await supabase.storage.from("product-images").upload(fileName, blob, { cacheControl: "3600" });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(fileName);
+      setComprovanteUrl(urlData.publicUrl);
+      sonnerToast.success("Foto do comprovante enviada!");
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Erro ao enviar foto");
+    } finally {
+      setIsUploadingComprovante(false);
     }
   };
 
@@ -317,11 +360,16 @@ export default function FinalizarEntrega() {
       
       // Se houver pagamento com Vale Gás, usar o nome do parceiro como canal de venda
       const valeGasPag = pagamentos.find(p => p.forma === "Vale Gás" && p.valeGasInfo?.parceiro);
+      const gasDoPopoPag = pagamentos.find(p => p.forma === "Gás do Povo");
       const chequePag = pagamentos.find(p => p.forma === "Cheque");
       const fiadoPag = pagamentos.find(p => p.forma === "Fiado");
+      const cartaoPag = pagamentos.find(p => (p.forma === "Cartão Crédito" || p.forma === "Cartão Débito") && p.comprovante_url);
       const updateData: any = { status: "entregue", forma_pagamento: formaStr, valor_total: totalItens };
       if (valeGasPag) {
         updateData.canal_venda = valeGasPag.valeGasInfo!.parceiro;
+      }
+      if (gasDoPopoPag) {
+        updateData.canal_venda = "Gás do Povo";
       }
       if (chequePag) {
         updateData.cheque_numero = chequePag.cheque_numero || null;
@@ -330,6 +378,9 @@ export default function FinalizarEntrega() {
       }
       if (fiadoPag) {
         updateData.data_vencimento_fiado = fiadoPag.data_vencimento_fiado || null;
+      }
+      if (cartaoPag) {
+        updateData.comprovante_cartao_url = cartaoPag.comprovante_url || null;
       }
       
       const { error } = await supabase
@@ -635,6 +686,42 @@ export default function FinalizarEntrega() {
                            </div>
                          </div>
                        )}
+                       {/* Cartão - Comprovante obrigatório */}
+                       {(novoPagamentoForma === "Cartão Crédito" || novoPagamentoForma === "Cartão Débito") && (
+                         <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
+                           <p className="text-xs font-medium text-muted-foreground uppercase">📸 Foto do Comprovante *</p>
+                           <p className="text-xs text-muted-foreground">Tire uma foto do comprovante da maquininha para auditoria</p>
+                           <div className="flex items-center gap-2">
+                             <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => comprovantePhotoRef.current?.click()} disabled={isUploadingComprovante}>
+                               {isUploadingComprovante ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ImageIcon className="h-3 w-3 mr-1" />}
+                               Galeria
+                             </Button>
+                             <Button type="button" variant={comprovanteUrl ? "outline" : "default"} size="sm" className="text-xs" onClick={() => comprovanteCameraRef.current?.click()} disabled={isUploadingComprovante}>
+                               <Camera className="h-3 w-3 mr-1" />Tirar Foto
+                             </Button>
+                             {comprovanteUrl && <img src={comprovanteUrl} alt="Comprovante" className="h-10 w-14 rounded border object-cover" />}
+                             {comprovanteUrl && <CheckCircle className="h-4 w-4 text-success" />}
+                             <input ref={comprovantePhotoRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleComprovanteFoto(f); e.target.value = ""; }} />
+                             <input ref={comprovanteCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleComprovanteFoto(f); e.target.value = ""; }} />
+                           </div>
+                           {!comprovanteUrl && (
+                             <p className="text-xs text-destructive flex items-center gap-1">
+                               <AlertCircle className="h-3 w-3" /> Obrigatório para finalizar
+                             </p>
+                           )}
+                         </div>
+                       )}
+                       {/* Gás do Povo - código do voucher */}
+                       {novoPagamentoForma === "Gás do Povo" && (
+                         <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
+                           <p className="text-xs font-medium text-muted-foreground uppercase">🏛️ Voucher Gás do Povo</p>
+                           <div>
+                             <Label className="text-xs">Código do Voucher *</Label>
+                             <Input value={codigoVoucherGasPovo} onChange={e => setCodigoVoucherGasPovo(e.target.value)} placeholder="Ex: GdP-2026-00001" className="h-8 text-sm font-mono" />
+                             <p className="text-xs text-muted-foreground mt-1">Digite o código impresso no voucher ou cartão do beneficiário</p>
+                           </div>
+                         </div>
+                       )}
                        {/* Fiado fields */}
                        {novoPagamentoForma === "Fiado" && (
                          <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
@@ -665,6 +752,8 @@ export default function FinalizarEntrega() {
                   {pag.valeGasInfo && <p className="text-xs text-muted-foreground">{pag.valeGasInfo.parceiro} • {pag.valeGasInfo.codigo}</p>}
                   {pag.cheque_numero && <p className="text-xs text-muted-foreground">Cheque #{pag.cheque_numero} • {pag.cheque_banco}</p>}
                   {pag.data_vencimento_fiado && <p className="text-xs text-muted-foreground">Venc: {format(new Date(pag.data_vencimento_fiado + "T12:00:00"), "dd/MM/yyyy")}</p>}
+                  {pag.comprovante_url && <p className="text-xs text-success flex items-center gap-1"><Camera className="h-3 w-3" /> Comprovante anexado</p>}
+                  {pag.codigo_voucher && <p className="text-xs text-muted-foreground">Voucher: {pag.codigo_voucher}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold">R$ {pag.valor.toFixed(2)}</span>
