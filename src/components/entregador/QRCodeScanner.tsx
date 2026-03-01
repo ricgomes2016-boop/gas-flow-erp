@@ -120,7 +120,7 @@ export function QRCodeScanner({ onScan, onError }: QRCodeScannerProps) {
               <>
                 <Camera className="h-16 w-16 text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground text-center">
-                  Posicione o QR Code do Vale Gás na câmera
+                  Posicione o QR Code na câmera
                 </p>
               </>
             )}

@@ -48,6 +48,7 @@ const formasPagamento = [
   { value: "vale_gas", label: "Vale Gás", icon: "🔥" },
   { value: "cheque", label: "Cheque", icon: "🧾" },
   { value: "fiado", label: "Fiado / A Prazo", icon: "📝" },
+  { value: "gas_do_povo", label: "Gás do Povo", icon: "🏛️" },
 ];
 
 export function PaymentSection({ pagamentos, onChange, totalVenda }: PaymentSectionProps) {
