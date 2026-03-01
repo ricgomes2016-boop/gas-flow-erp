@@ -126,12 +126,10 @@ export default function Pedidos() {
   // Canal de venda
   const [editandoCanalId, setEditandoCanalId] = useState<string | null>(null);
   const { data: canaisVenda = [] } = useQuery({
-    queryKey: ["canais-venda", unidadeAtual?.id],
+    queryKey: ["canais-venda-empresa"],
     queryFn: async () => {
       let query = supabase.from("canais_venda").select("id, nome").eq("ativo", true);
-      if (unidadeAtual?.id) {
-        query = query.or(`unidade_id.eq.${unidadeAtual.id},unidade_id.is.null`);
-      }
+      // Buscar canais de TODAS as unidades da empresa (vale gás pode ser retirado em qualquer unidade)
       const { data } = await query;
       return data || [];
     },
@@ -701,7 +699,7 @@ export default function Pedidos() {
                       <TableHead className="hidden md:table-cell">Endereço</TableHead>
                       <TableHead className="hidden md:table-cell">Produtos</TableHead>
                       <TableHead className="hidden sm:table-cell">Entregador</TableHead>
-                      <TableHead className="hidden lg:table-cell">Canal</TableHead>
+                      <TableHead className="hidden md:table-cell">Canal</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="hidden md:table-cell">Data</TableHead>
@@ -741,7 +739,7 @@ export default function Pedidos() {
                             </div>
                           ) : <span className="text-muted-foreground text-xs">-</span>}
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-xs">
+                        <TableCell className="hidden md:table-cell text-xs">
                           <Popover open={editandoCanalId === pedido.id} onOpenChange={(open) => setEditandoCanalId(open ? pedido.id : null)}>
                             <PopoverTrigger asChild>
                               <button className="inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
