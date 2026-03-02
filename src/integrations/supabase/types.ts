@@ -5004,7 +5004,9 @@ export type Database = {
           cheque_numero: string | null
           cidade_entrega: string | null
           cliente_id: string | null
+          codigo_voucher: string | null
           complemento_entrega: string | null
+          comprovante_cartao_url: string | null
           created_at: string
           data_agendamento: string | null
           data_vencimento_fiado: string | null
@@ -5033,7 +5035,9 @@ export type Database = {
           cheque_numero?: string | null
           cidade_entrega?: string | null
           cliente_id?: string | null
+          codigo_voucher?: string | null
           complemento_entrega?: string | null
+          comprovante_cartao_url?: string | null
           created_at?: string
           data_agendamento?: string | null
           data_vencimento_fiado?: string | null
@@ -5062,7 +5066,9 @@ export type Database = {
           cheque_numero?: string | null
           cidade_entrega?: string | null
           cliente_id?: string | null
+          codigo_voucher?: string | null
           complemento_entrega?: string | null
+          comprovante_cartao_url?: string | null
           created_at?: string
           data_agendamento?: string | null
           data_vencimento_fiado?: string | null
