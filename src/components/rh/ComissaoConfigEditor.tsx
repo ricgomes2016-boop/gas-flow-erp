@@ -64,7 +64,7 @@ export function ComissaoConfigEditor() {
 
   // Standard default channels (always available for commission config)
   const canaisPadrao = [
-    "Loja", "Telefone", "WhatsApp", "App", "Parceiro", "Vale Gás", "Gás do Povo",
+    "Loja", "Telefone", "WhatsApp", "App", "Parceiro", "Vale Gás",
   ];
 
   // Fetch active sales channels from DB

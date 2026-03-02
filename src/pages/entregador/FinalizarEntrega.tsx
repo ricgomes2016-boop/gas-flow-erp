@@ -29,7 +29,7 @@ import { toast as sonnerToast } from "sonner";
 import { CardPaymentModal } from "@/components/entregador/CardPaymentModal";
 
 const formasPagamento = [
-  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás", "Cheque", "Fiado", "Gás do Povo",
+  "Dinheiro", "PIX", "Cartão Crédito", "Cartão Débito", "Vale Gás", "Cheque", "Fiado",
 ];
 
 interface Pagamento {
@@ -182,16 +182,7 @@ export default function FinalizarEntrega() {
         toast({ title: "Preencha número e banco do cheque", variant: "destructive" });
         return;
       }
-      // Validate card comprovante
-      if ((novoPagamentoForma === "Cartão Crédito" || novoPagamentoForma === "Cartão Débito") && !comprovanteUrl) {
-        toast({ title: "Tire a foto do comprovante da maquininha", description: "Obrigatório para pagamentos por cartão.", variant: "destructive" });
-        return;
-      }
-      // Validate Gás do Povo voucher
-      if (novoPagamentoForma === "Gás do Povo" && !codigoVoucherGasPovo.trim()) {
-        toast({ title: "Informe o código do voucher Gás do Povo", variant: "destructive" });
-        return;
-      }
+      // Card comprovante is optional but recommended
       const pag: Pagamento = { forma: novoPagamentoForma, valor: Number(novoPagamentoValor) };
       if (novoPagamentoForma === "Cheque") {
         pag.cheque_numero = chequeNumero;
@@ -203,9 +194,6 @@ export default function FinalizarEntrega() {
       }
       if (novoPagamentoForma === "Cartão Crédito" || novoPagamentoForma === "Cartão Débito") {
         pag.comprovante_url = comprovanteUrl || undefined;
-      }
-      if (novoPagamentoForma === "Gás do Povo") {
-        pag.codigo_voucher = codigoVoucherGasPovo;
       }
       setPagamentos((prev) => [...prev, pag]);
       setNovoPagamentoForma("");
@@ -360,16 +348,13 @@ export default function FinalizarEntrega() {
       
       // Se houver pagamento com Vale Gás, usar o nome do parceiro como canal de venda
       const valeGasPag = pagamentos.find(p => p.forma === "Vale Gás" && p.valeGasInfo?.parceiro);
-      const gasDoPopoPag = pagamentos.find(p => p.forma === "Gás do Povo");
+      
       const chequePag = pagamentos.find(p => p.forma === "Cheque");
       const fiadoPag = pagamentos.find(p => p.forma === "Fiado");
       const cartaoPag = pagamentos.find(p => (p.forma === "Cartão Crédito" || p.forma === "Cartão Débito") && p.comprovante_url);
       const updateData: any = { status: "entregue", forma_pagamento: formaStr, valor_total: totalItens };
       if (valeGasPag) {
         updateData.canal_venda = valeGasPag.valeGasInfo!.parceiro;
-      }
-      if (gasDoPopoPag) {
-        updateData.canal_venda = "Gás do Povo";
       }
       if (chequePag) {
         updateData.cheque_numero = chequePag.cheque_numero || null;

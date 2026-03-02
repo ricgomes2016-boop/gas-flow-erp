@@ -28,7 +28,7 @@ const formasPagamento = [
   { value: "credito", label: "Cartão Crédito", icon: CreditCard },
   { value: "debito", label: "Cartão Débito", icon: CreditCard },
   { value: "vale_gas", label: "Vale Gás", icon: Receipt },
-  { value: "gas_do_povo", label: "Gás do Povo", icon: Receipt },
+  
   { value: "cheque", label: "Cheque", icon: Receipt },
 ];
 
