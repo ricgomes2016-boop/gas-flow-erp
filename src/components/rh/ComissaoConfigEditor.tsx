@@ -62,13 +62,8 @@ export function ComissaoConfigEditor() {
     enabled: open && !!selectedUnidadeId,
   });
 
-  // Standard default channels (always available for commission config)
-  const canaisPadrao = [
-    "Loja", "Telefone", "WhatsApp", "App", "Parceiro", "Vale Gás",
-  ];
-
   // Fetch active sales channels from DB
-  const { data: canaisVendaDB = [] } = useQuery({
+  const { data: canaisVenda = [] } = useQuery({
     queryKey: ["canais-venda-comissao"],
     queryFn: async () => {
       const { data } = await supabase
@@ -80,19 +75,6 @@ export function ComissaoConfigEditor() {
     },
     enabled: open,
   });
-
-  // Merge DB channels with standard defaults (deduplicate by name)
-  const canaisVenda = (() => {
-    const nomes = new Set(canaisVendaDB.map((c: any) => c.nome));
-    const merged = [...canaisVendaDB];
-    canaisPadrao.forEach((nome) => {
-      if (!nomes.has(nome)) {
-        merged.push({ id: `padrao-${nome}`, nome });
-        nomes.add(nome);
-      }
-    });
-    return merged;
-  })();
 
   // Fetch existing config for selected unidade
   const { data: configExistente = [], isLoading } = useQuery({
